@@ -1,6 +1,21 @@
 version: "3"
 
 tasks:
+  all:
+    desc: Start API, controllers, engine, and web in parallel
+    cmd: task --parallel --failfast --output prefixed api controller engine web
+  api:
+    desc: Start the HTTP API
+    cmd: bash ./hack/dev/start-component.sh api
+  controller:
+    desc: Start Task, OLAP, Retention, and other controllers
+    cmd: bash ./hack/dev/start-component.sh controller
+  engine:
+    desc: Start the scheduler and gRPC API
+    cmd: bash ./hack/dev/start-component.sh engine
+  web:
+    desc: Start the web development server
+    cmd: bash ./hack/dev/start-component.sh web
   setup:
     cmds:
       - task: install-dependencies

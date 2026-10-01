@@ -4,6 +4,7 @@ go 1.26.7
 
 require (
 	connectrpc.com/connect v1.21.0
+	github.com/ClickHouse/clickhouse-go/v2 v2.48.0
 	github.com/Masterminds/semver/v3 v3.5.0
 	github.com/aws/aws-sdk-go-v2 v1.47.1
 	github.com/aws/aws-sdk-go-v2/config v1.33.6
@@ -25,6 +26,7 @@ require (
 	github.com/fatih/color v1.19.0
 	github.com/getkin/kin-openapi v0.149.0
 	github.com/go-co-op/gocron/v2 v2.22.0
+	github.com/go-zookeeper/zk v1.0.4
 	github.com/google/go-github/v57 v57.0.0
 	github.com/google/jsonschema-go v0.4.3
 	github.com/gorilla/securecookie v1.1.2
@@ -89,7 +91,9 @@ require (
 	cloud.google.com/go/auth/oauth2adapt v0.2.8 // indirect
 	cloud.google.com/go/compute/metadata v0.9.0 // indirect
 	dario.cat/mergo v1.0.2 // indirect
+	filippo.io/edwards25519 v1.2.0 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c // indirect
+	github.com/ClickHouse/ch-go v0.74.0 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/andybalholm/brotli v1.2.3 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.1 // indirect
@@ -141,6 +145,8 @@ require (
 	github.com/felixge/httpsnoop v1.1.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.9.1 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.15 // indirect
+	github.com/go-faster/city v1.0.1 // indirect
+	github.com/go-faster/errors v0.8.0 // indirect
 	github.com/go-logfmt/logfmt v0.6.1 // indirect
 	github.com/go-logr/logr v1.4.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
@@ -161,6 +167,7 @@ require (
 	github.com/go-openapi/swag/yamlutils v0.28.0 // indirect
 	github.com/go-playground/locales v0.14.1 // indirect
 	github.com/go-playground/universal-translator v0.18.1 // indirect
+	github.com/go-sql-driver/mysql v1.10.1 // indirect
 	github.com/go-viper/mapstructure/v2 v2.5.0 // indirect
 	github.com/goccy/go-json v0.10.6 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
@@ -211,6 +218,8 @@ require (
 	github.com/oasdiff/yaml v0.1.1 // indirect
 	github.com/oasdiff/yaml3 v0.0.14 // indirect
 	github.com/opencontainers/image-spec v1.1.1 // indirect
+	github.com/paulmach/orb v0.13.0 // indirect
+	github.com/pierrec/lz4/v4 v4.1.29 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/power-devops/perfstat v0.0.0-20240221224432-82ca36839d55 // indirect
 	github.com/prometheus/common v0.70.1 // indirect
@@ -222,6 +231,7 @@ require (
 	github.com/segmentio/asm v1.2.1 // indirect
 	github.com/segmentio/encoding v0.5.4 // indirect
 	github.com/shirou/gopsutil/v4 v4.26.6 // indirect
+	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/sirupsen/logrus v1.9.4 // indirect
 	github.com/sourcegraph/conc v0.3.1-0.20240121214520-5f936abd7ae8 // indirect
 	github.com/stretchr/objx v0.5.3 // indirect
