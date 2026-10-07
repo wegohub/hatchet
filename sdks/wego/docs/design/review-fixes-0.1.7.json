@@ -1,0 +1,219 @@
+{
+  "status": "PASSED",
+  "completed_at": "2026-10-07T11:34:15.274894+00:00",
+  "sdk_version": "0.1.7",
+  "protocol_version": 3,
+  "scope": "sdks/wego only; Hatchet sources and root dependencies unchanged",
+  "fixes": [
+    {
+      "id": "F01",
+      "title": "Durable 等待与 memo / 子提交的 ACK 槽冲突",
+      "status": "FIXED",
+      "verification": "PASSED"
+    },
+    {
+      "id": "F02",
+      "title": "同步新增 durable 分块后丢失部分成功 RunID",
+      "status": "FIXED",
+      "verification": "PASSED"
+    },
+    {
+      "id": "F03",
+      "title": "跨块幂等冲突只保留第一块详情",
+      "status": "FIXED",
+      "verification": "PASSED"
+    },
+    {
+      "id": "F04",
+      "title": "旧 invocation 的等待释放改写新 invocation",
+      "status": "FIXED",
+      "verification": "PASSED"
+    },
+    {
+      "id": "F05",
+      "title": "流 RUN 提交绕过握手预算",
+      "status": "FIXED",
+      "verification": "PASSED"
+    },
+    {
+      "id": "F06",
+      "title": "流清理结束屏障未等待 Stream / Wait goroutine",
+      "status": "FIXED",
+      "verification": "PASSED"
+    },
+    {
+      "id": "F07",
+      "title": "原生 JSON 字符串被再次解析并改变类型",
+      "status": "FIXED",
+      "verification": "PASSED"
+    },
+    {
+      "id": "F08",
+      "title": "选择输出时将合法 null 视为缺失",
+      "status": "FIXED",
+      "verification": "PASSED"
+    },
+    {
+      "id": "F09",
+      "title": "Worker Runtime 浅拷贝污染 Conn 投影",
+      "status": "FIXED",
+      "verification": "PASSED"
+    },
+    {
+      "id": "F10",
+      "title": "Result.Into 的载荷 I/O 没有取消预算和生命周期登记",
+      "status": "FIXED",
+      "verification": "PASSED"
+    },
+    {
+      "id": "F11",
+      "title": "同一 durable 子 RunRef 的并发结果等待覆盖回调",
+      "status": "FIXED",
+      "verification": "PASSED"
+    },
+    {
+      "id": "F12",
+      "title": "已建立但未完成的 memo 空载荷导致 Now 恢复失败",
+      "status": "FIXED",
+      "verification": "PASSED",
+      "test": "TestNowCompletesPendingMemo"
+    }
+  ],
+  "additional_changes": [
+    "trace protocol version",
+    "binding and trace comments",
+    "sealed typed management requests",
+    "Runtime and Worker ownership",
+    "measured Worker streaming costs"
+  ],
+  "implementation_and_tests": "module.md",
+  "acceptance_report": "acceptance-report.json",
+  "final_source_checks": {
+    "status": "PASSED",
+    "sdk_version": "0.1.7",
+    "protocol_version": 3,
+    "source_snapshot": "e68218993402394310022b7f154a7598df8517dfa21dc8283a536c2a9b0718b7",
+    "go_file_count": 202,
+    "checks": [
+      {
+        "name": "format",
+        "command": [
+          "gofmt",
+          "-l",
+          "sdks/wego"
+        ],
+        "cwd": ".",
+        "status": "PASSED",
+        "exit_code": 0,
+        "log": "sdks/wego/.test-results/fix-postcheck-format.log",
+        "at": "2026-10-07T11:30:16.578214+00:00"
+      },
+      {
+        "name": "unit",
+        "command": [
+          "go",
+          "test",
+          "./..."
+        ],
+        "cwd": "sdks/wego",
+        "status": "PASSED",
+        "exit_code": 0,
+        "log": "sdks/wego/.test-results/fix-postcheck-unit.log",
+        "at": "2026-10-07T11:30:27.078874+00:00"
+      },
+      {
+        "name": "vet",
+        "command": [
+          "go",
+          "vet",
+          "./..."
+        ],
+        "cwd": "sdks/wego",
+        "status": "PASSED",
+        "exit_code": 0,
+        "log": "sdks/wego/.test-results/fix-postcheck-vet.log",
+        "at": "2026-10-07T11:30:27.773659+00:00"
+      },
+      {
+        "name": "race",
+        "command": [
+          "go",
+          "test",
+          "-race",
+          "./..."
+        ],
+        "cwd": "sdks/wego",
+        "status": "PASSED",
+        "exit_code": 0,
+        "log": "sdks/wego/.test-results/fix-postcheck-race.log",
+        "at": "2026-10-07T11:30:41.913078+00:00"
+      },
+      {
+        "name": "published-dependency",
+        "command": [
+          "python3",
+          "sdks/wego/scripts/check-released.py"
+        ],
+        "cwd": ".",
+        "status": "PASSED",
+        "exit_code": 0,
+        "log": "sdks/wego/.test-results/fix-postcheck-published-dependency.log",
+        "at": "2026-10-07T11:30:56.943851+00:00"
+      },
+      {
+        "name": "source-boundary",
+        "command": [
+          "python3",
+          "sdks/wego/scripts/check-upstream.py"
+        ],
+        "cwd": ".",
+        "status": "PASSED",
+        "exit_code": 0,
+        "log": "sdks/wego/.test-results/fix-postcheck-source-boundary.log",
+        "at": "2026-10-07T11:30:57.025140+00:00"
+      },
+      {
+        "name": "durable",
+        "command": [
+          "python3",
+          "sdks/wego/scripts/local-test.py",
+          "go",
+          "test",
+          "-json",
+          "-count=1",
+          "-tags=e2e",
+          "./sdks/wego/tests/e2e/...",
+          "-run",
+          "TestDurableRestart$|TestExamples/(durable-event|durable-sleep|eviction)$",
+          "-timeout",
+          "10m"
+        ],
+        "cwd": ".",
+        "status": "PASSED",
+        "exit_code": 0,
+        "log": "sdks/wego/.test-results/fix-postcheck-durable.log",
+        "at": "2026-10-07T11:32:54.456409+00:00"
+      }
+    ],
+    "note": "完整引擎套件启动后补入未完成 memo 的修复；最终源码完成静态、单元、race、发行依赖及真实 durable 复验。"
+  },
+  "observations": [
+    {
+      "scenario": "delayed-subscription",
+      "observation": "one complete-run handshake exceeded 8s; three unchanged isolated reruns passed; real fault-test budget is now 20s with 30s initialization TTL; SDK defaults unchanged",
+      "evidence": "sdks/wego/.test-results/fix-acceptance-final.log"
+    },
+    {
+      "scenario": "middleware",
+      "observation": "one complete-run cancellation-stream handshake exceeded 30s; three unchanged isolated reruns passed; budget unchanged; final complete run passed; no capacity-release cause was identified",
+      "evidence": "sdks/wego/.test-results/fix-acceptance-verified.log"
+    }
+  ],
+  "cleanup": {
+    "workflow_and_trigger_resources": "deleted under unique namespaces",
+    "embedded_database": "dropped",
+    "owned_listeners_and_connections": "closed",
+    "retained": "run history and engine worker records, including intentional owner-loss cases"
+  },
+  "ci": "SDK CI template and compose configuration validated locally; no repository workflow installed"
+}

@@ -1,0 +1,2830 @@
+{
+  "sourceCommit": "315d43a72fd771b049b304b865a81dbab98c466c",
+  "generatedFrom": [
+    "pkg/config/server/server.go",
+    "pkg/config/database/config.go",
+    "pkg/config/limits/limits.go",
+    "pkg/config/shared/shared.go",
+    "pkg/config/loader/loader.go"
+  ],
+  "fieldCount": 281,
+  "fields": [
+    {
+      "path": "server.auth.restrictedEmailDomains",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_AUTH_RESTRICTED_EMAIL_DOMAINS",
+      "meaning": "允许登录的邮箱域限制",
+      "source": "pkg/config/server/server.go:475",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "auth.restrictedEmailDomains"
+    },
+    {
+      "path": "server.auth.basicAuthEnabled",
+      "type": "bool",
+      "default": "true",
+      "env": "SERVER_AUTH_BASIC_AUTH_ENABLED",
+      "meaning": "是否启用邮箱密码登录",
+      "source": "pkg/config/server/server.go:479",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "auth.basicAuthEnabled"
+    },
+    {
+      "path": "server.auth.setEmailVerified",
+      "type": "bool",
+      "default": "false",
+      "env": "SERVER_AUTH_SET_EMAIL_VERIFIED",
+      "meaning": "是否自动验证邮箱",
+      "source": "pkg/config/server/server.go:482",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "auth.setEmailVerified"
+    },
+    {
+      "path": "server.auth.cookie.name",
+      "type": "string",
+      "default": "hatchet",
+      "env": "SERVER_AUTH_COOKIE_NAME",
+      "meaning": "Cookie 名称",
+      "source": "pkg/config/server/server.go:545",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "auth.cookie.name"
+    },
+    {
+      "path": "server.auth.cookie.domain",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_AUTH_COOKIE_DOMAIN",
+      "meaning": "Cookie 域",
+      "source": "pkg/config/server/server.go:546",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "auth.cookie.domain"
+    },
+    {
+      "path": "server.auth.cookie.secrets",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_AUTH_COOKIE_SECRETS",
+      "meaning": "Cookie 密钥串",
+      "source": "pkg/config/server/server.go:547",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "auth.cookie.secrets"
+    },
+    {
+      "path": "server.auth.cookie.insecure",
+      "type": "bool",
+      "default": "false",
+      "env": "SERVER_AUTH_COOKIE_INSECURE",
+      "meaning": "是否使用不安全连接",
+      "source": "pkg/config/server/server.go:548",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "auth.cookie.insecure"
+    },
+    {
+      "path": "server.auth.google.enabled",
+      "type": "bool",
+      "default": "false",
+      "env": "SERVER_AUTH_GOOGLE_ENABLED",
+      "meaning": "是否启用",
+      "source": "pkg/config/server/server.go:529",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "auth.google.enabled"
+    },
+    {
+      "path": "server.auth.google.clientID",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_AUTH_GOOGLE_CLIENT_ID",
+      "meaning": "OAuth/集成客户端 ID",
+      "source": "pkg/config/server/server.go:531",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "auth.google.clientID"
+    },
+    {
+      "path": "server.auth.google.clientSecret",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_AUTH_GOOGLE_CLIENT_SECRET",
+      "meaning": "OAuth/集成客户端密钥",
+      "source": "pkg/config/server/server.go:532",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "auth.google.clientSecret"
+    },
+    {
+      "path": "server.auth.google.scopes",
+      "type": "[]string",
+      "default": "[\"openid\", \"profile\", \"email\"]",
+      "env": "SERVER_AUTH_GOOGLE_SCOPES",
+      "meaning": "OAuth/集成授权 scope 列表",
+      "source": "pkg/config/server/server.go:533",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "auth.google.scopes"
+    },
+    {
+      "path": "server.auth.github.enabled",
+      "type": "bool",
+      "default": "false",
+      "env": "SERVER_AUTH_GITHUB_ENABLED",
+      "meaning": "是否启用",
+      "source": "pkg/config/server/server.go:537",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "auth.github.enabled"
+    },
+    {
+      "path": "server.auth.github.clientID",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_AUTH_GITHUB_CLIENT_ID",
+      "meaning": "OAuth/集成客户端 ID",
+      "source": "pkg/config/server/server.go:539",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "auth.github.clientID"
+    },
+    {
+      "path": "server.auth.github.clientSecret",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_AUTH_GITHUB_CLIENT_SECRET",
+      "meaning": "OAuth/集成客户端密钥",
+      "source": "pkg/config/server/server.go:540",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "auth.github.clientSecret"
+    },
+    {
+      "path": "server.auth.github.scopes",
+      "type": "[]string",
+      "default": "[\"read:user\", \"user:email\"]",
+      "env": "SERVER_AUTH_GITHUB_SCOPES",
+      "meaning": "OAuth/集成授权 scope 列表",
+      "source": "pkg/config/server/server.go:541",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "auth.github.scopes"
+    },
+    {
+      "path": "server.auth.controlPlaneExchangeToken.jwtPublicKeyset",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_AUTH_CONTROL_PLANE_EXCHANGE_TOKEN_JWT_PUBLIC_KEYSET",
+      "meaning": "控制面交换 token 的 JWT 公钥集",
+      "source": "pkg/config/server/server.go:503",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "auth.controlPlaneExchangeToken.jwtPublicKeyset"
+    },
+    {
+      "path": "server.auth.controlPlaneExchangeToken.jwtPublicKeysetFile",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_AUTH_CONTROL_PLANE_EXCHANGE_TOKEN_JWT_PUBLIC_KEYSET_FILE",
+      "meaning": "控制面交换 token JWT 公钥集文件",
+      "source": "pkg/config/server/server.go:504",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "auth.controlPlaneExchangeToken.jwtPublicKeysetFile"
+    },
+    {
+      "path": "server.auth.controlPlaneExchangeToken.issuer",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_AUTH_CONTROL_PLANE_EXCHANGE_TOKEN_ISSUER",
+      "meaning": "交换 token 预期签发者",
+      "source": "pkg/config/server/server.go:507",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "auth.controlPlaneExchangeToken.issuer"
+    },
+    {
+      "path": "server.auth.controlPlaneExchangeToken.audience",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_AUTH_CONTROL_PLANE_EXCHANGE_TOKEN_AUDIENCE",
+      "meaning": "交换 token 预期受众",
+      "source": "pkg/config/server/server.go:510",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "auth.controlPlaneExchangeToken.audience"
+    },
+    {
+      "path": "server.auth.controlPlaneExchangeToken.enabled",
+      "type": "bool",
+      "default": "false",
+      "env": "SERVER_AUTH_CONTROL_PLANE_EXCHANGE_TOKEN_ENABLED",
+      "meaning": "是否启用",
+      "source": "pkg/config/server/server.go:513",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "auth.controlPlaneExchangeToken.enabled"
+    },
+    {
+      "path": "server.alerting.sentry.enabled",
+      "type": "bool",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_ALERTING_SENTRY_ENABLED",
+      "meaning": "是否启用",
+      "source": "pkg/config/server/server.go:393",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "alerting.sentry.enabled"
+    },
+    {
+      "path": "server.alerting.sentry.dsn",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_ALERTING_SENTRY_DSN",
+      "meaning": "Sentry DSN",
+      "source": "pkg/config/server/server.go:396",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "alerting.sentry.dsn"
+    },
+    {
+      "path": "server.alerting.sentry.environment",
+      "type": "string",
+      "default": "development",
+      "env": "SERVER_ALERTING_SENTRY_ENVIRONMENT",
+      "meaning": "告警/追踪运行环境名",
+      "source": "pkg/config/server/server.go:399",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "alerting.sentry.environment"
+    },
+    {
+      "path": "server.alerting.sentry.sampleRate",
+      "type": "float64",
+      "default": "1.0",
+      "env": "SERVER_ALERTING_SENTRY_SAMPLE_RATE",
+      "meaning": "告警事件采样比例",
+      "source": "pkg/config/server/server.go:402",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "alerting.sentry.sampleRate"
+    },
+    {
+      "path": "server.analytics.posthog.enabled",
+      "type": "bool",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_ANALYTICS_POSTHOG_ENABLED",
+      "meaning": "是否启用",
+      "source": "pkg/config/server/server.go:414",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "analytics.posthog.enabled"
+    },
+    {
+      "path": "server.analytics.posthog.apiKey",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_ANALYTICS_POSTHOG_API_KEY",
+      "meaning": "PostHog API Key",
+      "source": "pkg/config/server/server.go:417",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "analytics.posthog.apiKey"
+    },
+    {
+      "path": "server.analytics.posthog.endpoint",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_ANALYTICS_POSTHOG_ENDPOINT",
+      "meaning": "外部服务端点",
+      "source": "pkg/config/server/server.go:420",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "analytics.posthog.endpoint"
+    },
+    {
+      "path": "server.analytics.posthog.feApiKey",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_ANALYTICS_POSTHOG_FE_API_KEY",
+      "meaning": "前端 PostHog API Key",
+      "source": "pkg/config/server/server.go:423",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "analytics.posthog.feApiKey"
+    },
+    {
+      "path": "server.analytics.posthog.feApiHost",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_ANALYTICS_POSTHOG_FE_API_HOST",
+      "meaning": "前端 PostHog API Host",
+      "source": "pkg/config/server/server.go:426",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "analytics.posthog.feApiHost"
+    },
+    {
+      "path": "server.analytics.aggregateEnabled",
+      "type": "bool",
+      "default": "false",
+      "env": "SERVER_ANALYTICS_AGGREGATE_ENABLED",
+      "meaning": "是否聚合分析事件",
+      "source": "pkg/config/server/server.go:407",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "analytics.aggregateEnabled"
+    },
+    {
+      "path": "server.analytics.aggregateFlushInterval",
+      "type": "string",
+      "default": "60m",
+      "env": "SERVER_ANALYTICS_AGGREGATE_FLUSH_INTERVAL",
+      "meaning": "分析聚合刷写间隔",
+      "source": "pkg/config/server/server.go:408",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "analytics.aggregateFlushInterval"
+    },
+    {
+      "path": "server.analytics.aggregateMaxKeys",
+      "type": "int",
+      "default": "500",
+      "env": "SERVER_ANALYTICS_AGGREGATE_MAX_KEYS",
+      "meaning": "分析聚合键数量上限",
+      "source": "pkg/config/server/server.go:409",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "analytics.aggregateMaxKeys"
+    },
+    {
+      "path": "server.pylon.enabled",
+      "type": "bool",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_PYLON_ENABLED",
+      "meaning": "是否启用",
+      "source": "pkg/config/server/server.go:719",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "pylon.enabled"
+    },
+    {
+      "path": "server.pylon.appID",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_PYLON_APP_ID",
+      "meaning": "Pylon 应用 ID",
+      "source": "pkg/config/server/server.go:720",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "pylon.appID"
+    },
+    {
+      "path": "server.pylon.secret",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_PYLON_SECRET",
+      "meaning": "Pylon 密钥",
+      "source": "pkg/config/server/server.go:721",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "pylon.secret"
+    },
+    {
+      "path": "server.encryption.masterKeyset",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_ENCRYPTION_MASTER_KEYSET",
+      "meaning": "主加密密钥集内容",
+      "source": "pkg/config/server/server.go:433",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "encryption.masterKeyset"
+    },
+    {
+      "path": "server.encryption.masterKeysetFile",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_ENCRYPTION_MASTER_KEYSET_FILE",
+      "meaning": "主加密密钥集文件",
+      "source": "pkg/config/server/server.go:436",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "encryption.masterKeysetFile"
+    },
+    {
+      "path": "server.encryption.jwt.publicJWTKeyset",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_ENCRYPTION_JWT_PUBLIC_KEYSET",
+      "meaning": "JWT 公钥集内容",
+      "source": "pkg/config/server/server.go:447",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "encryption.jwt.publicJWTKeyset"
+    },
+    {
+      "path": "server.encryption.jwt.publicJWTKeysetFile",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_ENCRYPTION_JWT_PUBLIC_KEYSET_FILE",
+      "meaning": "JWT 公钥集文件",
+      "source": "pkg/config/server/server.go:450",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "encryption.jwt.publicJWTKeysetFile"
+    },
+    {
+      "path": "server.encryption.jwt.privateJWTKeyset",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_ENCRYPTION_JWT_PRIVATE_KEYSET",
+      "meaning": "JWT 私钥集内容",
+      "source": "pkg/config/server/server.go:454",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "encryption.jwt.privateJWTKeyset"
+    },
+    {
+      "path": "server.encryption.jwt.privateJWTKeysetFile",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_ENCRYPTION_JWT_PRIVATE_KEYSET_FILE",
+      "meaning": "JWT 私钥集文件",
+      "source": "pkg/config/server/server.go:457",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "encryption.jwt.privateJWTKeysetFile"
+    },
+    {
+      "path": "server.encryption.cloudKms.enabled",
+      "type": "bool",
+      "default": "false",
+      "env": "SERVER_ENCRYPTION_CLOUDKMS_ENABLED",
+      "meaning": "是否启用",
+      "source": "pkg/config/server/server.go:462",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "encryption.cloudKms.enabled"
+    },
+    {
+      "path": "server.encryption.cloudKms.keyURI",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_ENCRYPTION_CLOUDKMS_KEY_URI",
+      "meaning": "云 KMS 密钥 URI",
+      "source": "pkg/config/server/server.go:466",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "encryption.cloudKms.keyURI"
+    },
+    {
+      "path": "server.encryption.cloudKms.credentialsJSON",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_ENCRYPTION_CLOUDKMS_CREDENTIALS_JSON",
+      "meaning": "云 KMS 服务账号 JSON",
+      "source": "pkg/config/server/server.go:469",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "encryption.cloudKms.credentialsJSON"
+    },
+    {
+      "path": "server.runtime.port",
+      "type": "int",
+      "default": "8080",
+      "env": "SERVER_PORT",
+      "meaning": "监听端口",
+      "source": "pkg/config/server/server.go:172",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.port"
+    },
+    {
+      "path": "server.runtime.url",
+      "type": "string",
+      "default": "http://localhost:8080",
+      "env": "SERVER_URL",
+      "meaning": "服务 URL",
+      "source": "pkg/config/server/server.go:175",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.url"
+    },
+    {
+      "path": "server.runtime.frontendUrl",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_FRONTEND_URL",
+      "meaning": "前端 URL",
+      "source": "pkg/config/server/server.go:179",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.frontendUrl"
+    },
+    {
+      "path": "server.runtime.healthcheck",
+      "type": "bool",
+      "default": "true",
+      "env": "SERVER_HEALTHCHECK",
+      "meaning": "是否启用健康检查端点",
+      "source": "pkg/config/server/server.go:182",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.healthcheck"
+    },
+    {
+      "path": "server.runtime.healthcheckPort",
+      "type": "int",
+      "default": "8733",
+      "env": "SERVER_HEALTHCHECK_PORT",
+      "meaning": "健康检查监听端口",
+      "source": "pkg/config/server/server.go:185",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.healthcheckPort"
+    },
+    {
+      "path": "server.runtime.grpcPort",
+      "type": "int",
+      "default": "7070",
+      "env": "SERVER_GRPC_PORT",
+      "meaning": "gRPC 监听端口",
+      "source": "pkg/config/server/server.go:188",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.grpcPort"
+    },
+    {
+      "path": "server.runtime.grpcBindAddress",
+      "type": "string",
+      "default": "127.0.0.1",
+      "env": "SERVER_GRPC_BIND_ADDRESS",
+      "meaning": "gRPC 绑定地址",
+      "source": "pkg/config/server/server.go:191",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.grpcBindAddress"
+    },
+    {
+      "path": "server.runtime.grpcBroadcastAddress",
+      "type": "string",
+      "default": "127.0.0.1:7070",
+      "env": "SERVER_GRPC_BROADCAST_ADDRESS",
+      "meaning": "gRPC 对外广播地址",
+      "source": "pkg/config/server/server.go:194",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.grpcBroadcastAddress"
+    },
+    {
+      "path": "server.runtime.grpcInsecure",
+      "type": "bool",
+      "default": "false",
+      "env": "SERVER_GRPC_INSECURE",
+      "meaning": "gRPC 是否禁用 TLS",
+      "source": "pkg/config/server/server.go:197",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.grpcInsecure"
+    },
+    {
+      "path": "server.runtime.grpcMaxMsgSize",
+      "type": "int",
+      "default": "4194304",
+      "env": "SERVER_GRPC_MAX_MSG_SIZE",
+      "meaning": "gRPC 最大接收消息字节数",
+      "source": "pkg/config/server/server.go:200",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.grpcMaxMsgSize"
+    },
+    {
+      "path": "server.runtime.grpcWorkerMaxLockAcquisitionTime",
+      "type": "time.Duration",
+      "default": "250ms",
+      "env": "SERVER_GRPC_WORKER_MAX_LOCK_ACQUISITION_TIME",
+      "meaning": "gRPC 向 worker 获取锁的最长等待时间",
+      "source": "pkg/config/server/server.go:204",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.grpcWorkerMaxLockAcquisitionTime"
+    },
+    {
+      "path": "server.runtime.grpcStaticStreamWindowSize",
+      "type": "int32",
+      "default": "10485760",
+      "env": "SERVER_GRPC_STATIC_STREAM_WINDOW_SIZE",
+      "meaning": "gRPC 静态流窗口字节数",
+      "source": "pkg/config/server/server.go:208",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.grpcStaticStreamWindowSize"
+    },
+    {
+      "path": "server.runtime.grpcRateLimit",
+      "type": "float64",
+      "default": "1000",
+      "env": "SERVER_GRPC_RATE_LIMIT",
+      "meaning": "每 API token/每引擎的 gRPC 每秒限流值",
+      "source": "pkg/config/server/server.go:211",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.grpcRateLimit"
+    },
+    {
+      "path": "server.runtime.grpcShutdownTimeout",
+      "type": "time.Duration",
+      "default": "10s",
+      "env": "SERVER_GRPC_SHUTDOWN_TIMEOUT",
+      "meaning": "gRPC 优雅停机排空超时",
+      "source": "pkg/config/server/server.go:214",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.grpcShutdownTimeout"
+    },
+    {
+      "path": "server.runtime.enforceLimits",
+      "type": "bool",
+      "default": "false",
+      "env": "SERVER_ENFORCE_LIMITS",
+      "meaning": "是否执行租户限额",
+      "source": "pkg/config/server/server.go:217",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.enforceLimits"
+    },
+    {
+      "path": "server.runtime.limits.defaultTenantRetentionPeriod",
+      "type": "string",
+      "default": "720h",
+      "env": "SERVER_LIMITS_DEFAULT_TENANT_RETENTION_PERIOD",
+      "meaning": "默认租户数据保留期",
+      "source": "pkg/config/limits/limits.go:6",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.limits.defaultTenantRetentionPeriod"
+    },
+    {
+      "path": "server.runtime.limits.corePartitionRetention",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_LIMITS_CORE_PARTITION_RETENTION",
+      "meaning": "核心表分区保留期覆盖值",
+      "source": "pkg/config/limits/limits.go:7",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.limits.corePartitionRetention"
+    },
+    {
+      "path": "server.runtime.limits.olapPartitionRetention",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_LIMITS_OLAP_PARTITION_RETENTION",
+      "meaning": "OLAP 分区保留期覆盖值",
+      "source": "pkg/config/limits/limits.go:8",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.limits.olapPartitionRetention"
+    },
+    {
+      "path": "server.runtime.limits.defaultTaskRunLimit",
+      "type": "int32",
+      "default": "2000",
+      "env": "SERVER_LIMITS_DEFAULT_TASK_RUN_LIMIT",
+      "meaning": "默认任务运行数量上限",
+      "source": "pkg/config/limits/limits.go:10",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.limits.defaultTaskRunLimit"
+    },
+    {
+      "path": "server.runtime.limits.defaultTaskRunAlarmLimit",
+      "type": "int32",
+      "default": "1600",
+      "env": "SERVER_LIMITS_DEFAULT_TASK_RUN_ALARM_LIMIT",
+      "meaning": "默认任务运行告警阈值",
+      "source": "pkg/config/limits/limits.go:11",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.limits.defaultTaskRunAlarmLimit"
+    },
+    {
+      "path": "server.runtime.limits.defaultTaskRunWindow",
+      "type": "time.Duration",
+      "default": "24h",
+      "env": "SERVER_LIMITS_DEFAULT_TASK_RUN_WINDOW",
+      "meaning": "默认任务运行限额窗口",
+      "source": "pkg/config/limits/limits.go:12",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.limits.defaultTaskRunWindow"
+    },
+    {
+      "path": "server.runtime.limits.defaultWorkerLimit",
+      "type": "int32",
+      "default": "3",
+      "env": "SERVER_LIMITS_DEFAULT_WORKER_LIMIT",
+      "meaning": "默认 worker 数量上限",
+      "source": "pkg/config/limits/limits.go:14",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.limits.defaultWorkerLimit"
+    },
+    {
+      "path": "server.runtime.limits.defaultWorkerAlarmLimit",
+      "type": "int32",
+      "default": "2",
+      "env": "SERVER_LIMITS_DEFAULT_WORKER_ALARM_LIMIT",
+      "meaning": "默认 worker 数量告警阈值",
+      "source": "pkg/config/limits/limits.go:15",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.limits.defaultWorkerAlarmLimit"
+    },
+    {
+      "path": "server.runtime.limits.defaultWorkerSlotLimit",
+      "type": "int32",
+      "default": "2000",
+      "env": "SERVER_LIMITS_DEFAULT_WORKER_SLOT_LIMIT",
+      "meaning": "默认 worker 槽位上限",
+      "source": "pkg/config/limits/limits.go:17",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.limits.defaultWorkerSlotLimit"
+    },
+    {
+      "path": "server.runtime.limits.defaultWorkerSlotAlarmLimit",
+      "type": "int32",
+      "default": "1600",
+      "env": "SERVER_LIMITS_DEFAULT_WORKER_SLOT_ALARM_LIMIT",
+      "meaning": "默认 worker 槽位告警阈值",
+      "source": "pkg/config/limits/limits.go:18",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.limits.defaultWorkerSlotAlarmLimit"
+    },
+    {
+      "path": "server.runtime.limits.defaultEventLimit",
+      "type": "int32",
+      "default": "1000",
+      "env": "SERVER_LIMITS_DEFAULT_EVENT_LIMIT",
+      "meaning": "默认事件数量上限",
+      "source": "pkg/config/limits/limits.go:20",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.limits.defaultEventLimit"
+    },
+    {
+      "path": "server.runtime.limits.defaultEventAlarmLimit",
+      "type": "int32",
+      "default": "800",
+      "env": "SERVER_LIMITS_DEFAULT_EVENT_ALARM_LIMIT",
+      "meaning": "默认事件数量告警阈值",
+      "source": "pkg/config/limits/limits.go:21",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.limits.defaultEventAlarmLimit"
+    },
+    {
+      "path": "server.runtime.limits.defaultEventWindow",
+      "type": "time.Duration",
+      "default": "24h",
+      "env": "SERVER_LIMITS_DEFAULT_EVENT_WINDOW",
+      "meaning": "默认事件限额窗口",
+      "source": "pkg/config/limits/limits.go:22",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.limits.defaultEventWindow"
+    },
+    {
+      "path": "server.runtime.limits.defaultIncomingWebhookLimit",
+      "type": "int32",
+      "default": "5",
+      "env": "SERVER_LIMITS_DEFAULT_INCOMING_WEBHOOK_LIMIT",
+      "meaning": "默认入站 webhook 数量上限",
+      "source": "pkg/config/limits/limits.go:24",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.limits.defaultIncomingWebhookLimit"
+    },
+    {
+      "path": "server.runtime.limits.defaultIncomingWebhookAlarmLimit",
+      "type": "int32",
+      "default": "4",
+      "env": "无显式绑定",
+      "meaning": "默认入站 webhook 告警阈值",
+      "source": "pkg/config/limits/limits.go:25",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.limits.defaultIncomingWebhookAlarmLimit"
+    },
+    {
+      "path": "server.runtime.singleQueueLimit",
+      "type": "int",
+      "default": "100",
+      "env": "SERVER_SINGLE_QUEUE_LIMIT",
+      "meaning": "单次队列读取数量上限",
+      "source": "pkg/config/server/server.go:223",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.singleQueueLimit"
+    },
+    {
+      "path": "server.runtime.optimisticSchedulingEnabled",
+      "type": "bool",
+      "default": "true",
+      "env": "SERVER_OPTIMISTIC_SCHEDULING_ENABLED",
+      "meaning": "是否启用乐观调度",
+      "source": "pkg/config/server/server.go:226",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.optimisticSchedulingEnabled"
+    },
+    {
+      "path": "server.runtime.optimisticSchedulingSlots",
+      "type": "int",
+      "default": "5",
+      "env": "SERVER_OPTIMISTIC_SCHEDULING_SLOTS",
+      "meaning": "乐观调度槽位数",
+      "source": "pkg/config/server/server.go:229",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.optimisticSchedulingSlots"
+    },
+    {
+      "path": "server.runtime.grpcTriggerWritesEnabled",
+      "type": "bool",
+      "default": "true",
+      "env": "SERVER_GRPC_TRIGGER_WRITES_ENABLED",
+      "meaning": "是否允许 gRPC 直接写入触发请求",
+      "source": "pkg/config/server/server.go:232",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.grpcTriggerWritesEnabled"
+    },
+    {
+      "path": "server.runtime.grpcTriggerWriteSlots",
+      "type": "int",
+      "default": "5",
+      "env": "SERVER_GRPC_TRIGGER_WRITE_SLOTS",
+      "meaning": "gRPC 直接写槽位数",
+      "source": "pkg/config/server/server.go:235",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.grpcTriggerWriteSlots"
+    },
+    {
+      "path": "server.runtime.allowSignup",
+      "type": "bool",
+      "default": "true",
+      "env": "SERVER_ALLOW_SIGNUP",
+      "meaning": "是否允许注册",
+      "source": "pkg/config/server/server.go:238",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.allowSignup"
+    },
+    {
+      "path": "server.runtime.allowInvites",
+      "type": "bool",
+      "default": "true",
+      "env": "SERVER_ALLOW_INVITES",
+      "meaning": "是否允许创建邀请",
+      "source": "pkg/config/server/server.go:241",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.allowInvites"
+    },
+    {
+      "path": "server.runtime.maxPendingInvites",
+      "type": "int",
+      "default": "100",
+      "env": "SERVER_MAX_PENDING_INVITES",
+      "meaning": "单邀请人待处理邀请上限",
+      "source": "pkg/config/server/server.go:244",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.maxPendingInvites"
+    },
+    {
+      "path": "server.runtime.allowCreateTenant",
+      "type": "bool",
+      "default": "true",
+      "env": "SERVER_ALLOW_CREATE_TENANT",
+      "meaning": "是否允许创建租户",
+      "source": "pkg/config/server/server.go:247",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.allowCreateTenant"
+    },
+    {
+      "path": "server.runtime.allowChangePassword",
+      "type": "bool",
+      "default": "true",
+      "env": "SERVER_ALLOW_CHANGE_PASSWORD",
+      "meaning": "是否允许修改密码",
+      "source": "pkg/config/server/server.go:250",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.allowChangePassword"
+    },
+    {
+      "path": "server.runtime.embedded",
+      "type": "bool",
+      "default": "false",
+      "env": "无显式绑定",
+      "meaning": "是否为嵌入式运行",
+      "source": "pkg/config/server/server.go:253",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.embedded"
+    },
+    {
+      "path": "server.runtime.apiRateLimit",
+      "type": "int",
+      "default": "10",
+      "env": "SERVER_API_RATE_LIMIT",
+      "meaning": "按客户端 IP 的 API 每秒限流值",
+      "source": "pkg/config/server/server.go:256",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.apiRateLimit"
+    },
+    {
+      "path": "server.runtime.apiRateLimitWindow",
+      "type": "time.Duration",
+      "default": "300s",
+      "env": "SERVER_API_RATE_LIMIT_WINDOW",
+      "meaning": "API 限流窗口",
+      "source": "pkg/config/server/server.go:257",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.apiRateLimitWindow"
+    },
+    {
+      "path": "server.runtime.apiTrustedProxies",
+      "type": "[]string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_API_TRUSTED_PROXIES",
+      "meaning": "可信转发代理 CIDR 列表",
+      "source": "pkg/config/server/server.go:260",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.apiTrustedProxies"
+    },
+    {
+      "path": "server.runtime.apiTrustPrivateProxies",
+      "type": "bool",
+      "default": "true",
+      "env": "SERVER_API_TRUST_PRIVATE_PROXIES",
+      "meaning": "是否信任来自私网/回环代理的转发头",
+      "source": "pkg/config/server/server.go:263",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.apiTrustPrivateProxies"
+    },
+    {
+      "path": "server.runtime.webhookRateLimit",
+      "type": "float64",
+      "default": "50",
+      "env": "SERVER_INCOMING_WEBHOOK_RATE_LIMIT",
+      "meaning": "每 webhook 每秒限流值",
+      "source": "pkg/config/server/server.go:266",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.webhookRateLimit"
+    },
+    {
+      "path": "server.runtime.webhookRateLimitBurst",
+      "type": "int",
+      "default": "100",
+      "env": "SERVER_INCOMING_WEBHOOK_RATE_LIMIT_BURST",
+      "meaning": "webhook 限流突发容量",
+      "source": "pkg/config/server/server.go:269",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.webhookRateLimitBurst"
+    },
+    {
+      "path": "server.runtime.disableTenantPubs",
+      "type": "bool",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_DISABLE_TENANT_PUBS",
+      "meaning": "是否禁用租户发布订阅",
+      "source": "pkg/config/server/server.go:272",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.disableTenantPubs"
+    },
+    {
+      "path": "server.runtime.maxInternalRetryCount",
+      "type": "int32",
+      "default": "10",
+      "env": "SERVER_MAX_INTERNAL_RETRY_COUNT",
+      "meaning": "步骤内部最大重试次数",
+      "source": "pkg/config/server/server.go:275",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.maxInternalRetryCount"
+    },
+    {
+      "path": "server.runtime.monitoring.enabled",
+      "type": "bool",
+      "default": "true",
+      "env": "SERVER_MONITORING_ENABLED",
+      "meaning": "是否启用",
+      "source": "pkg/config/server/server.go:643",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.monitoring.enabled"
+    },
+    {
+      "path": "server.runtime.monitoring.permittedTenants",
+      "type": "[]string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_MONITORING_PERMITTED_TENANTS",
+      "meaning": "可使用监控的租户 ID 列表",
+      "source": "pkg/config/server/server.go:646",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.monitoring.permittedTenants"
+    },
+    {
+      "path": "server.runtime.monitoring.probeTimeout",
+      "type": "time.Duration",
+      "default": "30s",
+      "env": "SERVER_MONITORING_PROBE_TIMEOUT",
+      "meaning": "监控探针超时",
+      "source": "pkg/config/server/server.go:649",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.monitoring.probeTimeout"
+    },
+    {
+      "path": "server.runtime.monitoring.tlsRootCAFile",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_MONITORING_TLS_ROOT_CA_FILE",
+      "meaning": "TLS 根 CA 文件路径",
+      "source": "pkg/config/server/server.go:652",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.monitoring.tlsRootCAFile"
+    },
+    {
+      "path": "server.runtime.preventTenantVersionUpgrade",
+      "type": "bool",
+      "default": "false",
+      "env": "SERVER_PREVENT_TENANT_VERSION_UPGRADE",
+      "meaning": "是否阻止租户版本升级",
+      "source": "pkg/config/server/server.go:280",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.preventTenantVersionUpgrade"
+    },
+    {
+      "path": "server.runtime.replayEnabled",
+      "type": "bool",
+      "default": "true",
+      "env": "SERVER_REPLAY_ENABLED",
+      "meaning": "是否启用任务回放",
+      "source": "pkg/config/server/server.go:283",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.replayEnabled"
+    },
+    {
+      "path": "server.runtime.allowedOrigins",
+      "type": "[]string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "无显式绑定",
+      "meaning": "允许 CORS 的来源模式列表",
+      "source": "pkg/config/server/server.go:289",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.allowedOrigins"
+    },
+    {
+      "path": "server.runtime.allowedOriginsString",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_ALLOWED_ORIGINS",
+      "meaning": "用于生成允许来源列表的空格分隔原始值",
+      "source": "pkg/config/server/server.go:294",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.allowedOriginsString"
+    },
+    {
+      "path": "server.runtime.operatorInfraBlockedCIDRs",
+      "type": "[]string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "无显式绑定",
+      "meaning": "operator 出站访问额外禁止 CIDR 列表",
+      "source": "pkg/config/server/server.go:302",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.operatorInfraBlockedCIDRs"
+    },
+    {
+      "path": "server.runtime.operatorInfraBlockedCIDRsString",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_OPERATOR_INFRA_BLOCKED_CIDRS",
+      "meaning": "用于生成禁止 CIDR 列表的空格分隔原始值",
+      "source": "pkg/config/server/server.go:307",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.operatorInfraBlockedCIDRsString"
+    },
+    {
+      "path": "server.runtime.dagOperatorDefaultSlots",
+      "type": "int",
+      "default": "10000",
+      "env": "SERVER_DAG_OPERATOR_DEFAULT_SLOTS",
+      "meaning": "DAG operator 并发槽位数",
+      "source": "pkg/config/server/server.go:311",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.dagOperatorDefaultSlots"
+    },
+    {
+      "path": "server.runtime.schedulerConcurrencyRateLimit",
+      "type": "int",
+      "default": "20",
+      "env": "SCHEDULER_CONCURRENCY_RATE_LIMIT",
+      "meaning": "调度并发策略每秒执行上限",
+      "source": "pkg/config/server/server.go:314",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.schedulerConcurrencyRateLimit"
+    },
+    {
+      "path": "server.runtime.schedulerConcurrencyPollingMinInterval",
+      "type": "time.Duration",
+      "default": "500ms",
+      "env": "SCHEDULER_CONCURRENCY_POLLING_MIN_INTERVAL",
+      "meaning": "调度并发轮询最小间隔",
+      "source": "pkg/config/server/server.go:317",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.schedulerConcurrencyPollingMinInterval"
+    },
+    {
+      "path": "server.runtime.schedulerConcurrencyPollingMaxInterval",
+      "type": "time.Duration",
+      "default": "5s",
+      "env": "SCHEDULER_CONCURRENCY_POLLING_MAX_INTERVAL",
+      "meaning": "调度并发轮询最大间隔",
+      "source": "pkg/config/server/server.go:320",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.schedulerConcurrencyPollingMaxInterval"
+    },
+    {
+      "path": "server.runtime.schedulerCheckActiveMinInterval",
+      "type": "time.Duration",
+      "default": "30s",
+      "env": "SCHEDULER_CHECK_ACTIVE_MIN_INTERVAL",
+      "meaning": "调度活动检查最小间隔",
+      "source": "pkg/config/server/server.go:323",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.schedulerCheckActiveMinInterval"
+    },
+    {
+      "path": "server.runtime.schedulerCheckActiveMaxInterval",
+      "type": "time.Duration",
+      "default": "60s",
+      "env": "SCHEDULER_CHECK_ACTIVE_MAX_INTERVAL",
+      "meaning": "调度活动检查最大间隔",
+      "source": "pkg/config/server/server.go:326",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.schedulerCheckActiveMaxInterval"
+    },
+    {
+      "path": "server.runtime.schedulerAdvisoryLockTimeout",
+      "type": "time.Duration",
+      "default": "5s",
+      "env": "SCHEDULER_ADVISORY_LOCK_TIMEOUT",
+      "meaning": "调度 advisory lock 超时",
+      "source": "pkg/config/server/server.go:328",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.schedulerAdvisoryLockTimeout"
+    },
+    {
+      "path": "server.runtime.concurrencyInMemoryIndexEnabled",
+      "type": "bool",
+      "default": "true",
+      "env": "SERVER_CONCURRENCY_IN_MEMORY_INDEX_ENABLED",
+      "meaning": "是否启用并发策略内存索引和 outbox",
+      "source": "pkg/config/server/server.go:331",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.concurrencyInMemoryIndexEnabled"
+    },
+    {
+      "path": "server.runtime.logIngestionEnabled",
+      "type": "bool",
+      "default": "true",
+      "env": "SERVER_LOG_INGESTION_ENABLED",
+      "meaning": "是否接收任务日志",
+      "source": "pkg/config/server/server.go:334",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.logIngestionEnabled"
+    },
+    {
+      "path": "server.runtime.o11yUsageFlushInterval",
+      "type": "time.Duration",
+      "default": "30s",
+      "env": "SERVER_O11Y_USAGE_FLUSH_INTERVAL",
+      "meaning": "观测用量聚合刷写间隔",
+      "source": "pkg/config/server/server.go:338",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.o11yUsageFlushInterval"
+    },
+    {
+      "path": "server.runtime.taskOperationLimits.timeoutLimit",
+      "type": "int",
+      "default": "1000",
+      "env": "无显式绑定",
+      "meaning": "单次超时处理任务数上限",
+      "source": "pkg/config/server/server.go:124",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.taskOperationLimits.timeoutLimit"
+    },
+    {
+      "path": "server.runtime.taskOperationLimits.reassignLimit",
+      "type": "int",
+      "default": "1000",
+      "env": "无显式绑定",
+      "meaning": "单次重分配任务数上限",
+      "source": "pkg/config/server/server.go:127",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.taskOperationLimits.reassignLimit"
+    },
+    {
+      "path": "server.runtime.taskOperationLimits.retryQueueLimit",
+      "type": "int",
+      "default": "1000",
+      "env": "无显式绑定",
+      "meaning": "单次重试队列处理数上限",
+      "source": "pkg/config/server/server.go:130",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.taskOperationLimits.retryQueueLimit"
+    },
+    {
+      "path": "server.runtime.taskOperationLimits.durableSleepLimit",
+      "type": "int",
+      "default": "1000",
+      "env": "无显式绑定",
+      "meaning": "单次 durable sleep 处理数上限",
+      "source": "pkg/config/server/server.go:133",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.taskOperationLimits.durableSleepLimit"
+    },
+    {
+      "path": "server.runtime.workflowRunBufferSize",
+      "type": "int",
+      "default": "1000",
+      "env": "SERVER_WORKFLOW_RUN_BUFFER_SIZE",
+      "meaning": "dispatcher 中 workflow run 事件批处理缓冲容量",
+      "source": "pkg/config/server/server.go:344",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.workflowRunBufferSize"
+    },
+    {
+      "path": "server.runtime.durableEventBufferFlushInterval",
+      "type": "time.Duration",
+      "default": "5ms",
+      "env": "SERVER_DURABLE_EVENT_BUFFER_FLUSH_INTERVAL",
+      "meaning": "durable 任务事件写库缓冲的刷写间隔",
+      "source": "pkg/config/server/server.go:348",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.durableEventBufferFlushInterval"
+    },
+    {
+      "path": "server.runtime.durableEventBufferMaxSize",
+      "type": "int",
+      "default": "100",
+      "env": "SERVER_DURABLE_EVENT_BUFFER_MAX_SIZE",
+      "meaning": "单次 durable 事件刷写的最大批量",
+      "source": "pkg/config/server/server.go:352",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.durableEventBufferMaxSize"
+    },
+    {
+      "path": "server.runtime.durableEventBufferMaxConcurrentFlushes",
+      "type": "int",
+      "default": "16",
+      "env": "SERVER_DURABLE_EVENT_BUFFER_MAX_CONCURRENT_FLUSHES",
+      "meaning": "durable 事件并发刷写事务数上限",
+      "source": "pkg/config/server/server.go:356",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.durableEventBufferMaxConcurrentFlushes"
+    },
+    {
+      "path": "server.runtime.streamEventBufferTimeout",
+      "type": "time.Duration",
+      "default": "5s",
+      "env": "SERVER_STREAM_EVENT_BUFFER_TIMEOUT",
+      "meaning": "dispatcher 等待乱序流事件的缓冲超时",
+      "source": "pkg/config/server/server.go:360",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "runtime.streamEventBufferTimeout"
+    },
+    {
+      "path": "server.msgQueue.enabled",
+      "type": "bool",
+      "default": "true",
+      "env": "无显式绑定",
+      "meaning": "是否启用",
+      "source": "pkg/config/server/server.go:552",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "msgQueue.enabled"
+    },
+    {
+      "path": "server.msgQueue.kind",
+      "type": "string",
+      "default": "rabbitmq",
+      "env": "SERVER_TASKQUEUE_KIND<br>SERVER_MSGQUEUE_KIND",
+      "meaning": "实现类型",
+      "source": "pkg/config/server/server.go:554",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "msgQueue.kind"
+    },
+    {
+      "path": "server.msgQueue.postgres.qos",
+      "type": "int",
+      "default": "100",
+      "env": "无显式绑定",
+      "meaning": "消费者预取数量",
+      "source": "pkg/config/server/server.go:619",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "msgQueue.postgres.qos"
+    },
+    {
+      "path": "server.msgQueue.rabbitmq.url",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_TASKQUEUE_RABBITMQ_URL<br>SERVER_MSGQUEUE_RABBITMQ_URL",
+      "meaning": "服务 URL",
+      "source": "pkg/config/server/server.go:623",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "msgQueue.rabbitmq.url"
+    },
+    {
+      "path": "server.msgQueue.rabbitmq.qos",
+      "type": "int",
+      "default": "100",
+      "env": "SERVER_MSGQUEUE_RABBITMQ_QOS",
+      "meaning": "消费者预取数量",
+      "source": "pkg/config/server/server.go:624",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "msgQueue.rabbitmq.qos"
+    },
+    {
+      "path": "server.msgQueue.rabbitmq.maxPubChans",
+      "type": "int32",
+      "default": "20",
+      "env": "SERVER_MSGQUEUE_RABBITMQ_MAX_PUB_CHANS",
+      "meaning": "发布通道最大数",
+      "source": "pkg/config/server/server.go:625",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "msgQueue.rabbitmq.maxPubChans"
+    },
+    {
+      "path": "server.msgQueue.rabbitmq.maxSubChans",
+      "type": "int32",
+      "default": "100",
+      "env": "SERVER_MSGQUEUE_RABBITMQ_MAX_SUB_CHANS",
+      "meaning": "订阅通道最大数",
+      "source": "pkg/config/server/server.go:626",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "msgQueue.rabbitmq.maxSubChans"
+    },
+    {
+      "path": "server.msgQueue.rabbitmq.compressionEnabled",
+      "type": "bool",
+      "default": "false",
+      "env": "SERVER_MSGQUEUE_RABBITMQ_COMPRESSION_ENABLED",
+      "meaning": "是否启用消息压缩",
+      "source": "pkg/config/server/server.go:627",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "msgQueue.rabbitmq.compressionEnabled"
+    },
+    {
+      "path": "server.msgQueue.rabbitmq.compressionThreshold",
+      "type": "int",
+      "default": "5120",
+      "env": "SERVER_MSGQUEUE_RABBITMQ_COMPRESSION_THRESHOLD",
+      "meaning": "启用压缩的消息字节阈值",
+      "source": "pkg/config/server/server.go:628",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "msgQueue.rabbitmq.compressionThreshold"
+    },
+    {
+      "path": "server.msgQueue.rabbitmq.enableMessageRejection",
+      "type": "bool",
+      "default": "false",
+      "env": "SERVER_MSGQUEUE_RABBITMQ_ENABLE_MESSAGE_REJECTION",
+      "meaning": "是否启用消息拒绝处理",
+      "source": "pkg/config/server/server.go:629",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "msgQueue.rabbitmq.enableMessageRejection"
+    },
+    {
+      "path": "server.msgQueue.rabbitmq.maxDeathCount",
+      "type": "int",
+      "default": "1000",
+      "env": "SERVER_MSGQUEUE_RABBITMQ_MAX_DEATH_COUNT",
+      "meaning": "消息最大死亡计数",
+      "source": "pkg/config/server/server.go:630",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "msgQueue.rabbitmq.maxDeathCount"
+    },
+    {
+      "path": "server.msgQueue.pubSub.kind",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_MSGQUEUE_PUBSUB_KIND",
+      "meaning": "实现类型",
+      "source": "pkg/config/server/server.go:568",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "msgQueue.pubSub.kind"
+    },
+    {
+      "path": "server.msgQueue.pubSub.rabbitmq.url",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_MSGQUEUE_PUBSUB_RABBITMQ_URL",
+      "meaning": "服务 URL",
+      "source": "pkg/config/server/server.go:581",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "msgQueue.pubSub.rabbitmq.url"
+    },
+    {
+      "path": "server.msgQueue.pubSub.rabbitmq.maxPubChans",
+      "type": "int32",
+      "default": "10",
+      "env": "SERVER_MSGQUEUE_PUBSUB_RABBITMQ_MAX_PUB_CHANS",
+      "meaning": "发布通道最大数",
+      "source": "pkg/config/server/server.go:583",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "msgQueue.pubSub.rabbitmq.maxPubChans"
+    },
+    {
+      "path": "server.msgQueue.pubSub.rabbitmq.maxSubChans",
+      "type": "int32",
+      "default": "20",
+      "env": "SERVER_MSGQUEUE_PUBSUB_RABBITMQ_MAX_SUB_CHANS",
+      "meaning": "订阅通道最大数",
+      "source": "pkg/config/server/server.go:584",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "msgQueue.pubSub.rabbitmq.maxSubChans"
+    },
+    {
+      "path": "server.msgQueue.pubSub.postgres.maxConns",
+      "type": "int32",
+      "default": "5",
+      "env": "SERVER_MSGQUEUE_PUBSUB_POSTGRES_MAX_CONNS",
+      "meaning": "最大连接数",
+      "source": "pkg/config/server/server.go:590",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "msgQueue.pubSub.postgres.maxConns"
+    },
+    {
+      "path": "server.msgQueue.pubSub.postgres.minConns",
+      "type": "int32",
+      "default": "1",
+      "env": "SERVER_MSGQUEUE_PUBSUB_POSTGRES_MIN_CONNS",
+      "meaning": "最小连接数",
+      "source": "pkg/config/server/server.go:591",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "msgQueue.pubSub.postgres.minConns"
+    },
+    {
+      "path": "server.msgQueue.pubSub.nats.url",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_MSGQUEUE_PUBSUB_NATS_URL",
+      "meaning": "服务 URL",
+      "source": "pkg/config/server/server.go:599",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "msgQueue.pubSub.nats.url"
+    },
+    {
+      "path": "server.msgQueue.pubSub.nats.username",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_MSGQUEUE_PUBSUB_NATS_USERNAME",
+      "meaning": "用户名",
+      "source": "pkg/config/server/server.go:601",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "msgQueue.pubSub.nats.username"
+    },
+    {
+      "path": "server.msgQueue.pubSub.nats.password",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_MSGQUEUE_PUBSUB_NATS_PASSWORD",
+      "meaning": "密码",
+      "source": "pkg/config/server/server.go:602",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "msgQueue.pubSub.nats.password"
+    },
+    {
+      "path": "server.msgQueue.pubSub.nats.tlsEnabled",
+      "type": "bool",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_MSGQUEUE_PUBSUB_NATS_TLS_ENABLED",
+      "meaning": "是否启用 TLS",
+      "source": "pkg/config/server/server.go:607",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "msgQueue.pubSub.nats.tlsEnabled"
+    },
+    {
+      "path": "server.msgQueue.pubSub.nats.tlsRootCAFile",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_MSGQUEUE_PUBSUB_NATS_TLS_ROOT_CA_FILE",
+      "meaning": "TLS 根 CA 文件路径",
+      "source": "pkg/config/server/server.go:611",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "msgQueue.pubSub.nats.tlsRootCAFile"
+    },
+    {
+      "path": "server.msgQueue.pubSub.nats.subjectPrefix",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_MSGQUEUE_PUBSUB_NATS_SUBJECT_PREFIX",
+      "meaning": "发布订阅主题前缀",
+      "source": "pkg/config/server/server.go:615",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "msgQueue.pubSub.nats.subjectPrefix"
+    },
+    {
+      "path": "server.services",
+      "type": "[]string",
+      "default": "[\"all\"]",
+      "env": "无显式绑定",
+      "meaning": "启用的服务列表",
+      "source": "pkg/config/server/server.go:49",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "services"
+    },
+    {
+      "path": "server.servicesString",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_SERVICES",
+      "meaning": "由环境变量输入的服务列表原始值",
+      "source": "pkg/config/server/server.go:52",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "servicesString"
+    },
+    {
+      "path": "server.pausedControllers",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_PAUSED_CONTROLLERS",
+      "meaning": "暂停的 controller 列表原始值",
+      "source": "pkg/config/server/server.go:54",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "pausedControllers"
+    },
+    {
+      "path": "server.enableDataRetention",
+      "type": "bool",
+      "default": "true",
+      "env": "SERVER_ENABLE_DATA_RETENTION",
+      "meaning": "是否执行数据保留清理",
+      "source": "pkg/config/server/server.go:56",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "enableDataRetention"
+    },
+    {
+      "path": "server.enableWorkerRetention",
+      "type": "bool",
+      "default": "false",
+      "env": "SERVER_ENABLE_WORKER_RETENTION",
+      "meaning": "是否执行 worker 保留清理",
+      "source": "pkg/config/server/server.go:58",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "enableWorkerRetention"
+    },
+    {
+      "path": "server.tls.tlsStrategy",
+      "type": "string",
+      "default": "tls",
+      "env": "SERVER_TLS_STRATEGY",
+      "meaning": "TLS 策略（tls、mtls 或 none）",
+      "source": "pkg/config/shared/shared.go:7",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "tls.tlsStrategy"
+    },
+    {
+      "path": "server.tls.tlsCert",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_TLS_CERT",
+      "meaning": "TLS 证书内容",
+      "source": "pkg/config/shared/shared.go:9",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "tls.tlsCert"
+    },
+    {
+      "path": "server.tls.tlsCertFile",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_TLS_CERT_FILE",
+      "meaning": "TLS 证书文件路径",
+      "source": "pkg/config/shared/shared.go:10",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "tls.tlsCertFile"
+    },
+    {
+      "path": "server.tls.tlsKey",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_TLS_KEY",
+      "meaning": "TLS 私钥内容",
+      "source": "pkg/config/shared/shared.go:11",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "tls.tlsKey"
+    },
+    {
+      "path": "server.tls.tlsKeyFile",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_TLS_KEY_FILE",
+      "meaning": "TLS 私钥文件路径",
+      "source": "pkg/config/shared/shared.go:12",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "tls.tlsKeyFile"
+    },
+    {
+      "path": "server.tls.tlsRootCA",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_TLS_ROOT_CA",
+      "meaning": "TLS 根 CA 内容",
+      "source": "pkg/config/shared/shared.go:13",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "tls.tlsRootCA"
+    },
+    {
+      "path": "server.tls.tlsRootCAFile",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_TLS_ROOT_CA_FILE",
+      "meaning": "TLS 根 CA 文件路径",
+      "source": "pkg/config/shared/shared.go:14",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "tls.tlsRootCAFile"
+    },
+    {
+      "path": "server.tls.tlsMinVersion",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_TLS_MIN_VERSION",
+      "meaning": "允许的最低 TLS 版本",
+      "source": "pkg/config/shared/shared.go:17",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "tls.tlsMinVersion"
+    },
+    {
+      "path": "server.internalClient.inheritBase",
+      "type": "bool",
+      "default": "true",
+      "env": "SERVER_INTERNAL_CLIENT_BASE_INHERIT_BASE",
+      "meaning": "内部客户端是否继承服务端 TLS 设置",
+      "source": "pkg/config/server/server.go:368",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "internalClient.inheritBase"
+    },
+    {
+      "path": "server.internalClient.internalGRPCBroadcastAddress",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_INTERNAL_CLIENT_INTERNAL_GRPC_BROADCAST_ADDRESS",
+      "meaning": "内部 API 连接 gRPC 的广播地址",
+      "source": "pkg/config/server/server.go:372",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "internalClient.internalGRPCBroadcastAddress"
+    },
+    {
+      "path": "server.internalClient.tlsServerName",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_INTERNAL_CLIENT_TLS_SERVER_NAME",
+      "meaning": "内部 TLS 校验的服务名",
+      "source": "pkg/config/server/server.go:376",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "internalClient.tlsServerName"
+    },
+    {
+      "path": "server.internalClient.base.tlsStrategy",
+      "type": "string",
+      "default": "tls",
+      "env": "SERVER_INTERNAL_CLIENT_BASE_STRATEGY",
+      "meaning": "TLS 策略（tls、mtls 或 none）",
+      "source": "pkg/config/shared/shared.go:7",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "internalClient.base.tlsStrategy"
+    },
+    {
+      "path": "server.internalClient.base.tlsCert",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_INTERNAL_CLIENT_TLS_BASE_CERT",
+      "meaning": "TLS 证书内容",
+      "source": "pkg/config/shared/shared.go:9",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "internalClient.base.tlsCert"
+    },
+    {
+      "path": "server.internalClient.base.tlsCertFile",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_INTERNAL_CLIENT_TLS_BASE_CERT_FILE",
+      "meaning": "TLS 证书文件路径",
+      "source": "pkg/config/shared/shared.go:10",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "internalClient.base.tlsCertFile"
+    },
+    {
+      "path": "server.internalClient.base.tlsKey",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_INTERNAL_CLIENT_TLS_BASE_KEY",
+      "meaning": "TLS 私钥内容",
+      "source": "pkg/config/shared/shared.go:11",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "internalClient.base.tlsKey"
+    },
+    {
+      "path": "server.internalClient.base.tlsKeyFile",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_INTERNAL_CLIENT_TLS_BASE_KEY_FILE",
+      "meaning": "TLS 私钥文件路径",
+      "source": "pkg/config/shared/shared.go:12",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "internalClient.base.tlsKeyFile"
+    },
+    {
+      "path": "server.internalClient.base.tlsRootCA",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_INTERNAL_CLIENT_TLS_BASE_ROOT_CA",
+      "meaning": "TLS 根 CA 内容",
+      "source": "pkg/config/shared/shared.go:13",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "internalClient.base.tlsRootCA"
+    },
+    {
+      "path": "server.internalClient.base.tlsRootCAFile",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_INTERNAL_CLIENT_TLS_BASE_ROOT_CA_FILE",
+      "meaning": "TLS 根 CA 文件路径",
+      "source": "pkg/config/shared/shared.go:14",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "internalClient.base.tlsRootCAFile"
+    },
+    {
+      "path": "server.internalClient.base.tlsMinVersion",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "无显式绑定",
+      "meaning": "允许的最低 TLS 版本",
+      "source": "pkg/config/shared/shared.go:17",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "internalClient.base.tlsMinVersion"
+    },
+    {
+      "path": "server.logger.level",
+      "type": "string",
+      "default": "warn",
+      "env": "SERVER_LOGGER_LEVEL",
+      "meaning": "日志最低级别",
+      "source": "pkg/config/shared/shared.go:21",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "logger.level"
+    },
+    {
+      "path": "server.logger.format",
+      "type": "string",
+      "default": "console",
+      "env": "SERVER_LOGGER_FORMAT",
+      "meaning": "日志输出格式",
+      "source": "pkg/config/shared/shared.go:24",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "logger.format"
+    },
+    {
+      "path": "server.additionalLoggers.queue.level",
+      "type": "string",
+      "default": "warn",
+      "env": "SERVER_ADDITIONAL_LOGGERS_QUEUE_LEVEL",
+      "meaning": "日志最低级别",
+      "source": "pkg/config/shared/shared.go:21",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "additionalLoggers.queue.level"
+    },
+    {
+      "path": "server.additionalLoggers.queue.format",
+      "type": "string",
+      "default": "console",
+      "env": "SERVER_ADDITIONAL_LOGGERS_QUEUE_FORMAT",
+      "meaning": "日志输出格式",
+      "source": "pkg/config/shared/shared.go:24",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "additionalLoggers.queue.format"
+    },
+    {
+      "path": "server.additionalLoggers.pgxStats.level",
+      "type": "string",
+      "default": "warn",
+      "env": "SERVER_ADDITIONAL_LOGGERS_PGXSTATS_LEVEL",
+      "meaning": "日志最低级别",
+      "source": "pkg/config/shared/shared.go:21",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "additionalLoggers.pgxStats.level"
+    },
+    {
+      "path": "server.additionalLoggers.pgxStats.format",
+      "type": "string",
+      "default": "console",
+      "env": "SERVER_ADDITIONAL_LOGGERS_PGXSTATS_FORMAT",
+      "meaning": "日志输出格式",
+      "source": "pkg/config/shared/shared.go:24",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "additionalLoggers.pgxStats.format"
+    },
+    {
+      "path": "server.otel.collectorURL",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_OTEL_COLLECTOR_URL",
+      "meaning": "OpenTelemetry Collector URL",
+      "source": "pkg/config/shared/shared.go:40",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "otel.collectorURL"
+    },
+    {
+      "path": "server.otel.serviceName",
+      "type": "string",
+      "default": "server",
+      "env": "SERVER_OTEL_SERVICE_NAME",
+      "meaning": "OpenTelemetry 服务名",
+      "source": "pkg/config/shared/shared.go:41",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "otel.serviceName"
+    },
+    {
+      "path": "server.otel.traceIdRatio",
+      "type": "string",
+      "default": "1",
+      "env": "SERVER_OTEL_TRACE_ID_RATIO",
+      "meaning": "追踪采样比例",
+      "source": "pkg/config/shared/shared.go:42",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "otel.traceIdRatio"
+    },
+    {
+      "path": "server.otel.insecure",
+      "type": "bool",
+      "default": "false",
+      "env": "SERVER_OTEL_INSECURE",
+      "meaning": "是否使用不安全连接",
+      "source": "pkg/config/shared/shared.go:43",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "otel.insecure"
+    },
+    {
+      "path": "server.otel.collectorAuth",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_OTEL_COLLECTOR_AUTH",
+      "meaning": "Collector 认证信息",
+      "source": "pkg/config/shared/shared.go:44",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "otel.collectorAuth"
+    },
+    {
+      "path": "server.otel.metricsEnabled",
+      "type": "bool",
+      "default": "false",
+      "env": "SERVER_OTEL_METRICS_ENABLED",
+      "meaning": "是否导出 OpenTelemetry 指标",
+      "source": "pkg/config/shared/shared.go:45",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "otel.metricsEnabled"
+    },
+    {
+      "path": "server.prometheus.prometheusServerURL",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_PROMETHEUS_SERVER_URL",
+      "meaning": "Prometheus 服务 URL",
+      "source": "pkg/config/shared/shared.go:50",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "prometheus.prometheusServerURL"
+    },
+    {
+      "path": "server.prometheus.prometheusServerUsername",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_PROMETHEUS_SERVER_USERNAME",
+      "meaning": "Prometheus Basic Auth 用户名",
+      "source": "pkg/config/shared/shared.go:53",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "prometheus.prometheusServerUsername"
+    },
+    {
+      "path": "server.prometheus.prometheusServerPassword",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_PROMETHEUS_SERVER_PASSWORD",
+      "meaning": "Prometheus Basic Auth 密码",
+      "source": "pkg/config/shared/shared.go:56",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "prometheus.prometheusServerPassword"
+    },
+    {
+      "path": "server.prometheus.address",
+      "type": "string",
+      "default": ":9090",
+      "env": "SERVER_PROMETHEUS_ADDRESS",
+      "meaning": "指标端点监听地址",
+      "source": "pkg/config/shared/shared.go:59",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "prometheus.address"
+    },
+    {
+      "path": "server.prometheus.enabled",
+      "type": "bool",
+      "default": "false",
+      "env": "SERVER_PROMETHEUS_ENABLED",
+      "meaning": "是否启用",
+      "source": "pkg/config/shared/shared.go:62",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "prometheus.enabled"
+    },
+    {
+      "path": "server.prometheus.path",
+      "type": "string",
+      "default": "/metrics",
+      "env": "SERVER_PROMETHEUS_PATH",
+      "meaning": "指标端点路径",
+      "source": "pkg/config/shared/shared.go:65",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "prometheus.path"
+    },
+    {
+      "path": "server.prometheus.tenantScoped",
+      "type": "bool",
+      "default": "false",
+      "env": "SERVER_PROMETHEUS_SERVER_TENANT_SCOPED",
+      "meaning": "是否按租户 entitlement 限制 Prometheus 指标",
+      "source": "pkg/config/shared/shared.go:70",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "prometheus.tenantScoped"
+    },
+    {
+      "path": "server.observability.enabled",
+      "type": "bool",
+      "default": "false",
+      "env": "SERVER_OBSERVABILITY_ENABLED",
+      "meaning": "是否启用",
+      "source": "pkg/config/shared/shared.go:78",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "observability.enabled"
+    },
+    {
+      "path": "server.observability.maxBatchSize",
+      "type": "int",
+      "default": "1000",
+      "env": "SERVER_OBSERVABILITY_MAX_BATCH_SIZE",
+      "meaning": "单次观测 span 批量上限",
+      "source": "pkg/config/shared/shared.go:82",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "observability.maxBatchSize"
+    },
+    {
+      "path": "server.securityCheck.enabled",
+      "type": "bool",
+      "default": "true",
+      "env": "SERVER_SECURITY_CHECK_ENABLED",
+      "meaning": "是否启用",
+      "source": "pkg/config/server/server.go:382",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "securityCheck.enabled"
+    },
+    {
+      "path": "server.securityCheck.endpoint",
+      "type": "string",
+      "default": "https://security.hatchet.run",
+      "env": "SERVER_SECURITY_CHECK_ENDPOINT",
+      "meaning": "外部服务端点",
+      "source": "pkg/config/server/server.go:383",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "securityCheck.endpoint"
+    },
+    {
+      "path": "server.tenantAlerting.slack.enabled",
+      "type": "bool",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_TENANT_ALERTING_SLACK_ENABLED",
+      "meaning": "是否启用",
+      "source": "pkg/config/server/server.go:521",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "tenantAlerting.slack.enabled"
+    },
+    {
+      "path": "server.tenantAlerting.slack.clientID",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_TENANT_ALERTING_SLACK_CLIENT_ID",
+      "meaning": "OAuth/集成客户端 ID",
+      "source": "pkg/config/server/server.go:523",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "tenantAlerting.slack.clientID"
+    },
+    {
+      "path": "server.tenantAlerting.slack.clientSecret",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_TENANT_ALERTING_SLACK_CLIENT_SECRET",
+      "meaning": "OAuth/集成客户端密钥",
+      "source": "pkg/config/server/server.go:524",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "tenantAlerting.slack.clientSecret"
+    },
+    {
+      "path": "server.tenantAlerting.slack.scopes",
+      "type": "[]string",
+      "default": "[\"incoming-webhook\"]",
+      "env": "SERVER_TENANT_ALERTING_SLACK_SCOPES",
+      "meaning": "OAuth/集成授权 scope 列表",
+      "source": "pkg/config/server/server.go:525",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "tenantAlerting.slack.scopes"
+    },
+    {
+      "path": "server.email.kind",
+      "type": "string",
+      "default": "postmark",
+      "env": "SERVER_EMAIL_KIND",
+      "meaning": "实现类型",
+      "source": "pkg/config/server/server.go:634",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "email.kind"
+    },
+    {
+      "path": "server.email.postmark.enabled",
+      "type": "bool",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_EMAIL_POSTMARK_ENABLED",
+      "meaning": "是否启用",
+      "source": "pkg/config/server/server.go:656",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "email.postmark.enabled"
+    },
+    {
+      "path": "server.email.postmark.serverKey",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_EMAIL_POSTMARK_SERVER_KEY",
+      "meaning": "邮件服务密钥",
+      "source": "pkg/config/server/server.go:658",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "email.postmark.serverKey"
+    },
+    {
+      "path": "server.email.postmark.fromEmail",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_EMAIL_POSTMARK_FROM_EMAIL",
+      "meaning": "发件邮箱",
+      "source": "pkg/config/server/server.go:659",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "email.postmark.fromEmail"
+    },
+    {
+      "path": "server.email.postmark.fromName",
+      "type": "string",
+      "default": "Hatchet Support",
+      "env": "SERVER_EMAIL_POSTMARK_FROM_NAME",
+      "meaning": "发件人显示名",
+      "source": "pkg/config/server/server.go:660",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "email.postmark.fromName"
+    },
+    {
+      "path": "server.email.postmark.supportEmail",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_EMAIL_POSTMARK_SUPPORT_EMAIL",
+      "meaning": "支持邮箱",
+      "source": "pkg/config/server/server.go:661",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "email.postmark.supportEmail"
+    },
+    {
+      "path": "server.email.smtp.basicAuth.username",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_EMAIL_SMTP_AUTH_USERNAME",
+      "meaning": "用户名",
+      "source": "pkg/config/server/server.go:675",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "email.smtp.basicAuth.username"
+    },
+    {
+      "path": "server.email.smtp.basicAuth.password",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_EMAIL_SMTP_AUTH_PASSWORD",
+      "meaning": "密码",
+      "source": "pkg/config/server/server.go:676",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "email.smtp.basicAuth.password"
+    },
+    {
+      "path": "server.email.smtp.serverKey",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "无显式绑定",
+      "meaning": "邮件服务密钥",
+      "source": "pkg/config/server/server.go:666",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "email.smtp.serverKey"
+    },
+    {
+      "path": "server.email.smtp.serverAddr",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_EMAIL_SMTP_SERVER_ADDR",
+      "meaning": "SMTP 服务地址",
+      "source": "pkg/config/server/server.go:667",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "email.smtp.serverAddr"
+    },
+    {
+      "path": "server.email.smtp.fromEmail",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_EMAIL_SMTP_FROM_EMAIL",
+      "meaning": "发件邮箱",
+      "source": "pkg/config/server/server.go:668",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "email.smtp.fromEmail"
+    },
+    {
+      "path": "server.email.smtp.fromName",
+      "type": "string",
+      "default": "Hatchet Support",
+      "env": "SERVER_EMAIL_SMTP_FROM_NAME",
+      "meaning": "发件人显示名",
+      "source": "pkg/config/server/server.go:669",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "email.smtp.fromName"
+    },
+    {
+      "path": "server.email.smtp.supportEmail",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_EMAIL_SMTP_SUPPORT_EMAIL",
+      "meaning": "支持邮箱",
+      "source": "pkg/config/server/server.go:670",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "email.smtp.supportEmail"
+    },
+    {
+      "path": "server.email.smtp.enabled",
+      "type": "bool",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_EMAIL_SMTP_ENABLED",
+      "meaning": "是否启用",
+      "source": "pkg/config/server/server.go:671",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "email.smtp.enabled"
+    },
+    {
+      "path": "server.monitoring.enabled",
+      "type": "bool",
+      "default": "true",
+      "env": "无显式绑定",
+      "meaning": "是否启用",
+      "source": "pkg/config/server/server.go:643",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "monitoring.enabled"
+    },
+    {
+      "path": "server.monitoring.permittedTenants",
+      "type": "[]string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "无显式绑定",
+      "meaning": "可使用监控的租户 ID 列表",
+      "source": "pkg/config/server/server.go:646",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "monitoring.permittedTenants"
+    },
+    {
+      "path": "server.monitoring.probeTimeout",
+      "type": "time.Duration",
+      "default": "30s",
+      "env": "无显式绑定",
+      "meaning": "监控探针超时",
+      "source": "pkg/config/server/server.go:649",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "monitoring.probeTimeout"
+    },
+    {
+      "path": "server.monitoring.tlsRootCAFile",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "无显式绑定",
+      "meaning": "TLS 根 CA 文件路径",
+      "source": "pkg/config/server/server.go:652",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "monitoring.tlsRootCAFile"
+    },
+    {
+      "path": "server.sampling.enabled",
+      "type": "bool",
+      "default": "false",
+      "env": "SERVER_SAMPLING_ENABLED",
+      "meaning": "是否启用",
+      "source": "pkg/config/server/server.go:105",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "sampling.enabled"
+    },
+    {
+      "path": "server.sampling.samplingRate",
+      "type": "float64",
+      "default": "1.0",
+      "env": "SERVER_SAMPLING_RATE",
+      "meaning": "采样比例",
+      "source": "pkg/config/server/server.go:108",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "sampling.samplingRate"
+    },
+    {
+      "path": "server.olap.jitter",
+      "type": "int",
+      "default": "0",
+      "env": "SERVER_OPERATIONS_JITTER",
+      "meaning": "操作轮询抖动",
+      "source": "pkg/config/server/server.go:113",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "olap.jitter"
+    },
+    {
+      "path": "server.olap.pollInterval",
+      "type": "int",
+      "default": "2",
+      "env": "SERVER_OPERATIONS_POLL_INTERVAL",
+      "meaning": "操作轮询间隔",
+      "source": "pkg/config/server/server.go:116",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "olap.pollInterval"
+    },
+    {
+      "path": "server.olap.olapMqQos",
+      "type": "int",
+      "default": "100",
+      "env": "SERVER_OLAP_MQ_QOS",
+      "meaning": "OLAP 消费者预取数量",
+      "source": "pkg/config/server/server.go:119",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "olap.olapMqQos"
+    },
+    {
+      "path": "server.payloadStore.externalCutoverProcessInterval",
+      "type": "time.Duration",
+      "default": "15s",
+      "env": "SERVER_PAYLOAD_STORE_EXTERNAL_CUTOVER_PROCESS_INTERVAL",
+      "meaning": "外部 payload 迁移处理间隔",
+      "source": "pkg/config/server/server.go:810",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "payloadStore.externalCutoverProcessInterval"
+    },
+    {
+      "path": "server.payloadStore.externalCutoverBatchSize",
+      "type": "int32",
+      "default": "1000",
+      "env": "SERVER_PAYLOAD_STORE_EXTERNAL_CUTOVER_BATCH_SIZE",
+      "meaning": "外部 payload 迁移批大小",
+      "source": "pkg/config/server/server.go:811",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "payloadStore.externalCutoverBatchSize"
+    },
+    {
+      "path": "server.payloadStore.externalCutoverNumConcurrentOffloads",
+      "type": "int32",
+      "default": "10",
+      "env": "SERVER_PAYLOAD_STORE_EXTERNAL_CUTOVER_NUM_CONCURRENT_OFFLOADS",
+      "meaning": "外部 payload 并发迁出数",
+      "source": "pkg/config/server/server.go:812",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "payloadStore.externalCutoverNumConcurrentOffloads"
+    },
+    {
+      "path": "server.payloadStore.inlineStoreTTLDays",
+      "type": "int32",
+      "default": "2",
+      "env": "SERVER_PAYLOAD_STORE_INLINE_STORE_TTL_DAYS",
+      "meaning": "内联 payload 存储保留天数",
+      "source": "pkg/config/server/server.go:813",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "payloadStore.inlineStoreTTLDays"
+    },
+    {
+      "path": "server.payloadStore.enableWindowSizeOptimization",
+      "type": "bool",
+      "default": "true",
+      "env": "SERVER_PAYLOAD_STORE_ENABLE_WINDOW_SIZE_OPTIMIZATION",
+      "meaning": "是否启用 payload 窗口优化",
+      "source": "pkg/config/server/server.go:814",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "payloadStore.enableWindowSizeOptimization"
+    },
+    {
+      "path": "server.cronOperations.taskAnalyzeCronInterval",
+      "type": "time.Duration",
+      "default": "3h",
+      "env": "SERVER_CRON_OPERATIONS_TASK_ANALYZE_CRON_INTERVAL",
+      "meaning": "任务表分析间隔",
+      "source": "pkg/config/server/server.go:139",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "cronOperations.taskAnalyzeCronInterval"
+    },
+    {
+      "path": "server.cronOperations.olapAnalyzeCronInterval",
+      "type": "time.Duration",
+      "default": "3h",
+      "env": "SERVER_CRON_OPERATIONS_OLAP_ANALYZE_CRON_INTERVAL",
+      "meaning": "OLAP 表分析间隔",
+      "source": "pkg/config/server/server.go:142",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "cronOperations.olapAnalyzeCronInterval"
+    },
+    {
+      "path": "server.cronOperations.dbHealthMetricsInterval",
+      "type": "time.Duration",
+      "default": "60s",
+      "env": "无显式绑定",
+      "meaning": "数据库健康指标采集间隔",
+      "source": "pkg/config/server/server.go:145",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "cronOperations.dbHealthMetricsInterval"
+    },
+    {
+      "path": "server.cronOperations.olapMetricsInterval",
+      "type": "time.Duration",
+      "default": "5m",
+      "env": "无显式绑定",
+      "meaning": "OLAP 指标采集间隔",
+      "source": "pkg/config/server/server.go:148",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "cronOperations.olapMetricsInterval"
+    },
+    {
+      "path": "server.cronOperations.workerMetricsInterval",
+      "type": "time.Duration",
+      "default": "60s",
+      "env": "无显式绑定",
+      "meaning": "worker 指标采集间隔",
+      "source": "pkg/config/server/server.go:151",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "cronOperations.workerMetricsInterval"
+    },
+    {
+      "path": "server.cronOperations.yesterdayRunCountHour",
+      "type": "uint",
+      "default": "0",
+      "env": "无显式绑定",
+      "meaning": "昨日运行数采集小时",
+      "source": "pkg/config/server/server.go:154",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "cronOperations.yesterdayRunCountHour"
+    },
+    {
+      "path": "server.cronOperations.yesterdayRunCountMinute",
+      "type": "uint",
+      "default": "5",
+      "env": "无显式绑定",
+      "meaning": "昨日运行数采集分钟",
+      "source": "pkg/config/server/server.go:157",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "cronOperations.yesterdayRunCountMinute"
+    },
+    {
+      "path": "server.statusUpdates.dagBatchSizeLimit",
+      "type": "int",
+      "default": "1000",
+      "env": "SERVER_OLAP_STATUS_UPDATE_DAG_BATCH_SIZE_LIMIT",
+      "meaning": "DAG 状态批更新大小",
+      "source": "pkg/config/server/server.go:163",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "statusUpdates.dagBatchSizeLimit"
+    },
+    {
+      "path": "server.statusUpdates.taskBatchSizeLimit",
+      "type": "int",
+      "default": "1000",
+      "env": "SERVER_OLAP_STATUS_UPDATE_TASK_BATCH_SIZE_LIMIT",
+      "meaning": "任务状态批更新大小",
+      "source": "pkg/config/server/server.go:166",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "statusUpdates.taskBatchSizeLimit"
+    },
+    {
+      "path": "server.versionOverride",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "SERVER_VERSION_OVERRIDE",
+      "meaning": "服务端版本覆盖值",
+      "source": "pkg/config/server/server.go:92",
+      "owner": "部署层：Hatchet Engine/API",
+      "yamlPath": "versionOverride"
+    },
+    {
+      "path": "database.host",
+      "type": "string",
+      "default": "127.0.0.1",
+      "env": "DATABASE_POSTGRES_HOST",
+      "meaning": "PostgreSQL 主机地址",
+      "source": "pkg/config/database/config.go:15",
+      "owner": "部署层：数据库 adapter",
+      "yamlPath": "host"
+    },
+    {
+      "path": "database.port",
+      "type": "int",
+      "default": "5431",
+      "env": "DATABASE_POSTGRES_PORT",
+      "meaning": "监听端口",
+      "source": "pkg/config/database/config.go:16",
+      "owner": "部署层：数据库 adapter",
+      "yamlPath": "port"
+    },
+    {
+      "path": "database.username",
+      "type": "string",
+      "default": "hatchet",
+      "env": "DATABASE_POSTGRES_USERNAME",
+      "meaning": "用户名",
+      "source": "pkg/config/database/config.go:17",
+      "owner": "部署层：数据库 adapter",
+      "yamlPath": "username"
+    },
+    {
+      "path": "database.password",
+      "type": "string",
+      "default": "hatchet",
+      "env": "DATABASE_POSTGRES_PASSWORD",
+      "meaning": "密码",
+      "source": "pkg/config/database/config.go:18",
+      "owner": "部署层：数据库 adapter",
+      "yamlPath": "password"
+    },
+    {
+      "path": "database.dbName",
+      "type": "string",
+      "default": "hatchet",
+      "env": "DATABASE_POSTGRES_DB_NAME",
+      "meaning": "数据库名称",
+      "source": "pkg/config/database/config.go:19",
+      "owner": "部署层：数据库 adapter",
+      "yamlPath": "dbName"
+    },
+    {
+      "path": "database.sslMode",
+      "type": "string",
+      "default": "disable",
+      "env": "DATABASE_POSTGRES_SSL_MODE",
+      "meaning": "PostgreSQL SSL 模式",
+      "source": "pkg/config/database/config.go:20",
+      "owner": "部署层：数据库 adapter",
+      "yamlPath": "sslMode"
+    },
+    {
+      "path": "database.readReplicaEnabled",
+      "type": "bool",
+      "default": "false",
+      "env": "READ_REPLICA_ENABLED",
+      "meaning": "是否启用只读副本",
+      "source": "pkg/config/database/config.go:22",
+      "owner": "部署层：数据库 adapter",
+      "yamlPath": "readReplicaEnabled"
+    },
+    {
+      "path": "database.readReplicaDatabaseUrl",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "READ_REPLICA_DATABASE_URL",
+      "meaning": "只读副本连接 URL",
+      "source": "pkg/config/database/config.go:23",
+      "owner": "部署层：数据库 adapter",
+      "yamlPath": "readReplicaDatabaseUrl"
+    },
+    {
+      "path": "database.readReplicaMaxConns",
+      "type": "int",
+      "default": "50",
+      "env": "READ_REPLICA_MAX_CONNS",
+      "meaning": "只读副本最大连接数",
+      "source": "pkg/config/database/config.go:24",
+      "owner": "部署层：数据库 adapter",
+      "yamlPath": "readReplicaMaxConns"
+    },
+    {
+      "path": "database.readReplicaMinConns",
+      "type": "int",
+      "default": "10",
+      "env": "READ_REPLICA_MIN_CONNS",
+      "meaning": "只读副本最小连接数",
+      "source": "pkg/config/database/config.go:25",
+      "owner": "部署层：数据库 adapter",
+      "yamlPath": "readReplicaMinConns"
+    },
+    {
+      "path": "database.maxConns",
+      "type": "int",
+      "default": "50",
+      "env": "DATABASE_MAX_CONNS",
+      "meaning": "最大连接数",
+      "source": "pkg/config/database/config.go:27",
+      "owner": "部署层：数据库 adapter",
+      "yamlPath": "maxConns"
+    },
+    {
+      "path": "database.minConns",
+      "type": "int",
+      "default": "1",
+      "env": "DATABASE_MIN_CONNS",
+      "meaning": "最小连接数",
+      "source": "pkg/config/database/config.go:28",
+      "owner": "部署层：数据库 adapter",
+      "yamlPath": "minConns"
+    },
+    {
+      "path": "database.pgbouncerUrl",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "DATABASE_PGBOUNCER_URL",
+      "meaning": "PgBouncer 连接 URL",
+      "source": "pkg/config/database/config.go:32",
+      "owner": "部署层：数据库 adapter",
+      "yamlPath": "pgbouncerUrl"
+    },
+    {
+      "path": "database.ddlPoolMaxConns",
+      "type": "int",
+      "default": "5",
+      "env": "DATABASE_DDL_POOL_MAX_CONNS",
+      "meaning": "DDL 直连池最大连接数",
+      "source": "pkg/config/database/config.go:34",
+      "owner": "部署层：数据库 adapter",
+      "yamlPath": "ddlPoolMaxConns"
+    },
+    {
+      "path": "database.ddlPoolMinConns",
+      "type": "int",
+      "default": "1",
+      "env": "DATABASE_DDL_POOL_MIN_CONNS",
+      "meaning": "DDL 直连池最小连接数",
+      "source": "pkg/config/database/config.go:35",
+      "owner": "部署层：数据库 adapter",
+      "yamlPath": "ddlPoolMinConns"
+    },
+    {
+      "path": "database.maxConnLifetime",
+      "type": "time.Duration",
+      "default": "15m",
+      "env": "DATABASE_MAX_CONN_LIFETIME",
+      "meaning": "连接最大存活时间",
+      "source": "pkg/config/database/config.go:37",
+      "owner": "部署层：数据库 adapter",
+      "yamlPath": "maxConnLifetime"
+    },
+    {
+      "path": "database.maxConnIdleTime",
+      "type": "time.Duration",
+      "default": "1m",
+      "env": "DATABASE_MAX_CONN_IDLE_TIME",
+      "meaning": "连接最大空闲时间",
+      "source": "pkg/config/database/config.go:38",
+      "owner": "部署层：数据库 adapter",
+      "yamlPath": "maxConnIdleTime"
+    },
+    {
+      "path": "database.applicationNamePrefix",
+      "type": "string",
+      "default": "未设置/需 loader 或调用方决定",
+      "env": "K8S_POD_NAMESPACE",
+      "meaning": "PostgreSQL application_name 前缀",
+      "source": "pkg/config/database/config.go:43",
+      "owner": "部署层：数据库 adapter",
+      "yamlPath": "applicationNamePrefix"
+    },
+    {
+      "path": "database.seed.adminEmail",
+      "type": "string",
+      "default": "admin@example.com",
+      "env": "ADMIN_EMAIL",
+      "meaning": "初始化管理员邮箱",
+      "source": "pkg/config/database/config.go:60",
+      "owner": "部署层：数据库 adapter",
+      "yamlPath": "seed.adminEmail"
+    },
+    {
+      "path": "database.seed.adminPassword",
+      "type": "string",
+      "default": "Admin123!!",
+      "env": "ADMIN_PASSWORD",
+      "meaning": "初始化管理员密码",
+      "source": "pkg/config/database/config.go:61",
+      "owner": "部署层：数据库 adapter",
+      "yamlPath": "seed.adminPassword"
+    },
+    {
+      "path": "database.seed.adminName",
+      "type": "string",
+      "default": "Admin",
+      "env": "ADMIN_NAME",
+      "meaning": "初始化管理员显示名",
+      "source": "pkg/config/database/config.go:62",
+      "owner": "部署层：数据库 adapter",
+      "yamlPath": "seed.adminName"
+    },
+    {
+      "path": "database.seed.defaultTenantName",
+      "type": "string",
+      "default": "Default",
+      "env": "DEFAULT_TENANT_NAME",
+      "meaning": "初始化默认租户名称",
+      "source": "pkg/config/database/config.go:64",
+      "owner": "部署层：数据库 adapter",
+      "yamlPath": "seed.defaultTenantName"
+    },
+    {
+      "path": "database.seed.defaultTenantSlug",
+      "type": "string",
+      "default": "default",
+      "env": "DEFAULT_TENANT_SLUG",
+      "meaning": "初始化默认租户 slug",
+      "source": "pkg/config/database/config.go:65",
+      "owner": "部署层：数据库 adapter",
+      "yamlPath": "seed.defaultTenantSlug"
+    },
+    {
+      "path": "database.seed.defaultTenantId",
+      "type": "string",
+      "default": "707d0855-80ab-4e1f-a156-f1c4546cbf52",
+      "env": "DEFAULT_TENANT_ID",
+      "meaning": "初始化默认租户 ID",
+      "source": "pkg/config/database/config.go:66",
+      "owner": "部署层：数据库 adapter",
+      "yamlPath": "seed.defaultTenantId"
+    },
+    {
+      "path": "database.logger.level",
+      "type": "string",
+      "default": "warn",
+      "env": "DATABASE_LOGGER_LEVEL",
+      "meaning": "日志最低级别",
+      "source": "pkg/config/shared/shared.go:21",
+      "owner": "部署层：数据库 adapter",
+      "yamlPath": "logger.level"
+    },
+    {
+      "path": "database.logger.format",
+      "type": "string",
+      "default": "console",
+      "env": "DATABASE_LOGGER_FORMAT",
+      "meaning": "日志输出格式",
+      "source": "pkg/config/shared/shared.go:24",
+      "owner": "部署层：数据库 adapter",
+      "yamlPath": "logger.format"
+    },
+    {
+      "path": "database.logQueries",
+      "type": "bool",
+      "default": "false",
+      "env": "DATABASE_LOG_QUERIES",
+      "meaning": "是否记录 SQL 查询日志",
+      "source": "pkg/config/database/config.go:49",
+      "owner": "部署层：数据库 adapter",
+      "yamlPath": "logQueries"
+    },
+    {
+      "path": "database.cacheDuration",
+      "type": "time.Duration",
+      "default": "5s",
+      "env": "CACHE_DURATION",
+      "meaning": "仓库缓存时长",
+      "source": "pkg/config/database/config.go:51",
+      "owner": "部署层：数据库 adapter",
+      "yamlPath": "cacheDuration"
+    },
+    {
+      "path": "database.enforceUtcTimezone",
+      "type": "bool",
+      "default": "true",
+      "env": "DATABASE_ENFORCE_UTC_TIMEZONE",
+      "meaning": "启动时是否强制数据库时区为 UTC",
+      "source": "pkg/config/database/config.go:56",
+      "owner": "部署层：数据库 adapter",
+      "yamlPath": "enforceUtcTimezone"
+    },
+    {
+      "path": "directEnv.SERVER_DEFAULT_BUFFER_FLUSH_INTERVAL",
+      "type": "time.Duration",
+      "default": "100ms",
+      "env": "SERVER_DEFAULT_BUFFER_FLUSH_INTERVAL",
+      "meaning": "消息队列核心缓冲批量刷写间隔",
+      "source": "internal/msgqueue/mq_buffer_core.go:20",
+      "owner": "部署层：消息队列 adapter",
+      "yamlPath": null
+    },
+    {
+      "path": "directEnv.SERVER_DEFAULT_BUFFER_IDLE_TIMEOUT",
+      "type": "time.Duration",
+      "default": "1s",
+      "env": "SERVER_DEFAULT_BUFFER_IDLE_TIMEOUT",
+      "meaning": "消息队列核心缓冲空闲超时",
+      "source": "internal/msgqueue/mq_buffer_core.go:26",
+      "owner": "部署层：消息队列 adapter",
+      "yamlPath": null
+    },
+    {
+      "path": "directEnv.SERVER_DEFAULT_BUFFER_SIZE",
+      "type": "int",
+      "default": "1000",
+      "env": "SERVER_DEFAULT_BUFFER_SIZE",
+      "meaning": "消息队列核心缓冲容量",
+      "source": "internal/msgqueue/mq_buffer_core.go:31",
+      "owner": "部署层：消息队列 adapter",
+      "yamlPath": null
+    },
+    {
+      "path": "directEnv.SERVER_DEFAULT_BUFFER_CONCURRENCY",
+      "type": "int",
+      "default": "1",
+      "env": "SERVER_DEFAULT_BUFFER_CONCURRENCY",
+      "meaning": "消息队列核心缓冲并发消费者数",
+      "source": "internal/msgqueue/mq_buffer_core.go:37",
+      "owner": "部署层：消息队列 adapter",
+      "yamlPath": null
+    },
+    {
+      "path": "directEnv.K8S_POD_NAME",
+      "type": "string",
+      "default": "未设置时不附加",
+      "env": "K8S_POD_NAME",
+      "meaning": "遥测资源属性 pod.name",
+      "source": "pkg/telemetry/telemetry.go:270",
+      "owner": "部署层：Kubernetes adapter",
+      "yamlPath": null
+    },
+    {
+      "path": "directEnv.K8S_POD_NAMESPACE",
+      "type": "string",
+      "default": "未设置时不附加；亦绑定 database.applicationNamePrefix",
+      "env": "K8S_POD_NAMESPACE",
+      "meaning": "遥测 pod.namespace / PG application_name 前缀",
+      "source": "pkg/telemetry/telemetry.go:274",
+      "owner": "部署层：Kubernetes adapter",
+      "yamlPath": null
+    },
+    {
+      "path": "directEnv.K8S_CLOUD_REGION",
+      "type": "string",
+      "default": "未设置时尝试 AWS_REGION/AWS_DEFAULT_REGION",
+      "env": "K8S_CLOUD_REGION",
+      "meaning": "遥测 cloud.region",
+      "source": "pkg/telemetry/telemetry.go:278",
+      "owner": "部署层：Kubernetes adapter",
+      "yamlPath": null
+    },
+    {
+      "path": "directEnv.AWS_REGION",
+      "type": "string",
+      "default": "同上",
+      "env": "AWS_REGION",
+      "meaning": "遥测 cloud.region 后备值",
+      "source": "pkg/telemetry/telemetry.go:278",
+      "owner": "部署层：云 adapter",
+      "yamlPath": null
+    },
+    {
+      "path": "directEnv.AWS_DEFAULT_REGION",
+      "type": "string",
+      "default": "同上",
+      "env": "AWS_DEFAULT_REGION",
+      "meaning": "遥测 cloud.region 最后后备值",
+      "source": "pkg/telemetry/telemetry.go:278",
+      "owner": "部署层：云 adapter",
+      "yamlPath": null
+    },
+    {
+      "path": "directEnv.HOSTNAME",
+      "type": "string",
+      "default": "未设置时 hostname 字段为空",
+      "env": "HOSTNAME",
+      "meaning": "租户行为日志的宿主机名",
+      "source": "pkg/repository/tenant.go:923",
+      "owner": "部署层：运行环境",
+      "yamlPath": null
+    },
+    {
+      "path": "directEnv.LITE_STATIC_ASSET_DIR",
+      "type": "string",
+      "default": "未设置/需 loader",
+      "env": "LITE_STATIC_ASSET_DIR",
+      "meaning": "hatchet-lite 静态资源目录",
+      "source": "cmd/hatchet-lite/main.go:73",
+      "owner": "部署层：hatchet-lite 专属",
+      "yamlPath": null
+    },
+    {
+      "path": "directEnv.LITE_FRONTEND_BASE_PATH",
+      "type": "string",
+      "default": "未设置/需 loader",
+      "env": "LITE_FRONTEND_BASE_PATH",
+      "meaning": "hatchet-lite 前端 base path",
+      "source": "cmd/hatchet-lite/main.go:74",
+      "owner": "部署层：hatchet-lite 专属",
+      "yamlPath": null
+    },
+    {
+      "path": "directEnv.LITE_FRONTEND_PORT",
+      "type": "string",
+      "default": "未设置/需 loader",
+      "env": "LITE_FRONTEND_PORT",
+      "meaning": "hatchet-lite 前端端口",
+      "source": "cmd/hatchet-lite/main.go:75",
+      "owner": "部署层：hatchet-lite 专属",
+      "yamlPath": null
+    },
+    {
+      "path": "directEnv.LITE_RUNTIME_PORT",
+      "type": "string",
+      "default": "未设置/需 loader",
+      "env": "LITE_RUNTIME_PORT",
+      "meaning": "hatchet-lite runtime 端口",
+      "source": "cmd/hatchet-lite/main.go:76",
+      "owner": "部署层：hatchet-lite 专属",
+      "yamlPath": null
+    },
+    {
+      "path": "directEnv.DATABASE_URL",
+      "type": "string",
+      "default": "若未设则由 database.* 组装并写回进程环境",
+      "env": "DATABASE_URL",
+      "meaning": "数据库直连 URL：ConfigLoader 先读取；未设置才由 database.yaml 的 host/port/username/password/dbName/sslMode 组装。迁移库 RunMigrations 则先取嵌入调用方 WithDatabaseURL，再取此变量；两者皆空返回 MissingEnvError，不会自行组装。",
+      "source": "pkg/config/loader/loader.go:151; cmd/hatchet-migrate/migrate/run.go:104",
+      "owner": "部署层：数据库 adapter",
+      "yamlPath": null
+    },
+    {
+      "path": "directFlag.hatchet-staticfileserver.port",
+      "type": "string",
+      "default": "80",
+      "env": "无（flag）",
+      "meaning": "静态文件 HTTP 监听端口。",
+      "owner": "部署层：静态文件托管 adapter",
+      "source": "cmd/hatchet-staticfileserver/main.go:16",
+      "yamlPath": null
+    },
+    {
+      "path": "directFlag.hatchet-staticfileserver.static-asset-dir",
+      "type": "string",
+      "default": ".",
+      "env": "无（flag）",
+      "meaning": "静态资源根目录。",
+      "owner": "部署层：静态文件托管 adapter",
+      "source": "cmd/hatchet-staticfileserver/main.go:17",
+      "yamlPath": null
+    },
+    {
+      "path": "directFlag.hatchet-staticfileserver.base-path",
+      "type": "string",
+      "default": "环境 BASE_PATH；未设置时 /",
+      "env": "BASE_PATH（仅为该 flag 默认值）",
+      "meaning": "应用被反向代理到子路径时使用的 URL 基路径；flag 显式值覆盖其默认值。",
+      "owner": "部署层：静态文件托管 adapter",
+      "source": "cmd/hatchet-staticfileserver/main.go:18",
+      "yamlPath": null
+    }
+  ],
+  "runtimeOnlyExcluded": [
+    {
+      "path": "shared.LoggerConfigFile.Writer",
+      "meaning": "嵌入调用方通过 loader.WithLogWriter 或 ServerConfigFileOverride 注入日志 io.Writer；mapstructure/json 均为 -，不能由 YAML 或环境变量配置。",
+      "source": "pkg/config/shared/shared.go:25; pkg/config/loader/loader.go:103-128"
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+go 1.26.7
+
+use (
+	.
+	../..
+	../go/examples/embedded
+	examples/embedded
+	tests/e2e/embedded
+)

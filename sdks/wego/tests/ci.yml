@@ -1,0 +1,37 @@
+# CI 配置模板保存在 SDK 范围内；仓库 CI 注册由仓库维护方接入。
+name: wego
+on:
+  pull_request:
+    paths: ["sdks/wego/**"]
+  workflow_dispatch:
+jobs:
+  acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      SERVER_SECURITY_CHECK_ENABLED: "false"
+      SERVER_MSGQUEUE_KIND: postgres
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with: {go-version: "1.26.7"}
+      - name: Install pinned generators
+        run: sdks/wego/scripts/install-tools.sh
+      - name: Start PostgreSQL MQ instance
+        run: |
+          docker compose -f sdks/wego/tests/compose.yml up -d --wait
+          docker compose -f sdks/wego/tests/compose.yml run --rm token > "$RUNNER_TEMP/wego-token"
+          chmod 600 "$RUNNER_TEMP/wego-token"
+      - name: Quality gates and real engine acceptance
+        run: WEGO_TOKEN_FILE="$RUNNER_TEMP/wego-token" sdks/wego/scripts/acceptance.py --out sdks/wego/.test-results/final-report.json
+      - name: Stop instance
+        if: always()
+        run: docker compose -f sdks/wego/tests/compose.yml down -v
+      - name: Acceptance reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: wego-acceptance
+          path: |
+            sdks/wego/.test-results/*.json
+            sdks/wego/.test-results/*.log

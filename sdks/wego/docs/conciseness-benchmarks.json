@@ -1,0 +1,769 @@
+{
+  "before_sdk": "0.1.10",
+  "after_sdk": "0.1.11",
+  "protocol_version": 3,
+  "go": "go version go1.26.7 darwin/arm64",
+  "platform": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+  "samples_per_case": 5,
+  "benchtime": "1s (Go default)",
+  "gomaxprocs": 12,
+  "race": false,
+  "scope": "session local control / notification / JSON / payload copy; no engine or network",
+  "commands": [
+    "go test ./internal/session -run ^$ -bench Benchmark(EndpointACK|EndpointNotify|SessionDecode|PayloadCopy) -benchmem -count=5",
+    "go test ./.test-results/session-before -run ^$ -bench ^BenchmarkEndpointInput$ -benchmem -count=5",
+    "go test ./internal/session -run ^$ -bench Benchmark(EndpointACK|EndpointInput|EndpointNotify|SessionDecode|PayloadCopy) -benchmem -count=5"
+  ],
+  "comparisons": [
+    {
+      "benchmark": "BenchmarkEndpointInput-12",
+      "before_samples": [
+        {
+          "ns": 76.12,
+          "bytes": 256,
+          "allocs": 1
+        },
+        {
+          "ns": 76.75,
+          "bytes": 256,
+          "allocs": 1
+        },
+        {
+          "ns": 80.12,
+          "bytes": 256,
+          "allocs": 1
+        },
+        {
+          "ns": 87.17,
+          "bytes": 256,
+          "allocs": 1
+        },
+        {
+          "ns": 78.39,
+          "bytes": 256,
+          "allocs": 1
+        }
+      ],
+      "after_samples": [
+        {
+          "ns": 79.84,
+          "bytes": 256,
+          "allocs": 1
+        },
+        {
+          "ns": 80.55,
+          "bytes": 256,
+          "allocs": 1
+        },
+        {
+          "ns": 80.74,
+          "bytes": 256,
+          "allocs": 1
+        },
+        {
+          "ns": 82.24,
+          "bytes": 256,
+          "allocs": 1
+        },
+        {
+          "ns": 84.56,
+          "bytes": 256,
+          "allocs": 1
+        }
+      ],
+      "before_ns_median": 78.39,
+      "after_ns_median": 80.74,
+      "ns_change_percent": 3.0,
+      "allocation_bytes_unchanged": true,
+      "allocation_count_unchanged": true
+    },
+    {
+      "benchmark": "BenchmarkPayloadCopy/append/253-12",
+      "before_samples": [
+        {
+          "ns": 41.36,
+          "bytes": 256,
+          "allocs": 1
+        },
+        {
+          "ns": 40.9,
+          "bytes": 256,
+          "allocs": 1
+        },
+        {
+          "ns": 40.91,
+          "bytes": 256,
+          "allocs": 1
+        },
+        {
+          "ns": 40.81,
+          "bytes": 256,
+          "allocs": 1
+        },
+        {
+          "ns": 41.67,
+          "bytes": 256,
+          "allocs": 1
+        }
+      ],
+      "after_samples": [
+        {
+          "ns": 45.51,
+          "bytes": 256,
+          "allocs": 1
+        },
+        {
+          "ns": 45.96,
+          "bytes": 256,
+          "allocs": 1
+        },
+        {
+          "ns": 45.18,
+          "bytes": 256,
+          "allocs": 1
+        },
+        {
+          "ns": 49.18,
+          "bytes": 256,
+          "allocs": 1
+        },
+        {
+          "ns": 43.95,
+          "bytes": 256,
+          "allocs": 1
+        }
+      ],
+      "before_ns_median": 40.91,
+      "after_ns_median": 45.51,
+      "ns_change_percent": 11.24,
+      "allocation_bytes_unchanged": true,
+      "allocation_count_unchanged": true
+    },
+    {
+      "benchmark": "BenchmarkPayloadCopy/exact/253-12",
+      "before_samples": [
+        {
+          "ns": 36.43,
+          "bytes": 256,
+          "allocs": 1
+        },
+        {
+          "ns": 38.83,
+          "bytes": 256,
+          "allocs": 1
+        },
+        {
+          "ns": 47.8,
+          "bytes": 256,
+          "allocs": 1
+        },
+        {
+          "ns": 37.79,
+          "bytes": 256,
+          "allocs": 1
+        },
+        {
+          "ns": 57.88,
+          "bytes": 256,
+          "allocs": 1
+        }
+      ],
+      "after_samples": [
+        {
+          "ns": 40.68,
+          "bytes": 256,
+          "allocs": 1
+        },
+        {
+          "ns": 43.05,
+          "bytes": 256,
+          "allocs": 1
+        },
+        {
+          "ns": 39.98,
+          "bytes": 256,
+          "allocs": 1
+        },
+        {
+          "ns": 38.87,
+          "bytes": 256,
+          "allocs": 1
+        },
+        {
+          "ns": 40.23,
+          "bytes": 256,
+          "allocs": 1
+        }
+      ],
+      "before_ns_median": 38.83,
+      "after_ns_median": 40.23,
+      "ns_change_percent": 3.61,
+      "allocation_bytes_unchanged": true,
+      "allocation_count_unchanged": true
+    },
+    {
+      "benchmark": "BenchmarkPayloadCopy/append/4097-12",
+      "before_samples": [
+        {
+          "ns": 746.7,
+          "bytes": 4864,
+          "allocs": 1
+        },
+        {
+          "ns": 733.7,
+          "bytes": 4864,
+          "allocs": 1
+        },
+        {
+          "ns": 677.3,
+          "bytes": 4864,
+          "allocs": 1
+        },
+        {
+          "ns": 688.4,
+          "bytes": 4864,
+          "allocs": 1
+        },
+        {
+          "ns": 739.4,
+          "bytes": 4864,
+          "allocs": 1
+        }
+      ],
+      "after_samples": [
+        {
+          "ns": 521.5,
+          "bytes": 4864,
+          "allocs": 1
+        },
+        {
+          "ns": 491.4,
+          "bytes": 4864,
+          "allocs": 1
+        },
+        {
+          "ns": 497.1,
+          "bytes": 4864,
+          "allocs": 1
+        },
+        {
+          "ns": 517.3,
+          "bytes": 4864,
+          "allocs": 1
+        },
+        {
+          "ns": 503.0,
+          "bytes": 4864,
+          "allocs": 1
+        }
+      ],
+      "before_ns_median": 733.7,
+      "after_ns_median": 503.0,
+      "ns_change_percent": -31.44,
+      "allocation_bytes_unchanged": true,
+      "allocation_count_unchanged": true
+    },
+    {
+      "benchmark": "BenchmarkPayloadCopy/exact/4097-12",
+      "before_samples": [
+        {
+          "ns": 567.8,
+          "bytes": 4864,
+          "allocs": 1
+        },
+        {
+          "ns": 709.3,
+          "bytes": 4864,
+          "allocs": 1
+        },
+        {
+          "ns": 580.1,
+          "bytes": 4864,
+          "allocs": 1
+        },
+        {
+          "ns": 532.1,
+          "bytes": 4864,
+          "allocs": 1
+        },
+        {
+          "ns": 501.1,
+          "bytes": 4864,
+          "allocs": 1
+        }
+      ],
+      "after_samples": [
+        {
+          "ns": 503.1,
+          "bytes": 4864,
+          "allocs": 1
+        },
+        {
+          "ns": 527.1,
+          "bytes": 4864,
+          "allocs": 1
+        },
+        {
+          "ns": 514.4,
+          "bytes": 4864,
+          "allocs": 1
+        },
+        {
+          "ns": 518.6,
+          "bytes": 4864,
+          "allocs": 1
+        },
+        {
+          "ns": 543.1,
+          "bytes": 4864,
+          "allocs": 1
+        }
+      ],
+      "before_ns_median": 567.8,
+      "after_ns_median": 518.6,
+      "ns_change_percent": -8.67,
+      "allocation_bytes_unchanged": true,
+      "allocation_count_unchanged": true
+    },
+    {
+      "benchmark": "BenchmarkEndpointACK/64-12",
+      "before_samples": [
+        {
+          "ns": 50.53,
+          "bytes": 0,
+          "allocs": 0
+        },
+        {
+          "ns": 51.6,
+          "bytes": 0,
+          "allocs": 0
+        },
+        {
+          "ns": 52.59,
+          "bytes": 0,
+          "allocs": 0
+        },
+        {
+          "ns": 52.5,
+          "bytes": 0,
+          "allocs": 0
+        },
+        {
+          "ns": 51.71,
+          "bytes": 0,
+          "allocs": 0
+        }
+      ],
+      "after_samples": [
+        {
+          "ns": 51.88,
+          "bytes": 0,
+          "allocs": 0
+        },
+        {
+          "ns": 51.28,
+          "bytes": 0,
+          "allocs": 0
+        },
+        {
+          "ns": 50.95,
+          "bytes": 0,
+          "allocs": 0
+        },
+        {
+          "ns": 52.38,
+          "bytes": 0,
+          "allocs": 0
+        },
+        {
+          "ns": 50.99,
+          "bytes": 0,
+          "allocs": 0
+        }
+      ],
+      "before_ns_median": 51.71,
+      "after_ns_median": 51.28,
+      "ns_change_percent": -0.83,
+      "allocation_bytes_unchanged": true,
+      "allocation_count_unchanged": true
+    },
+    {
+      "benchmark": "BenchmarkEndpointACK/1024-12",
+      "before_samples": [
+        {
+          "ns": 58.59,
+          "bytes": 0,
+          "allocs": 0
+        },
+        {
+          "ns": 57.1,
+          "bytes": 0,
+          "allocs": 0
+        },
+        {
+          "ns": 55.7,
+          "bytes": 0,
+          "allocs": 0
+        },
+        {
+          "ns": 56.84,
+          "bytes": 0,
+          "allocs": 0
+        },
+        {
+          "ns": 56.26,
+          "bytes": 0,
+          "allocs": 0
+        }
+      ],
+      "after_samples": [
+        {
+          "ns": 58.75,
+          "bytes": 0,
+          "allocs": 0
+        },
+        {
+          "ns": 58.68,
+          "bytes": 0,
+          "allocs": 0
+        },
+        {
+          "ns": 58.36,
+          "bytes": 0,
+          "allocs": 0
+        },
+        {
+          "ns": 58.55,
+          "bytes": 0,
+          "allocs": 0
+        },
+        {
+          "ns": 57.9,
+          "bytes": 0,
+          "allocs": 0
+        }
+      ],
+      "before_ns_median": 56.84,
+      "after_ns_median": 58.55,
+      "ns_change_percent": 3.01,
+      "allocation_bytes_unchanged": true,
+      "allocation_count_unchanged": true
+    },
+    {
+      "benchmark": "BenchmarkEndpointNotify/false-12",
+      "before_samples": [
+        {
+          "ns": 7.932,
+          "bytes": 0,
+          "allocs": 0
+        },
+        {
+          "ns": 8.01,
+          "bytes": 0,
+          "allocs": 0
+        },
+        {
+          "ns": 8.071,
+          "bytes": 0,
+          "allocs": 0
+        },
+        {
+          "ns": 8.417,
+          "bytes": 0,
+          "allocs": 0
+        },
+        {
+          "ns": 8.54,
+          "bytes": 0,
+          "allocs": 0
+        }
+      ],
+      "after_samples": [
+        {
+          "ns": 8.21,
+          "bytes": 0,
+          "allocs": 0
+        },
+        {
+          "ns": 8.156,
+          "bytes": 0,
+          "allocs": 0
+        },
+        {
+          "ns": 8.191,
+          "bytes": 0,
+          "allocs": 0
+        },
+        {
+          "ns": 8.12,
+          "bytes": 0,
+          "allocs": 0
+        },
+        {
+          "ns": 8.151,
+          "bytes": 0,
+          "allocs": 0
+        }
+      ],
+      "before_ns_median": 8.071,
+      "after_ns_median": 8.156,
+      "ns_change_percent": 1.05,
+      "allocation_bytes_unchanged": true,
+      "allocation_count_unchanged": true
+    },
+    {
+      "benchmark": "BenchmarkEndpointNotify/true-12",
+      "before_samples": [
+        {
+          "ns": 44.54,
+          "bytes": 112,
+          "allocs": 1
+        },
+        {
+          "ns": 45.21,
+          "bytes": 112,
+          "allocs": 1
+        },
+        {
+          "ns": 44.44,
+          "bytes": 112,
+          "allocs": 1
+        },
+        {
+          "ns": 44.47,
+          "bytes": 112,
+          "allocs": 1
+        },
+        {
+          "ns": 44.11,
+          "bytes": 112,
+          "allocs": 1
+        }
+      ],
+      "after_samples": [
+        {
+          "ns": 39.92,
+          "bytes": 112,
+          "allocs": 1
+        },
+        {
+          "ns": 40.44,
+          "bytes": 112,
+          "allocs": 1
+        },
+        {
+          "ns": 40.73,
+          "bytes": 112,
+          "allocs": 1
+        },
+        {
+          "ns": 40.98,
+          "bytes": 112,
+          "allocs": 1
+        },
+        {
+          "ns": 40.74,
+          "bytes": 112,
+          "allocs": 1
+        }
+      ],
+      "before_ns_median": 44.47,
+      "after_ns_median": 40.73,
+      "ns_change_percent": -8.41,
+      "allocation_bytes_unchanged": true,
+      "allocation_count_unchanged": true
+    },
+    {
+      "benchmark": "BenchmarkSessionDecode/string-12",
+      "before_samples": [
+        {
+          "ns": 435.0,
+          "bytes": 272,
+          "allocs": 6
+        },
+        {
+          "ns": 440.5,
+          "bytes": 272,
+          "allocs": 6
+        },
+        {
+          "ns": 444.3,
+          "bytes": 272,
+          "allocs": 6
+        },
+        {
+          "ns": 432.0,
+          "bytes": 272,
+          "allocs": 6
+        },
+        {
+          "ns": 444.0,
+          "bytes": 272,
+          "allocs": 6
+        }
+      ],
+      "after_samples": [
+        {
+          "ns": 457.8,
+          "bytes": 272,
+          "allocs": 6
+        },
+        {
+          "ns": 463.8,
+          "bytes": 272,
+          "allocs": 6
+        },
+        {
+          "ns": 474.9,
+          "bytes": 272,
+          "allocs": 6
+        },
+        {
+          "ns": 465.1,
+          "bytes": 272,
+          "allocs": 6
+        },
+        {
+          "ns": 476.4,
+          "bytes": 272,
+          "allocs": 6
+        }
+      ],
+      "before_ns_median": 440.5,
+      "after_ns_median": 465.1,
+      "ns_change_percent": 5.58,
+      "allocation_bytes_unchanged": true,
+      "allocation_count_unchanged": true
+    },
+    {
+      "benchmark": "BenchmarkSessionDecode/raw-12",
+      "before_samples": [
+        {
+          "ns": 422.3,
+          "bytes": 224,
+          "allocs": 5
+        },
+        {
+          "ns": 420.6,
+          "bytes": 224,
+          "allocs": 5
+        },
+        {
+          "ns": 438.8,
+          "bytes": 224,
+          "allocs": 5
+        },
+        {
+          "ns": 440.2,
+          "bytes": 224,
+          "allocs": 5
+        },
+        {
+          "ns": 451.5,
+          "bytes": 224,
+          "allocs": 5
+        }
+      ],
+      "after_samples": [
+        {
+          "ns": 445.5,
+          "bytes": 224,
+          "allocs": 5
+        },
+        {
+          "ns": 446.5,
+          "bytes": 224,
+          "allocs": 5
+        },
+        {
+          "ns": 450.1,
+          "bytes": 224,
+          "allocs": 5
+        },
+        {
+          "ns": 444.7,
+          "bytes": 224,
+          "allocs": 5
+        },
+        {
+          "ns": 451.0,
+          "bytes": 224,
+          "allocs": 5
+        }
+      ],
+      "before_ns_median": 438.8,
+      "after_ns_median": 446.5,
+      "ns_change_percent": 1.75,
+      "allocation_bytes_unchanged": true,
+      "allocation_count_unchanged": true
+    },
+    {
+      "benchmark": "BenchmarkSessionDecode/object-12",
+      "before_samples": [
+        {
+          "ns": 783.9,
+          "bytes": 416,
+          "allocs": 11
+        },
+        {
+          "ns": 722.9,
+          "bytes": 416,
+          "allocs": 11
+        },
+        {
+          "ns": 730.5,
+          "bytes": 416,
+          "allocs": 11
+        },
+        {
+          "ns": 795.8,
+          "bytes": 416,
+          "allocs": 11
+        },
+        {
+          "ns": 743.3,
+          "bytes": 416,
+          "allocs": 11
+        }
+      ],
+      "after_samples": [
+        {
+          "ns": 804.1,
+          "bytes": 416,
+          "allocs": 11
+        },
+        {
+          "ns": 804.9,
+          "bytes": 416,
+          "allocs": 11
+        },
+        {
+          "ns": 793.7,
+          "bytes": 416,
+          "allocs": 11
+        },
+        {
+          "ns": 808.7,
+          "bytes": 416,
+          "allocs": 11
+        },
+        {
+          "ns": 790.5,
+          "bytes": 416,
+          "allocs": 11
+        }
+      ],
+      "before_ns_median": 743.3,
+      "after_ns_median": 804.1,
+      "ns_change_percent": 8.18,
+      "allocation_bytes_unchanged": true,
+      "allocation_count_unchanged": true
+    }
+  ],
+  "compiler_checks": "inputWindowFull, outputWindowFull and hasOutputGap are inlined into call sites",
+  "limitations": [
+    "Five sequential samples do not establish statistical significance or universal absence of performance regression.",
+    "Wall-clock medians vary even on unchanged append-copy paths; report all slower and faster samples.",
+    "All measured allocation byte/count values are unchanged; measurements do not prove end-to-end throughput."
+  ]
+}

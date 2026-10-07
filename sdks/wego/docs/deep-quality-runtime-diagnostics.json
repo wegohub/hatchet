@@ -1,0 +1,99 @@
+{
+  "sdk_version": "0.1.10",
+  "server_version": "v0.107.0",
+  "mq": "postgresql",
+  "observed_at": "2026-10-07T14:54:10.047915+00:00",
+  "failed_attempts": [
+    {
+      "engine_log": "sdks/wego/.test-results/gate-1791381160-engine.log",
+      "scenario": "middleware",
+      "error": "cancellation stream handshake: context deadline exceeded",
+      "scenario_elapsed_seconds": 92.4
+    },
+    {
+      "engine_log": "sdks/wego/.test-results/gate-1791382757-engine.log",
+      "scenario": "middleware",
+      "error": "cancellation stream handshake: rpc error: code = DeadlineExceeded desc = context deadline exceeded",
+      "scenario_elapsed_seconds": 144.46
+    }
+  ],
+  "isolated_recheck": {
+    "log": "sdks/wego/.test-results/optimization-middleware-recheck.log",
+    "status": "PASSED",
+    "scenario_elapsed_seconds": 35.89
+  },
+  "read_only_database_evidence": {
+    "session_run_id": "1a92bdec-8f97-4afd-9bb8-335c3e8457ec",
+    "task_id": 18184,
+    "inserted_at": "2026-10-07T14:30:14.557577Z",
+    "events": [
+      {
+        "event": "REQUEUED_NO_WORKER",
+        "at": "2026-10-07T14:30:14.564602Z"
+      },
+      {
+        "event": "QUEUED",
+        "at": "2026-10-07T14:30:14.566773Z"
+      },
+      {
+        "event": "SCHEDULING_TIMED_OUT",
+        "at": "2026-10-07T14:30:58.552802Z"
+      }
+    ],
+    "assigned_worker": null,
+    "control_worker_id": "a4e6249c-8d78-4270-99c3-2fc38c90e0ab",
+    "business_worker_id": "1a356ea5-770d-4bbc-8804-8b3cb039c37f",
+    "control_ping_tasks_completed_during_failure": true,
+    "business_heartbeat_at": "2026-10-07T14:30:44.010Z",
+    "control_heartbeat_at": "2026-10-07T14:30:44.252Z",
+    "business_slots": 1,
+    "control_slots": 4,
+    "earlier_start_delays_seconds": [
+      15.757,
+      28.885
+    ]
+  },
+  "remediation": {
+    "active_task_runtime_before_restart": 0,
+    "live_workers_before_restart": 0,
+    "action": "restart existing local development engine to reset in-memory scheduling state",
+    "image_changed": false,
+    "database_changed": false,
+    "mq_changed": false,
+    "sdk_handshake_budget_changed": false,
+    "tests_skipped": false,
+    "root_cause_limit": "Database records prove assignment starvation before handler execution. They do not by themselves identify the exact server scheduler/cache defect."
+  },
+  "post_restart_full_acceptance": {
+    "status": "PASSED",
+    "completed_at": "2026-10-07T15:14:27.098397+00:00",
+    "sdk_version": "0.1.10",
+    "quality_gates": 15,
+    "source_count": 28,
+    "fragment_count": 74
+  },
+  "post_restart_middleware": {
+    "status": "PASSED",
+    "elapsed_seconds": 15.24
+  },
+  "event_fixture_repair": {
+    "cause": "handler notification precedes OLAP record visibility",
+    "action": "bounded read-only lookup retry only for explicit HTTP 404; no RPC/task resubmission",
+    "poll_interval_ms": 100,
+    "budget": "existing scenario context",
+    "unit_tests": "TestEventRunVisibility: visible, 500, cancelled before lookup, budget expires"
+  },
+  "final_event_scenario": {
+    "status": "PASSED",
+    "elapsed_seconds": 0.99
+  },
+  "final_middleware_scenario": {
+    "status": "PASSED",
+    "elapsed_seconds": 10.59
+  },
+  "event_failure_before_repair": {
+    "status": "FAILED",
+    "error": "event run lookup: received HTTP 404 before async OLAP visibility",
+    "log": "sdks/wego/.test-results/gate-1791384790-engine.log"
+  }
+}

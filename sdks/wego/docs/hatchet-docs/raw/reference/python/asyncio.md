@@ -1,0 +1,61 @@
+# Working with `asyncio`
+
+Hatchet's Python SDK, similarly to other popular libraries like FastAPI, Langchain, etc., makes heavy use of `asyncio`, and recommends that you do as well!
+
+
+  To learn the basics of `asyncio`, check out [this introduction from
+  FastAPI](https://fastapi.tiangolo.com/async/).
+
+
+However, as is the case in FastAPI, when using `asyncio` in Hatchet, you need to be careful to not have any blocking logic in the functions you define as tasks, as this will block the asyncio event loop and prevent additional work from executing until the blocking operation has completed.
+
+For example, this is async-safe:
+
+```python
+async def async_safe() -> int:
+    await asyncio.sleep(5)
+
+    return 42
+```
+
+But this is not:
+
+```python
+async def blocking() -> int:
+    time.sleep(5)
+
+    return 42
+```
+
+In the second case, your worker will not be able to process any other work that's defined as async until the five-second sleep has finished.
+
+### Using `asyncio.to_thread` and `loop.run_in_executor`
+
+To avoid problems caused by blocking code, you can run your blocking code in an executor with `asyncio.to_thread` or, more verbosely, `loop.run_in_executor`. The two examples below are async-safe and will no longer block the event loop.
+
+```python
+async def to_thread() -> int:
+    await asyncio.to_thread(time.sleep, 5)
+
+    return 42
+```
+
+```python
+async def run_in_executor() -> int:
+    loop = asyncio.get_event_loop()
+
+    await loop.run_in_executor(None, time.sleep, 5)
+
+    return 42
+```
+
+### More Resources for working with `asyncio`
+
+If you're looking for more info on developing with AsyncIO more broadly, we highly recommend the following
+resources:
+
+- Python's Documentation on [Developing with
+  AsyncIO](https://docs.python.org/3/library/asyncio-dev.html)
+- Tusamma's Medium post about [How AsyncIO
+  works](https://medium.com/@tssovi/how-does-asyncio-works-f5386316b7fa)
+- Zac Hatfield-Dodds's PyCon 2023 talk on [Async: scaling structured concurrency with static and dynamic analysis](https://www.youtube.com/watch?v=FrpUb6OEbcc)

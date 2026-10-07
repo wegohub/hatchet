@@ -1,0 +1,103 @@
+# Worker Health Checks
+
+Both the Python and TypeScript SDKs let you enable and ping a healthcheck to check on the status of your worker.
+
+## Python SDK
+
+### Usage
+
+First, set the `HATCHET_CLIENT_WORKER_HEALTHCHECK_ENABLED` environment variable to `True`. Once that flag is set, two health check endpoints will be available (on port `8001` by default):
+
+1. `/health` - Returns **200** when the worker listener is healthy, otherwise **503** with body `{"status":"HEALTHY"}` or `{"status":"UNHEALTHY"}`.
+2. `/metrics` - A metrics endpoint intended to be used by a monitoring system like Prometheus.
+
+### Custom Port
+
+You can set a custom port with the `HATCHET_CLIENT_WORKER_HEALTHCHECK_PORT` environment variable, e.g. `HATCHET_CLIENT_WORKER_HEALTHCHECK_PORT=8002`.
+
+### Event loop blocked threshold
+
+If the worker listener process event loop becomes blocked for longer than a threshold, `/health` will return **503**.
+
+You can configure this threshold (in seconds) with:
+
+- `HATCHET_CLIENT_WORKER_HEALTHCHECK_EVENT_LOOP_BLOCK_THRESHOLD_SECONDS` (default: `5.0`)
+
+#### Example request to `/health`:
+
+```bash
+curl localhost:8001/health
+
+{"status":"HEALTHY"}
+```
+
+#### Example request to `/metrics`:
+
+```bash
+curl localhost:8001/metrics
+
+# HELP python_gc_objects_collected_total Objects collected during gc
+# TYPE python_gc_objects_collected_total counter
+python_gc_objects_collected_total{generation="0"} 18782.0
+python_gc_objects_collected_total{generation="1"} 4907.0
+python_gc_objects_collected_total{generation="2"} 244.0
+# HELP python_gc_objects_uncollectable_total Uncollectable objects found during GC
+# TYPE python_gc_objects_uncollectable_total counter
+python_gc_objects_uncollectable_total{generation="0"} 0.0
+python_gc_objects_uncollectable_total{generation="1"} 0.0
+python_gc_objects_uncollectable_total{generation="2"} 0.0
+# HELP python_gc_collections_total Number of times this generation was collected
+# TYPE python_gc_collections_total counter
+python_gc_collections_total{generation="0"} 308.0
+python_gc_collections_total{generation="1"} 27.0
+python_gc_collections_total{generation="2"} 2.0
+# HELP python_info Python platform information
+# TYPE python_info gauge
+python_info{implementation="CPython",major="3",minor="10",patchlevel="15",version="3.10.15"} 1.0
+# HELP hatchet_worker_listener_health_my_worker Listener health (1 healthy, 0 unhealthy)
+# TYPE hatchet_worker_listener_health_my_worker gauge
+hatchet_worker_listener_health_my_worker 1.0
+# HELP hatchet_worker_event_loop_lag_seconds_my_worker Event loop lag in seconds (listener process)
+# TYPE hatchet_worker_event_loop_lag_seconds_my_worker gauge
+hatchet_worker_event_loop_lag_seconds_my_worker 0.0
+```
+
+#### Example Prometheus Configuration for `/metrics`:
+
+```yaml
+scrape_configs:
+  - job_name: "hatchet"
+    scrape_interval: 5s
+    static_configs:
+      - targets: ["localhost:8001"]
+```
+
+#### Example Prometheus Query
+
+An example query to check if the worker is healthy might look something like:
+
+```
+(hatchet_worker_listener_health_my_worker{instance="localhost:8001", job="hatchet"}) or vector(0)
+```
+
+## TypeScript SDK
+
+Set `HATCHET_CLIENT_WORKER_HEALTHCHECK_ENABLED=true` (and optionally `HATCHET_CLIENT_WORKER_HEALTHCHECK_PORT`, default `8001`) to enable the worker's health server. It exposes:
+
+1. `/health` - Always returns **200**, with the worker's status (`INITIALIZED`, `STARTING`, `HEALTHY`, or `UNHEALTHY`) in the JSON body, e.g. `{"status":"HEALTHY"}`. Kept unconditional for backward compatibility with consumers that inspect the body directly — since the status code alone doesn't indicate health, this endpoint is **not** suitable for a Kubernetes `httpGet` probe. Use `/readyz` for that instead.
+2. `/readyz` - A Kubernetes-style readiness probe. Returns **200** only when the worker is `HEALTHY` (registered and holding an action listener), **503** otherwise.
+3. `/livez` - A Kubernetes-style liveness probe. Always returns **200** as long as the process can respond at all, independent of Hatchet connectivity — a worker that's temporarily `UNHEALTHY` should be pulled from rotation via `/readyz`, not killed and restarted, since restarting doesn't fix an upstream Hatchet outage and drops in-flight work.
+4. `/metrics` - A metrics endpoint intended to be used by a monitoring system like Prometheus (requires the optional `prom-client` dependency).
+
+#### Example Kubernetes probe configuration
+
+```yaml
+readinessProbe:
+  httpGet:
+    path: /readyz
+    port: 8001
+livenessProbe:
+  httpGet:
+    path: /livez
+    port: 8001
+```

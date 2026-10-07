@@ -1,0 +1,5 @@
+hatchet-docs/
+├── raw/   # 英文原始文档：178 页（来自 docs.hatchet.run /llms/*.md）
+└── zh/    # 中文译文：171 个文件，一一对应，无缺失、无空文件
+
+v1/（用户指南 68 页）、self-hosting/（19 页）、cookbooks/（11 页）、reference/（Python/Go/TS/Ruby/CLI，96 页）、agent-instructions/、contributing/ 全部翻译

@@ -1,0 +1,1537 @@
+{
+  "sdk_version": "0.1.11",
+  "protocol_version": 3,
+  "sources": [
+    {
+      "source": "sdks/go/examples/batch_assign/main.go",
+      "fragments": [
+        {
+          "id": "sdks/go/examples/batch_assign/main.go::main::batch-simple",
+          "required_assertions": [
+            {
+              "scenario": "batch",
+              "id": "a5964017b94ed74a36282908",
+              "assertion": "batch simple aggregation and result mapping"
+            }
+          ],
+          "function": "main",
+          "constructor": "NewStandaloneBatchTask",
+          "task": "batch-simple",
+          "line": 45
+        },
+        {
+          "id": "sdks/go/examples/batch_assign/main.go::main::batch-keyed",
+          "required_assertions": [
+            {
+              "scenario": "batch",
+              "id": "d589ba52d67469728adfc34c",
+              "assertion": "batch keyed aggregation and result mapping"
+            }
+          ],
+          "function": "main",
+          "constructor": "NewStandaloneBatchTask",
+          "task": "batch-keyed",
+          "line": 61
+        },
+        {
+          "id": "sdks/go/examples/batch_assign/main.go::main::batch-broadcast",
+          "required_assertions": [
+            {
+              "scenario": "batch",
+              "id": "f10f1d88c81387f5087285c4",
+              "assertion": "batch broadcast aggregation and result mapping"
+            }
+          ],
+          "function": "main",
+          "constructor": "NewStandaloneBatchTask",
+          "task": "batch-broadcast",
+          "line": 88
+        }
+      ],
+      "scenarios": [
+        "batch"
+      ],
+      "example": "sdks/wego/examples/batch_assign/main.go",
+      "tests": [
+        "TestExamples/batch"
+      ],
+      "command": "sdks/wego/scripts/local-test.py go test -tags=e2e ./sdks/wego/tests/e2e/... -run 'TestExamples/(batch)$' -v -timeout 10m"
+    },
+    {
+      "source": "sdks/go/examples/child-workflows/main.go",
+      "fragments": [
+        {
+          "id": "sdks/go/examples/child-workflows/main.go::Parent::parent-task",
+          "required_assertions": [
+            {
+              "scenario": "child-workflows",
+              "id": "63bbab2e2d509188f0e11ed7",
+              "assertion": "sequential children preserve identity"
+            },
+            {
+              "scenario": "child-workflows",
+              "id": "ab16a74a19109ea11f5f19b7",
+              "assertion": "parallel children preserve identity"
+            }
+          ],
+          "function": "Parent",
+          "constructor": "NewStandaloneTask",
+          "task": "parent-task",
+          "line": 24
+        },
+        {
+          "id": "sdks/go/examples/child-workflows/main.go::Child::child-task",
+          "required_assertions": [
+            {
+              "scenario": "child-workflows",
+              "id": "63bbab2e2d509188f0e11ed7",
+              "assertion": "sequential children preserve identity"
+            },
+            {
+              "scenario": "child-workflows",
+              "id": "ab16a74a19109ea11f5f19b7",
+              "assertion": "parallel children preserve identity"
+            }
+          ],
+          "function": "Child",
+          "constructor": "NewStandaloneTask",
+          "task": "child-task",
+          "line": 69
+        }
+      ],
+      "scenarios": [
+        "child-workflows"
+      ],
+      "example": "sdks/wego/examples/child-workflows/main.go",
+      "tests": [
+        "TestExamples/child-workflows"
+      ],
+      "command": "sdks/wego/scripts/local-test.py go test -tags=e2e ./sdks/wego/tests/e2e/... -run 'TestExamples/(child-workflows)$' -v -timeout 10m"
+    },
+    {
+      "source": "sdks/go/examples/concurrency/main.go",
+      "fragments": [
+        {
+          "id": "sdks/go/examples/concurrency/main.go::ConcurrencyRoundRobin::simple-concurrency",
+          "required_assertions": [
+            {
+              "scenario": "concurrency",
+              "id": "8320c746bd609115adbcbb26",
+              "assertion": "concurrency round-robin"
+            }
+          ],
+          "function": "ConcurrencyRoundRobin",
+          "constructor": "NewStandaloneTask",
+          "task": "simple-concurrency",
+          "line": 27
+        },
+        {
+          "id": "sdks/go/examples/concurrency/main.go::MultipleConcurrencyKeys::multi-concurrency",
+          "required_assertions": [
+            {
+              "scenario": "concurrency",
+              "id": "f59c2a4a9aa02818741c982c",
+              "assertion": "concurrency multiple-keys"
+            }
+          ],
+          "function": "MultipleConcurrencyKeys",
+          "constructor": "NewStandaloneTask",
+          "task": "multi-concurrency",
+          "line": 50
+        },
+        {
+          "id": "sdks/go/examples/concurrency/main.go::ConcurrencyCancelInProgress::cancel-in-progress",
+          "required_assertions": [
+            {
+              "scenario": "concurrency",
+              "id": "7f8c6f594502c5c328813481",
+              "assertion": "cancel strategy CANCEL_IN_PROGRESS"
+            }
+          ],
+          "function": "ConcurrencyCancelInProgress",
+          "constructor": "NewStandaloneTask",
+          "task": "cancel-in-progress",
+          "line": 79
+        },
+        {
+          "id": "sdks/go/examples/concurrency/main.go::ConcurrencyCancelNewest::cancel-newest",
+          "required_assertions": [
+            {
+              "scenario": "concurrency",
+              "id": "d4db3da9426c8f54139f5ca1",
+              "assertion": "cancel strategy CANCEL_NEWEST"
+            }
+          ],
+          "function": "ConcurrencyCancelNewest",
+          "constructor": "NewStandaloneTask",
+          "task": "cancel-newest",
+          "line": 102
+        },
+        {
+          "id": "sdks/go/examples/concurrency/main.go::ConcurrencyCancelQueuedExceptNewest::cancel-queued-except-newest",
+          "required_assertions": [
+            {
+              "scenario": "concurrency",
+              "id": "04360045eb70ef2d0cb6b651",
+              "assertion": "cancel strategy CANCEL_QUEUED_EXCEPT_NEWEST"
+            }
+          ],
+          "function": "ConcurrencyCancelQueuedExceptNewest",
+          "constructor": "NewStandaloneTask",
+          "task": "cancel-queued-except-newest",
+          "line": 125
+        },
+        {
+          "id": "sdks/go/examples/concurrency/main.go::ConcurrencyCancelQueuedExceptOldest::cancel-queued-except-oldest",
+          "required_assertions": [
+            {
+              "scenario": "concurrency",
+              "id": "3077d4591dd79ee4b6e73ffd",
+              "assertion": "cancel strategy CANCEL_QUEUED_EXCEPT_OLDEST"
+            }
+          ],
+          "function": "ConcurrencyCancelQueuedExceptOldest",
+          "constructor": "NewStandaloneTask",
+          "task": "cancel-queued-except-oldest",
+          "line": 148
+        },
+        {
+          "id": "sdks/go/examples/concurrency/main.go::SharedConcurrencyStrategy::sync-crm",
+          "required_assertions": [
+            {
+              "scenario": "concurrency",
+              "id": "490b3009c27635029f7f483a",
+              "assertion": "shared strategy across two workflows"
+            }
+          ],
+          "function": "SharedConcurrencyStrategy",
+          "constructor": "NewStandaloneTask",
+          "task": "sync-crm",
+          "line": 183
+        },
+        {
+          "id": "sdks/go/examples/concurrency/main.go::SharedConcurrencyStrategy::generate-report",
+          "required_assertions": [
+            {
+              "scenario": "concurrency",
+              "id": "490b3009c27635029f7f483a",
+              "assertion": "shared strategy across two workflows"
+            }
+          ],
+          "function": "SharedConcurrencyStrategy",
+          "constructor": "NewStandaloneTask",
+          "task": "generate-report",
+          "line": 190
+        },
+        {
+          "id": "sdks/go/examples/concurrency/main.go::DynamicMaxRuns::dynamic-concurrency",
+          "required_assertions": [
+            {
+              "scenario": "concurrency",
+              "id": "d4792e72313b28a94293b382",
+              "assertion": "concurrency dynamic"
+            }
+          ],
+          "function": "DynamicMaxRuns",
+          "constructor": "NewStandaloneTask",
+          "task": "dynamic-concurrency",
+          "line": 210
+        }
+      ],
+      "scenarios": [
+        "concurrency"
+      ],
+      "example": "sdks/wego/examples/concurrency/main.go",
+      "tests": [
+        "TestExamples/concurrency"
+      ],
+      "command": "sdks/wego/scripts/local-test.py go test -tags=e2e ./sdks/wego/tests/e2e/... -run 'TestExamples/(concurrency)$' -v -timeout 10m"
+    },
+    {
+      "source": "sdks/go/examples/cron/main.go",
+      "fragments": [
+        {
+          "id": "sdks/go/examples/cron/main.go::main::cleanup-temp-files",
+          "required_assertions": [
+            {
+              "scenario": "cron",
+              "id": "5874421d6cd5821da10d9bfd",
+              "assertion": "all five expressions registered; real minute trigger with protobuf input"
+            }
+          ],
+          "function": "main",
+          "constructor": "NewStandaloneTask",
+          "task": "cleanup-temp-files",
+          "line": 31
+        },
+        {
+          "id": "sdks/go/examples/cron/main.go::main::check-system-health",
+          "required_assertions": [
+            {
+              "scenario": "cron",
+              "id": "5874421d6cd5821da10d9bfd",
+              "assertion": "all five expressions registered; real minute trigger with protobuf input"
+            }
+          ],
+          "function": "main",
+          "constructor": "NewStandaloneTask",
+          "task": "check-system-health",
+          "line": 50
+        },
+        {
+          "id": "sdks/go/examples/cron/main.go::main::generate-report",
+          "required_assertions": [
+            {
+              "scenario": "cron",
+              "id": "5874421d6cd5821da10d9bfd",
+              "assertion": "all five expressions registered; real minute trigger with protobuf input"
+            }
+          ],
+          "function": "main",
+          "constructor": "NewStandaloneTask",
+          "task": "generate-report",
+          "line": 65
+        },
+        {
+          "id": "sdks/go/examples/cron/main.go::main::monitor-business-systems",
+          "required_assertions": [
+            {
+              "scenario": "cron",
+              "id": "5874421d6cd5821da10d9bfd",
+              "assertion": "all five expressions registered; real minute trigger with protobuf input"
+            }
+          ],
+          "function": "main",
+          "constructor": "NewStandaloneTask",
+          "task": "monitor-business-systems",
+          "line": 80
+        }
+      ],
+      "scenarios": [
+        "cron"
+      ],
+      "example": "sdks/wego/examples/cron/main.go",
+      "tests": [
+        "TestExamples/cron"
+      ],
+      "command": "sdks/wego/scripts/local-test.py go test -tags=e2e ./sdks/wego/tests/e2e/... -run 'TestExamples/(cron)$' -v -timeout 10m"
+    },
+    {
+      "source": "sdks/go/examples/durable/event/main.go",
+      "fragments": [
+        {
+          "id": "sdks/go/examples/durable/event/main.go::main::durable-event-task",
+          "required_assertions": [
+            {
+              "scenario": "durable-event",
+              "id": "e443c26ef6d5afed88bf2d1c",
+              "assertion": "durable event basic and Now"
+            },
+            {
+              "scenario": "durable-event",
+              "id": "8736354110286f5f65323b1a",
+              "assertion": "durable event filter and Now"
+            },
+            {
+              "scenario": "durable-event",
+              "id": "d55745a4d0d15a6cd6708ebc",
+              "assertion": "durable event lookback and Now"
+            }
+          ],
+          "function": "main",
+          "constructor": "NewStandaloneDurableTask",
+          "task": "durable-event-task",
+          "line": 28
+        }
+      ],
+      "scenarios": [
+        "durable-event"
+      ],
+      "example": "sdks/wego/examples/durable/event/main.go",
+      "tests": [
+        "TestExamples/durable-event"
+      ],
+      "command": "sdks/wego/scripts/local-test.py go test -tags=e2e ./sdks/wego/tests/e2e/... -run 'TestExamples/(durable-event)$' -v -timeout 10m"
+    },
+    {
+      "source": "sdks/go/examples/durable/eviction/main.go",
+      "fragments": [
+        {
+          "id": "sdks/go/examples/durable/eviction/main.go::main::evictable-sleep",
+          "required_assertions": [
+            {
+              "scenario": "eviction",
+              "id": "100747bceeacc790fd9cec74",
+              "assertion": "durable ttl-sleep resumed without resetting wait"
+            }
+          ],
+          "function": "main",
+          "constructor": "NewStandaloneDurableTask",
+          "task": "evictable-sleep",
+          "line": 38
+        },
+        {
+          "id": "sdks/go/examples/durable/eviction/main.go::main::evictable-wait-for-event",
+          "required_assertions": [
+            {
+              "scenario": "eviction",
+              "id": "f1a310e2073201f13532b0d3",
+              "assertion": "durable ttl-event resumed without resetting wait"
+            }
+          ],
+          "function": "main",
+          "constructor": "NewStandaloneDurableTask",
+          "task": "evictable-wait-for-event",
+          "line": 51
+        },
+        {
+          "id": "sdks/go/examples/durable/eviction/main.go::main::non-evictable-sleep",
+          "required_assertions": [
+            {
+              "scenario": "eviction",
+              "id": "7eb70443bb5c7080016f4cc2",
+              "assertion": "durable disabled resumed without resetting wait"
+            }
+          ],
+          "function": "main",
+          "constructor": "NewStandaloneDurableTask",
+          "task": "non-evictable-sleep",
+          "line": 69
+        },
+        {
+          "id": "sdks/go/examples/durable/eviction/main.go::main::capacity-evictable-sleep",
+          "required_assertions": [
+            {
+              "scenario": "eviction",
+              "id": "c1a45c27509b4d53caabd12e",
+              "assertion": "durable capacity resumed without resetting wait"
+            }
+          ],
+          "function": "main",
+          "constructor": "NewStandaloneDurableTask",
+          "task": "capacity-evictable-sleep",
+          "line": 87
+        }
+      ],
+      "scenarios": [
+        "eviction"
+      ],
+      "example": "sdks/wego/examples/durable/eviction/main.go",
+      "tests": [
+        "TestExamples/eviction"
+      ],
+      "command": "sdks/wego/scripts/local-test.py go test -tags=e2e ./sdks/wego/tests/e2e/... -run 'TestExamples/(eviction)$' -v -timeout 10m"
+    },
+    {
+      "source": "sdks/go/examples/durable/eviction/trigger/main.go",
+      "fragments": [
+        {
+          "id": "sdks/go/examples/durable/eviction/trigger/main.go::main::evictable-sleep",
+          "required_assertions": [
+            {
+              "scenario": "eviction",
+              "id": "100747bceeacc790fd9cec74",
+              "assertion": "durable ttl-sleep resumed without resetting wait"
+            }
+          ],
+          "function": "main",
+          "constructor": "NewStandaloneDurableTask",
+          "task": "evictable-sleep",
+          "line": 20
+        }
+      ],
+      "scenarios": [
+        "eviction"
+      ],
+      "example": "sdks/wego/examples/durable/eviction/trigger/main.go",
+      "tests": [
+        "TestExamples/eviction"
+      ],
+      "command": "sdks/wego/scripts/local-test.py go test -tags=e2e ./sdks/wego/tests/e2e/... -run 'TestExamples/(eviction)$' -v -timeout 10m"
+    },
+    {
+      "source": "sdks/go/examples/durable/sleep/main.go",
+      "fragments": [
+        {
+          "id": "sdks/go/examples/durable/sleep/main.go::main::long-running-task",
+          "required_assertions": [
+            {
+              "scenario": "durable-sleep",
+              "id": "c22816cdcc65c8c20dd9229e",
+              "assertion": "real durable Sleep and memoized Now"
+            }
+          ],
+          "function": "main",
+          "constructor": "NewStandaloneDurableTask",
+          "task": "long-running-task",
+          "line": 29
+        }
+      ],
+      "scenarios": [
+        "durable-sleep"
+      ],
+      "example": "sdks/wego/examples/durable/sleep/main.go",
+      "tests": [
+        "TestExamples/durable-sleep"
+      ],
+      "command": "sdks/wego/scripts/local-test.py go test -tags=e2e ./sdks/wego/tests/e2e/... -run 'TestExamples/(durable-sleep)$' -v -timeout 10m"
+    },
+    {
+      "source": "sdks/go/examples/embedded/main.go",
+      "fragments": [
+        {
+          "id": "sdks/go/examples/embedded/main.go::run::greet",
+          "required_assertions": [
+            {
+              "scenario": "embedded",
+              "id": "87825ad3f77c324e9b69f0b2",
+              "assertion": "embedded migration, protobuf invocation, shutdown and database deletion"
+            }
+          ],
+          "function": "run",
+          "constructor": "NewStandaloneTask",
+          "task": "greet",
+          "line": 74
+        }
+      ],
+      "scenarios": [
+        "embedded"
+      ],
+      "example": "sdks/wego/examples/embedded/main.go",
+      "tests": [
+        "TestEmbedded"
+      ],
+      "command": "sdks/wego/scripts/local-test.py go test -tags=e2e,wego_embedded ./sdks/wego/tests/e2e/... -run TestEmbedded -v -timeout 10m"
+    },
+    {
+      "source": "sdks/go/examples/events/main.go",
+      "fragments": [
+        {
+          "id": "sdks/go/examples/events/main.go::main::process-user-event",
+          "required_assertions": [
+            {
+              "scenario": "events",
+              "id": "d3555d14d6b4fdaaefa4a281",
+              "assertion": "event triggers protobuf RPC and result lookup"
+            }
+          ],
+          "function": "main",
+          "constructor": "NewStandaloneTask",
+          "task": "process-user-event",
+          "line": 31
+        }
+      ],
+      "scenarios": [
+        "events"
+      ],
+      "example": "sdks/wego/examples/events/main.go",
+      "tests": [
+        "TestExamples/events"
+      ],
+      "command": "sdks/wego/scripts/local-test.py go test -tags=e2e ./sdks/wego/tests/e2e/... -run 'TestExamples/(events)$' -v -timeout 10m"
+    },
+    {
+      "source": "sdks/go/examples/idempotency/worker.go",
+      "fragments": [
+        {
+          "id": "sdks/go/examples/idempotency/worker.go::IdempotentTask::idempotent-task",
+          "required_assertions": [
+            {
+              "scenario": "idempotency",
+              "id": "0db024136f3923d2041ea5e0",
+              "assertion": "idempotency status=false"
+            },
+            {
+              "scenario": "idempotency",
+              "id": "389421f3de2f4e4647b9d42b",
+              "assertion": "idempotency key released after completion=false or TTL expiry"
+            }
+          ],
+          "function": "IdempotentTask",
+          "constructor": "NewStandaloneTask",
+          "task": "idempotent-task",
+          "line": 20
+        },
+        {
+          "id": "sdks/go/examples/idempotency/worker.go::IdempotentStatusBasedTask::idempotent-status-based-task",
+          "required_assertions": [
+            {
+              "scenario": "idempotency",
+              "id": "0dbf083fa3c10ef74a0a4507",
+              "assertion": "idempotency status=true"
+            },
+            {
+              "scenario": "idempotency",
+              "id": "053abd6a0a9e0734bb3f7b50",
+              "assertion": "idempotency key released after completion=true or TTL expiry"
+            }
+          ],
+          "function": "IdempotentStatusBasedTask",
+          "constructor": "NewStandaloneTask",
+          "task": "idempotent-status-based-task",
+          "line": 38
+        }
+      ],
+      "scenarios": [
+        "idempotency"
+      ],
+      "example": "sdks/wego/examples/idempotency/worker.go",
+      "tests": [
+        "TestExamples/idempotency"
+      ],
+      "command": "sdks/wego/scripts/local-test.py go test -tags=e2e ./sdks/wego/tests/e2e/... -run 'TestExamples/(idempotency)$' -v -timeout 10m"
+    },
+    {
+      "source": "sdks/go/examples/logs_test/main.go",
+      "fragments": [
+        {
+          "id": "sdks/go/examples/logs_test/main.go::main::logs-test",
+          "required_assertions": [
+            {
+              "scenario": "logs",
+              "id": "3b3d6a7fc7615b8e923d3fcb",
+              "assertion": "reported logs and since query"
+            }
+          ],
+          "function": "main",
+          "constructor": "NewStandaloneTask",
+          "task": "logs-test",
+          "line": 33
+        }
+      ],
+      "scenarios": [
+        "logs"
+      ],
+      "example": "sdks/wego/examples/logs_test/main.go",
+      "tests": [
+        "TestExamples/logs"
+      ],
+      "command": "sdks/wego/scripts/local-test.py go test -tags=e2e ./sdks/wego/tests/e2e/... -run 'TestExamples/(logs)$' -v -timeout 10m"
+    },
+    {
+      "source": "sdks/go/examples/migration-guides/mergent.go",
+      "fragments": [
+        {
+          "id": "sdks/go/examples/migration-guides/mergent.go::ImageProcessor::image-processor",
+          "required_assertions": [
+            {
+              "scenario": "mergent",
+              "id": "3946ee097fc53ebd4280e5cc",
+              "assertion": "image processor nested protobuf result"
+            },
+            {
+              "scenario": "mergent",
+              "id": "2c8298d324c9fb7f9e6b73ee",
+              "assertion": "scheduled image processor invocation"
+            }
+          ],
+          "function": "ImageProcessor",
+          "constructor": "NewStandaloneTask",
+          "task": "image-processor",
+          "line": 66
+        }
+      ],
+      "scenarios": [
+        "mergent"
+      ],
+      "example": "sdks/wego/examples/migration-guides/mergent/main.go",
+      "tests": [
+        "TestExamples/mergent"
+      ],
+      "command": "sdks/wego/scripts/local-test.py go test -tags=e2e ./sdks/wego/tests/e2e/... -run 'TestExamples/(mergent)$' -v -timeout 10m"
+    },
+    {
+      "source": "sdks/go/examples/migration-guides/temporal.go",
+      "fragments": [
+        {
+          "id": "sdks/go/examples/migration-guides/temporal.go::NewChargeOrder::charge-order",
+          "required_assertions": [
+            {
+              "scenario": "temporal",
+              "id": "ea37c7dffb062ad536e51a74",
+              "assertion": "/wego.example.v1.Temporal/Charge business result"
+            }
+          ],
+          "function": "NewChargeOrder",
+          "constructor": "NewStandaloneTask",
+          "task": "charge-order",
+          "line": 237
+        },
+        {
+          "id": "sdks/go/examples/migration-guides/temporal.go::NewValidateOrder::validate-order",
+          "required_assertions": [
+            {
+              "scenario": "temporal",
+              "id": "8060a8c476683054070fbb79",
+              "assertion": "/wego.example.v1.Temporal/Validate business result"
+            }
+          ],
+          "function": "NewValidateOrder",
+          "constructor": "NewStandaloneTask",
+          "task": "validate-order",
+          "line": 255
+        },
+        {
+          "id": "sdks/go/examples/migration-guides/temporal.go::NewFulfillOrder::fulfill-order",
+          "required_assertions": [
+            {
+              "scenario": "temporal",
+              "id": "2eb4751b563c88ea5022def2",
+              "assertion": "/wego.example.v1.Temporal/Fulfill business result"
+            }
+          ],
+          "function": "NewFulfillOrder",
+          "constructor": "NewStandaloneTask",
+          "task": "fulfill-order",
+          "line": 269
+        },
+        {
+          "id": "sdks/go/examples/migration-guides/temporal.go::NewProcessOrder::ProcessOrder",
+          "required_assertions": [
+            {
+              "scenario": "temporal",
+              "id": "32266bbb5b067de836c5e2b9",
+              "assertion": "durable process order reused Now and completed child RunIDs"
+            }
+          ],
+          "function": "NewProcessOrder",
+          "constructor": "NewStandaloneDurableTask",
+          "task": "ProcessOrder",
+          "line": 286
+        },
+        {
+          "id": "sdks/go/examples/migration-guides/temporal.go::NewSendWelcomeEmail::send-welcome-email",
+          "required_assertions": [
+            {
+              "scenario": "temporal",
+              "id": "560ecb4cd30c74fbc4338493",
+              "assertion": "/wego.example.v1.Temporal/Welcome business result"
+            }
+          ],
+          "function": "NewSendWelcomeEmail",
+          "constructor": "NewStandaloneTask",
+          "task": "send-welcome-email",
+          "line": 316
+        },
+        {
+          "id": "sdks/go/examples/migration-guides/temporal.go::NewSendFollowupEmail::send-followup-email",
+          "required_assertions": [
+            {
+              "scenario": "temporal",
+              "id": "6189d07a647ceedc08d03c70",
+              "assertion": "/wego.example.v1.Temporal/Followup business result"
+            }
+          ],
+          "function": "NewSendFollowupEmail",
+          "constructor": "NewStandaloneTask",
+          "task": "send-followup-email",
+          "line": 329
+        },
+        {
+          "id": "sdks/go/examples/migration-guides/temporal.go::NewOnboardingFlow::OnboardingFlow",
+          "required_assertions": [
+            {
+              "scenario": "temporal",
+              "id": "3129dbdd23e3603fe05a8490",
+              "assertion": "durable onboarding sends two emails around sleep"
+            }
+          ],
+          "function": "NewOnboardingFlow",
+          "constructor": "NewStandaloneDurableTask",
+          "task": "OnboardingFlow",
+          "line": 344
+        },
+        {
+          "id": "sdks/go/examples/migration-guides/temporal.go::NewChargeOrderWithRetries::charge-order-with-retries",
+          "required_assertions": [
+            {
+              "scenario": "temporal",
+              "id": "3f3dd93a1435e5270a9d10fd",
+              "assertion": "/wego.example.v1.Temporal/ChargeWithRetries business result"
+            }
+          ],
+          "function": "NewChargeOrderWithRetries",
+          "constructor": "NewStandaloneTask",
+          "task": "charge-order-with-retries",
+          "line": 398
+        },
+        {
+          "id": "sdks/go/examples/migration-guides/temporal.go::NewDailyDigest::DailyDigest",
+          "required_assertions": [
+            {
+              "scenario": "temporal",
+              "id": "93e2c44a76ef426a40e8220e",
+              "assertion": "/wego.example.v1.Temporal/Digest business result"
+            }
+          ],
+          "function": "NewDailyDigest",
+          "constructor": "NewStandaloneDurableTask",
+          "task": "DailyDigest",
+          "line": 436
+        },
+        {
+          "id": "sdks/go/examples/migration-guides/temporal.go::NewApprovalFlow::ApprovalFlow",
+          "required_assertions": [
+            {
+              "scenario": "temporal",
+              "id": "fc127e93e797a4b2b1f27cfa",
+              "assertion": "correlated approval event"
+            }
+          ],
+          "function": "NewApprovalFlow",
+          "constructor": "NewStandaloneDurableTask",
+          "task": "ApprovalFlow",
+          "line": 462
+        },
+        {
+          "id": "sdks/go/examples/migration-guides/temporal.go::NewProcessItem::process-item",
+          "required_assertions": [
+            {
+              "scenario": "temporal",
+              "id": "630dc133d07318606564798f",
+              "assertion": "durable concurrent child fanout"
+            }
+          ],
+          "function": "NewProcessItem",
+          "constructor": "NewStandaloneTask",
+          "task": "process-item",
+          "line": 489
+        },
+        {
+          "id": "sdks/go/examples/migration-guides/temporal.go::NewShipOrderItems::ShipOrderItems",
+          "required_assertions": [
+            {
+              "scenario": "temporal",
+              "id": "630dc133d07318606564798f",
+              "assertion": "durable concurrent child fanout"
+            }
+          ],
+          "function": "NewShipOrderItems",
+          "constructor": "NewStandaloneDurableTask",
+          "task": "ShipOrderItems",
+          "line": 505
+        },
+        {
+          "id": "sdks/go/examples/migration-guides/temporal.go::NewWeeklyReport::weekly-report",
+          "required_assertions": [
+            {
+              "scenario": "temporal",
+              "id": "0770d3d664950dd88ee56a32",
+              "assertion": "runtime weekly cron and one-shot report schedule"
+            }
+          ],
+          "function": "NewWeeklyReport",
+          "constructor": "NewStandaloneTask",
+          "task": "weekly-report",
+          "line": 549
+        },
+        {
+          "id": "sdks/go/examples/migration-guides/temporal.go::NewFlowControlledTasks::SyncCustomer",
+          "required_assertions": [
+            {
+              "scenario": "temporal",
+              "id": "41d379ed85edb7cd04118ff3",
+              "assertion": "/wego.example.v1.Temporal/SyncRecords business result"
+            }
+          ],
+          "function": "NewFlowControlledTasks",
+          "constructor": "NewStandaloneTask",
+          "task": "SyncCustomer",
+          "line": 607
+        },
+        {
+          "id": "sdks/go/examples/migration-guides/temporal.go::NewFlowControlledTasks::call-model",
+          "required_assertions": [
+            {
+              "scenario": "temporal",
+              "id": "33d4d704d595b202055c7eae",
+              "assertion": "/wego.example.v1.Temporal/CallModel business result"
+            }
+          ],
+          "function": "NewFlowControlledTasks",
+          "constructor": "NewStandaloneTask",
+          "task": "call-model",
+          "line": 626
+        },
+        {
+          "id": "sdks/go/examples/migration-guides/temporal.go::NewLoggedChargeOrder::charge-order-logged",
+          "required_assertions": [
+            {
+              "scenario": "temporal",
+              "id": "6ea866dc2ebf8c1166c7eacc",
+              "assertion": "/wego.example.v1.Temporal/LoggedCharge business result"
+            }
+          ],
+          "function": "NewLoggedChargeOrder",
+          "constructor": "NewStandaloneTask",
+          "task": "charge-order-logged",
+          "line": 717
+        }
+      ],
+      "scenarios": [
+        "temporal",
+        "concurrency",
+        "rate-limiting",
+        "logs",
+        "cron"
+      ],
+      "example": "sdks/wego/examples/migration-guides/temporal/main.go",
+      "tests": [
+        "TestExamples/temporal",
+        "TestExamples/concurrency",
+        "TestExamples/rate-limiting",
+        "TestExamples/logs",
+        "TestExamples/cron"
+      ],
+      "command": "sdks/wego/scripts/local-test.py go test -tags=e2e ./sdks/wego/tests/e2e/... -run 'TestExamples/(temporal|concurrency|rate-limiting|logs|cron)$' -v -timeout 10m"
+    },
+    {
+      "source": "sdks/go/examples/on-event/main.go",
+      "fragments": [
+        {
+          "id": "sdks/go/examples/on-event/main.go::Lower::lower",
+          "required_assertions": [
+            {
+              "scenario": "on-event",
+              "id": "891baab90319df73718d2ad9",
+              "assertion": "filter rejects and accepts events with payload"
+            }
+          ],
+          "function": "Lower",
+          "constructor": "NewStandaloneTask",
+          "task": "lower",
+          "line": 31
+        },
+        {
+          "id": "sdks/go/examples/on-event/main.go::LowerWithFilter::lower",
+          "required_assertions": [
+            {
+              "scenario": "on-event",
+              "id": "891baab90319df73718d2ad9",
+              "assertion": "filter rejects and accepts events with payload"
+            }
+          ],
+          "function": "LowerWithFilter",
+          "constructor": "NewStandaloneTask",
+          "task": "lower",
+          "line": 55
+        },
+        {
+          "id": "sdks/go/examples/on-event/main.go::Upper::upper",
+          "required_assertions": [
+            {
+              "scenario": "on-event",
+              "id": "891baab90319df73718d2ad9",
+              "assertion": "filter rejects and accepts events with payload"
+            }
+          ],
+          "function": "Upper",
+          "constructor": "NewStandaloneTask",
+          "task": "upper",
+          "line": 72
+        }
+      ],
+      "scenarios": [
+        "on-event"
+      ],
+      "example": "sdks/wego/examples/on-event/main.go",
+      "tests": [
+        "TestExamples/on-event"
+      ],
+      "command": "sdks/wego/scripts/local-test.py go test -tags=e2e ./sdks/wego/tests/e2e/... -run 'TestExamples/(on-event)$' -v -timeout 10m"
+    },
+    {
+      "source": "sdks/go/examples/opentelemetry_instrumentation/main.go",
+      "fragments": [
+        {
+          "id": "sdks/go/examples/opentelemetry_instrumentation/main.go::main::otel-send-notification",
+          "required_assertions": [
+            {
+              "scenario": "observability",
+              "id": "89ef1b825f5a249faf011885",
+              "assertion": "trace propagation, task attributes, two exporters, Jaeger, metrics, unchanged global provider"
+            },
+            {
+              "scenario": "observability",
+              "id": "d7b389fae085acdf50d30e8f",
+              "assertion": "traced DAG parallel payment/inventory and ten concurrent child notifications plus second standalone"
+            }
+          ],
+          "function": "main",
+          "constructor": "NewStandaloneTask",
+          "task": "otel-send-notification",
+          "line": 77
+        },
+        {
+          "id": "sdks/go/examples/opentelemetry_instrumentation/main.go::main::otel-other-task",
+          "required_assertions": [
+            {
+              "scenario": "observability",
+              "id": "89ef1b825f5a249faf011885",
+              "assertion": "trace propagation, task attributes, two exporters, Jaeger, metrics, unchanged global provider"
+            },
+            {
+              "scenario": "observability",
+              "id": "d7b389fae085acdf50d30e8f",
+              "assertion": "traced DAG parallel payment/inventory and ten concurrent child notifications plus second standalone"
+            }
+          ],
+          "function": "main",
+          "constructor": "NewStandaloneTask",
+          "task": "otel-other-task",
+          "line": 100
+        }
+      ],
+      "scenarios": [
+        "observability"
+      ],
+      "example": "sdks/wego/examples/opentelemetry_instrumentation/main.go",
+      "tests": [
+        "TestExamples/observability"
+      ],
+      "command": "sdks/wego/scripts/local-test.py go test -tags=e2e ./sdks/wego/tests/e2e/... -run 'TestExamples/(observability)$' -v -timeout 10m"
+    },
+    {
+      "source": "sdks/go/examples/panic-handler/main.go",
+      "fragments": [
+        {
+          "id": "sdks/go/examples/panic-handler/main.go::main::panic-handler-task",
+          "required_assertions": [
+            {
+              "scenario": "panic-handler",
+              "id": "213cff335aa78b77028bbbb3",
+              "assertion": "panic handler and subsequent successful call"
+            }
+          ],
+          "function": "main",
+          "constructor": "NewStandaloneTask",
+          "task": "panic-handler-task",
+          "line": 16
+        }
+      ],
+      "scenarios": [
+        "panic-handler"
+      ],
+      "example": "sdks/wego/examples/panic-handler/main.go",
+      "tests": [
+        "TestExamples/panic-handler"
+      ],
+      "command": "sdks/wego/scripts/local-test.py go test -tags=e2e ./sdks/wego/tests/e2e/... -run 'TestExamples/(panic-handler)$' -v -timeout 10m"
+    },
+    {
+      "source": "sdks/go/examples/rate-limiting/main.go",
+      "fragments": [
+        {
+          "id": "sdks/go/examples/rate-limiting/main.go::main::task1",
+          "required_assertions": [
+            {
+              "scenario": "rate-limiting",
+              "id": "178c4aca48973fb1e94e256c",
+              "assertion": "static/dynamic per-second rate limit"
+            }
+          ],
+          "function": "main",
+          "constructor": "NewStandaloneTask",
+          "task": "task1",
+          "line": 40
+        },
+        {
+          "id": "sdks/go/examples/rate-limiting/main.go::main::task2",
+          "required_assertions": [
+            {
+              "scenario": "rate-limiting",
+              "id": "178c4aca48973fb1e94e256c",
+              "assertion": "static/dynamic per-second rate limit"
+            }
+          ],
+          "function": "main",
+          "constructor": "NewStandaloneTask",
+          "task": "task2",
+          "line": 57
+        }
+      ],
+      "scenarios": [
+        "rate-limiting"
+      ],
+      "example": "sdks/wego/examples/rate-limiting/main.go",
+      "tests": [
+        "TestExamples/rate-limiting"
+      ],
+      "command": "sdks/wego/scripts/local-test.py go test -tags=e2e ./sdks/wego/tests/e2e/... -run 'TestExamples/(rate-limiting)$' -v -timeout 10m"
+    },
+    {
+      "source": "sdks/go/examples/retries/main.go",
+      "fragments": [
+        {
+          "id": "sdks/go/examples/retries/main.go::Retries::retries-task",
+          "required_assertions": [
+            {
+              "scenario": "retries",
+              "id": "5a97655c93e99ecb63345010",
+              "assertion": "always-fails attempts and policy"
+            }
+          ],
+          "function": "Retries",
+          "constructor": "NewStandaloneTask",
+          "task": "retries-task",
+          "line": 18
+        },
+        {
+          "id": "sdks/go/examples/retries/main.go::RetriesWithCount::fail-twice-task",
+          "required_assertions": [
+            {
+              "scenario": "retries",
+              "id": "2760c3eab8d04f06f1d98aa9",
+              "assertion": "count attempts and policy"
+            }
+          ],
+          "function": "RetriesWithCount",
+          "constructor": "NewStandaloneTask",
+          "task": "fail-twice-task",
+          "line": 34
+        },
+        {
+          "id": "sdks/go/examples/retries/main.go::WithBackoff::with-backoff-task",
+          "required_assertions": [
+            {
+              "scenario": "retries",
+              "id": "c6888d73422719f41cc9ba2b",
+              "assertion": "backoff attempts and policy"
+            }
+          ],
+          "function": "WithBackoff",
+          "constructor": "NewStandaloneTask",
+          "task": "with-backoff-task",
+          "line": 59
+        },
+        {
+          "id": "sdks/go/examples/retries/main.go::NonRetryableError::non-retryable-task",
+          "required_assertions": [
+            {
+              "scenario": "retries",
+              "id": "62dceff45086f74be5f6851a",
+              "assertion": "nonretryable attempts and policy"
+            }
+          ],
+          "function": "NonRetryableError",
+          "constructor": "NewStandaloneTask",
+          "task": "non-retryable-task",
+          "line": 73
+        }
+      ],
+      "scenarios": [
+        "retries"
+      ],
+      "example": "sdks/wego/examples/retries/main.go",
+      "tests": [
+        "TestExamples/retries"
+      ],
+      "command": "sdks/wego/scripts/local-test.py go test -tags=e2e ./sdks/wego/tests/e2e/... -run 'TestExamples/(retries)$' -v -timeout 10m"
+    },
+    {
+      "source": "sdks/go/examples/runtime-affinity/main.go",
+      "fragments": [
+        {
+          "id": "sdks/go/examples/runtime-affinity/main.go::main::affinity-example-task",
+          "required_assertions": [
+            {
+              "scenario": "runtime-affinity",
+              "id": "4bfc48ad57c66466aac5abd3",
+              "assertion": "required affinity alpha; sticky=false"
+            },
+            {
+              "scenario": "runtime-affinity",
+              "id": "1b348f6eb9fdcf437dbba92d",
+              "assertion": "required affinity beta; sticky=false"
+            }
+          ],
+          "function": "main",
+          "constructor": "NewStandaloneTask",
+          "task": "affinity-example-task",
+          "line": 30
+        }
+      ],
+      "scenarios": [
+        "runtime-affinity"
+      ],
+      "example": "sdks/wego/examples/runtime-affinity/main.go",
+      "tests": [
+        "TestExamples/runtime-affinity"
+      ],
+      "command": "sdks/wego/scripts/local-test.py go test -tags=e2e ./sdks/wego/tests/e2e/... -run 'TestExamples/(runtime-affinity)$' -v -timeout 10m"
+    },
+    {
+      "source": "sdks/go/examples/sdk-migration/main.go",
+      "fragments": [
+        {
+          "id": "sdks/go/examples/sdk-migration/main.go::main::simple-task",
+          "required_assertions": [
+            {
+              "scenario": "sdk-migration",
+              "id": "9a52fc89d46143321504ada5",
+              "assertion": "standard generated unary stub"
+            },
+            {
+              "scenario": "sdk-migration",
+              "id": "9e85cff10ec1571e9e6b184b",
+              "assertion": "RunNoWait and result decoding"
+            },
+            {
+              "scenario": "sdk-migration",
+              "id": "50aae116d2176ce99086c558",
+              "assertion": "RunMany input/result mapping"
+            }
+          ],
+          "function": "main",
+          "constructor": "NewStandaloneTask",
+          "task": "simple-task",
+          "line": 26
+        }
+      ],
+      "scenarios": [
+        "sdk-migration"
+      ],
+      "example": "sdks/wego/examples/sdk-migration/main.go",
+      "tests": [
+        "TestExamples/sdk-migration"
+      ],
+      "command": "sdks/wego/scripts/local-test.py go test -tags=e2e ./sdks/wego/tests/e2e/... -run 'TestExamples/(sdk-migration)$' -v -timeout 10m"
+    },
+    {
+      "source": "sdks/go/examples/sdk-migration/v1.go",
+      "fragments": [
+        {
+          "id": "sdks/go/examples/sdk-migration/v1.go::V1::simple-workflow",
+          "required_assertions": [
+            {
+              "scenario": "sdk-migration-v1",
+              "id": "d3555d14d6b4fdaaefa4a281",
+              "assertion": "event triggers protobuf RPC and result lookup"
+            }
+          ],
+          "function": "V1",
+          "constructor": "NewStandaloneTask",
+          "task": "simple-workflow",
+          "line": 24
+        }
+      ],
+      "scenarios": [
+        "sdk-migration-v1"
+      ],
+      "example": "sdks/wego/examples/sdk-migration/v1/main.go",
+      "tests": [
+        "TestExamples/sdk-migration-v1"
+      ],
+      "command": "sdks/wego/scripts/local-test.py go test -tags=e2e ./sdks/wego/tests/e2e/... -run 'TestExamples/(sdk-migration-v1)$' -v -timeout 10m"
+    },
+    {
+      "source": "sdks/go/examples/simple/main.go",
+      "fragments": [
+        {
+          "id": "sdks/go/examples/simple/main.go::main::process-message",
+          "required_assertions": [
+            {
+              "scenario": "simple",
+              "id": "9a52fc89d46143321504ada5",
+              "assertion": "standard generated unary stub"
+            },
+            {
+              "scenario": "simple",
+              "id": "9e85cff10ec1571e9e6b184b",
+              "assertion": "RunNoWait and result decoding"
+            },
+            {
+              "scenario": "simple",
+              "id": "50aae116d2176ce99086c558",
+              "assertion": "RunMany input/result mapping"
+            }
+          ],
+          "function": "main",
+          "constructor": "NewStandaloneTask",
+          "task": "process-message",
+          "line": 28
+        }
+      ],
+      "scenarios": [
+        "simple",
+        "child-workflows"
+      ],
+      "example": "sdks/wego/examples/simple/main.go",
+      "tests": [
+        "TestExamples/simple",
+        "TestExamples/child-workflows"
+      ],
+      "command": "sdks/wego/scripts/local-test.py go test -tags=e2e ./sdks/wego/tests/e2e/... -run 'TestExamples/(simple|child-workflows)$' -v -timeout 10m"
+    },
+    {
+      "source": "sdks/go/examples/slot-cost/main.go",
+      "fragments": [
+        {
+          "id": "sdks/go/examples/slot-cost/main.go::main::omega",
+          "required_assertions": [
+            {
+              "scenario": "slot-cost",
+              "id": "d39e3af992ae5e0312705928",
+              "assertion": "slot costs 5 and 1 share capacity 10"
+            }
+          ],
+          "function": "main",
+          "constructor": "NewStandaloneTask",
+          "task": "omega",
+          "line": 17
+        },
+        {
+          "id": "sdks/go/examples/slot-cost/main.go::main::weenie",
+          "required_assertions": [
+            {
+              "scenario": "slot-cost",
+              "id": "d39e3af992ae5e0312705928",
+              "assertion": "slot costs 5 and 1 share capacity 10"
+            }
+          ],
+          "function": "main",
+          "constructor": "NewStandaloneTask",
+          "task": "weenie",
+          "line": 22
+        }
+      ],
+      "scenarios": [
+        "slot-cost"
+      ],
+      "example": "sdks/wego/examples/slot-cost/main.go",
+      "tests": [
+        "TestExamples/slot-cost"
+      ],
+      "command": "sdks/wego/scripts/local-test.py go test -tags=e2e ./sdks/wego/tests/e2e/... -run 'TestExamples/(slot-cost)$' -v -timeout 10m"
+    },
+    {
+      "source": "sdks/go/examples/sticky-workers/main.go",
+      "fragments": [
+        {
+          "id": "sdks/go/examples/sticky-workers/main.go::Child::child-task",
+          "required_assertions": [
+            {
+              "scenario": "sticky-workers",
+              "id": "c6e6f95c211a5cf02d3ed74e",
+              "assertion": "required affinity alpha; sticky=true"
+            },
+            {
+              "scenario": "sticky-workers",
+              "id": "1237812b070a109b157b470c",
+              "assertion": "required affinity beta; sticky=true"
+            },
+            {
+              "scenario": "sticky-workers",
+              "id": "c1f41bfe6e88f0a23daf9310",
+              "assertion": "two-worker sticky DAG executes independent tasks on one worker"
+            }
+          ],
+          "function": "Child",
+          "constructor": "NewStandaloneTask",
+          "task": "child-task",
+          "line": 60
+        },
+        {
+          "id": "sdks/go/examples/sticky-workers/main.go::Sticky::sticky-task",
+          "required_assertions": [
+            {
+              "scenario": "sticky-workers",
+              "id": "c6e6f95c211a5cf02d3ed74e",
+              "assertion": "required affinity alpha; sticky=true"
+            },
+            {
+              "scenario": "sticky-workers",
+              "id": "1237812b070a109b157b470c",
+              "assertion": "required affinity beta; sticky=true"
+            },
+            {
+              "scenario": "sticky-workers",
+              "id": "c1f41bfe6e88f0a23daf9310",
+              "assertion": "two-worker sticky DAG executes independent tasks on one worker"
+            }
+          ],
+          "function": "Sticky",
+          "constructor": "NewStandaloneTask",
+          "task": "sticky-task",
+          "line": 69
+        }
+      ],
+      "scenarios": [
+        "sticky-workers"
+      ],
+      "example": "sdks/wego/examples/sticky-workers/main.go",
+      "tests": [
+        "TestExamples/sticky-workers"
+      ],
+      "command": "sdks/wego/scripts/local-test.py go test -tags=e2e ./sdks/wego/tests/e2e/... -run 'TestExamples/(sticky-workers)$' -v -timeout 10m"
+    },
+    {
+      "source": "sdks/go/examples/streaming/shared/task.go",
+      "fragments": [
+        {
+          "id": "sdks/go/examples/streaming/shared/task.go::StreamingWorkflow::stream-example",
+          "required_assertions": [
+            {
+              "scenario": "streaming",
+              "id": "0b8210fdfd345ee4703366cb",
+              "assertion": "protobuf output chunks forwarded to HTTP in order and final result confirmed"
+            }
+          ],
+          "function": "StreamingWorkflow",
+          "constructor": "NewStandaloneTask",
+          "task": "stream-example",
+          "line": 52
+        }
+      ],
+      "scenarios": [
+        "streaming"
+      ],
+      "example": "sdks/wego/examples/streaming/main.go",
+      "tests": [
+        "TestExamples/streaming"
+      ],
+      "command": "sdks/wego/scripts/local-test.py go test -tags=e2e ./sdks/wego/tests/e2e/... -run 'TestExamples/(streaming)$' -v -timeout 10m"
+    },
+    {
+      "source": "sdks/go/examples/stubs/stub-workflow.go",
+      "fragments": [
+        {
+          "id": "sdks/go/examples/stubs/stub-workflow.go::StubWorkflow::stub-workflow",
+          "required_assertions": [
+            {
+              "scenario": "stubs",
+              "id": "caa72aae9ab765f10fecc00d",
+              "assertion": "definition template registered and decoded"
+            }
+          ],
+          "function": "StubWorkflow",
+          "constructor": "NewStandaloneTask",
+          "task": "stub-workflow",
+          "line": 20
+        }
+      ],
+      "scenarios": [
+        "stubs"
+      ],
+      "example": "sdks/wego/examples/stubs/stub-workflow.go",
+      "tests": [
+        "TestExamples/stubs"
+      ],
+      "command": "sdks/wego/scripts/local-test.py go test -tags=e2e ./sdks/wego/tests/e2e/... -run 'TestExamples/(stubs)$' -v -timeout 10m"
+    },
+    {
+      "source": "sdks/go/examples/webhooks/main.go",
+      "fragments": [
+        {
+          "id": "sdks/go/examples/webhooks/main.go::main::handle-stripe-payment",
+          "required_assertions": [
+            {
+              "scenario": "webhooks",
+              "id": "c5ef59c36843a56bdad84107",
+              "assertion": "controlled HTTP webhook stripe:payment_intent.succeeded payload and result"
+            }
+          ],
+          "function": "main",
+          "constructor": "NewStandaloneTask",
+          "task": "handle-stripe-payment",
+          "line": 31
+        },
+        {
+          "id": "sdks/go/examples/webhooks/main.go::main::handle-github-pr",
+          "required_assertions": [
+            {
+              "scenario": "webhooks",
+              "id": "34f15dc5fe06655f28d933ee",
+              "assertion": "controlled HTTP webhook github:pull_request:opened payload and result"
+            }
+          ],
+          "function": "main",
+          "constructor": "NewStandaloneTask",
+          "task": "handle-github-pr",
+          "line": 62
+        },
+        {
+          "id": "sdks/go/examples/webhooks/main.go::main::handle-slack-mention",
+          "required_assertions": [
+            {
+              "scenario": "webhooks",
+              "id": "7f265915ea175e6ac65ba39a",
+              "assertion": "controlled HTTP webhook slack:event:app_mention payload and result"
+            }
+          ],
+          "function": "main",
+          "constructor": "NewStandaloneTask",
+          "task": "handle-slack-mention",
+          "line": 91
+        },
+        {
+          "id": "sdks/go/examples/webhooks/main.go::main::handle-slack-command",
+          "required_assertions": [
+            {
+              "scenario": "webhooks",
+              "id": "81328d19df6dc7131635aaed",
+              "assertion": "controlled HTTP webhook slack:command:/deploy payload and result"
+            }
+          ],
+          "function": "main",
+          "constructor": "NewStandaloneTask",
+          "task": "handle-slack-command",
+          "line": 113
+        },
+        {
+          "id": "sdks/go/examples/webhooks/main.go::main::handle-slack-interaction",
+          "required_assertions": [
+            {
+              "scenario": "webhooks",
+              "id": "499dab04a0ac7f667e35621d",
+              "assertion": "controlled HTTP webhook slack:interaction:block_actions payload and result"
+            }
+          ],
+          "function": "main",
+          "constructor": "NewStandaloneTask",
+          "task": "handle-slack-interaction",
+          "line": 143
+        }
+      ],
+      "scenarios": [
+        "webhooks"
+      ],
+      "example": "sdks/wego/examples/webhooks/main.go",
+      "tests": [
+        "TestExamples/webhooks"
+      ],
+      "command": "sdks/wego/scripts/local-test.py go test -tags=e2e ./sdks/wego/tests/e2e/... -run 'TestExamples/(webhooks)$' -v -timeout 10m"
+    }
+  ],
+  "extra_scenarios": [
+    "grpc-streams",
+    "stream-faults",
+    "shutdown",
+    "middleware",
+    "durable-restart",
+    "batch-shutdown"
+  ],
+  "extra_tests": {
+    "batch-shutdown": "TestBatchShutdownBudget",
+    "dual-entry": "TestExamples/dual-entry",
+    "durable-memo-recovery": "TestDurablePendingMemoRecovery",
+    "durable-restart": "TestDurableRestart",
+    "grpc-streams": "TestExamples/grpc-streams",
+    "middleware": "TestExamples/middleware",
+    "shutdown": "TestExamples/shutdown",
+    "stream-cost": "TestReviewStreamingCost",
+    "stream-cost-concurrent": "TestReviewConcurrentStreamingCost",
+    "stream-faults": "TestStreamFaults"
+  },
+  "assertions": "Scenario implementations assert execution results, policies, identities and cleanup; evidence is recorded in .test-results/acceptance-*.json.",
+  "parameters": {
+    "api": "http://localhost:8080",
+    "embedded": "independent process, database, ports; e2e,wego_embedded tags",
+    "grpc": "localhost:7077",
+    "history": "retained; workflow/trigger resources deleted",
+    "mq": "postgresql",
+    "namespace": "unique per scenario",
+    "tls": "plaintext",
+    "token": "HATCHET_CLIENT_TOKEN or WEGO_TOKEN_FILE; never recorded"
+  }
+}

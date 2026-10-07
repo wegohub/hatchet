@@ -1,0 +1,679 @@
+{
+  "status": "COMPLETE",
+  "sdk_version": "0.1.10",
+  "protocol_version": 3,
+  "official_dependency_version": "v0.109.0",
+  "server_version": "v0.107.0",
+  "mq": "postgresql",
+  "scope": "sdks/wego only; Hatchet sources, root dependencies and repository workflows unchanged",
+  "review_inputs": [
+    "sdks/wego/docs/DEEP_QUALITY_REVIEW.md",
+    "sdks/wego/docs/OPTIMIZATION_PRIORITIES.md"
+  ],
+  "issues": [
+    {
+      "id": "Q-001",
+      "issue": "Q-001：累计 ACK 全表扫描",
+      "disposition": "已修复",
+      "resolution": "`releaseCredit` 只访问新增确认序号，O(k)；直接复用现有累计 ACK 位置，不增加重复状态。覆盖 Endpoint 输出、Client 输入订阅及 DATA 控制任务结果三条路径。所有入口先检查 ACK 不超过已发送位置，重复或回退 ACK 不重复释放。",
+      "verification": "`TestCumulativeOutputACKBoundaries`、`TestCumulativeInputACKBoundaries`、`TestControlResultRejectsFutureACK`；窗口 64/1024 基准。"
+    },
+    {
+      "id": "Q-002",
+      "issue": "Q-002：每次通知分配通道",
+      "disposition": "使用安全替代方案修复",
+      "resolution": "`changeSignal` 在等待者检查条件的同一临界区内懒创建通道，广播后归零。无等待者时合并更新，通知零分配；有等待者时共享一代通道，继续广播到全部等待者。没有取消桥接 goroutine。",
+      "verification": "`TestBroadcastRegistrationAndCancellation`、`TestBroadcastConcurrentWaiters`；通知有/无等待者基准；race 与满窗口真实故障验收。"
+    },
+    {
+      "id": "Q-003",
+      "issue": "Q-003：控制分支手动解锁",
+      "disposition": "已修复",
+      "resolution": "`updateControl` 统一加锁与 defer 解锁，分派到 DATA、END、ACK 的持锁状态处理。返回待发布 READY，`control` 在锁外调用后端。CANCEL 在锁内记录故障，没有取消与数据消费之间的状态间隙。",
+      "verification": "`TestControlPublishesOutsideLock`；已有 OPEN、END 幂等与控制容量测试。"
+    },
+    {
+      "id": "Q-004",
+      "issue": "Q-004：删除循环内故障检查",
+      "disposition": "原建议不成立，保留并验证必要检查",
+      "resolution": "故障检查与从缓存取出消息必须在同一把锁内，不能移到循环外或独立 select。否则失败已发生的会话仍可能交付缓存 DATA。等待取消时也优先返回已记录协议故障。继续每条实际消费发送 ACK，避免按八条批量确认在低流量或小窗口下停滞。",
+      "verification": "`TestFailureDoesNotConsumeBufferedInput`、`TestWaitKeepsProtocolFailure`；客户端已有失败后不消费缓存的回归。"
+    },
+    {
+      "id": "Q-005",
+      "issue": "Q-005：比较后分支解锁",
+      "disposition": "已简化",
+      "resolution": "`acceptInput` 直接使用 `bytes.Equal`，不保存仅用于解锁后的临时布尔值；解锁由统一临界区负责。重复同内容幂等，内容冲突仍返回 DataLoss。",
+      "verification": "既有 `TestInputOrderingDuplicatesAndHalfClose`、`TestConflictingFramesAndWindow`。"
+    },
+    {
+      "id": "Q-006",
+      "issue": "Q-006：JSON 重复转换",
+      "disposition": "已修复",
+      "resolution": "`Decode` 对 string、[]byte、json.RawMessage 直接解析，结构化对象保持 JSON 回编码。带类型的 nil 字节和 RawMessage 仍遵循 null，非 nil 空文本保持非法。",
+      "verification": "`TestSessionDecodeSources`，包含非法 JSON、错误结构、不可编码对象与 null；RawMessage 前后基准。"
+    },
+    {
+      "id": "Q-007",
+      "issue": "Q-007：append 复制容量",
+      "disposition": "已调整并验证所有权",
+      "resolution": "`copyPayload` 使用精确切片容量的 make+copy，应用于双向 DATA 缓存及最终响应副本。保留 nil 与非 nil 空切片区别，绝不借用调用者或解码器的可变缓冲。切片容量减少不等于分配器实际占用字节减少。",
+      "verification": "`TestPayloadCopyAndBoundedCapacity`；253/4097 字节复制对照基准；载荷变换真实往返。"
+    },
+    {
+      "id": "Q-008",
+      "issue": "Q-008：重复、机械注释",
+      "disposition": "已改善触及路径，保留中文覆盖要求",
+      "resolution": "控制、通知、等待、状态分组和新测试说明当前不变量、取消竞态、窗口预算及具体序号例子。没有按原建议删除私有声明和局部变量的中文说明；该要求来自用户，且由 AST 门禁检查。此轮不把其他模块的大量既有注释机械改写为新的模板。",
+      "verification": "`TestDeclarationsHaveChineseComments`；控制与等待源码可读性复查。"
+    },
+    {
+      "id": "Q-009",
+      "issue": "Q-009：重复等待 select",
+      "disposition": "已提取",
+      "resolution": "`waitForChange` 合并广播与 context 等待；Endpoint `wait` 补充首个故障优先级；Client 发送窗口复用该辅助函数。Client 接收的终态缺口计时器保留专用 select，避免丢失超时条件与计时器清理。",
+      "verification": "广播、取消与故障优先级测试；既有输出缺口、断流测试。"
+    },
+    {
+      "id": "Q-010",
+      "issue": "Q-010：map 预分配",
+      "disposition": "使用有界方案修复",
+      "resolution": "Endpoint 双向缓存、Client 发送成本与接收缓存按 `min(Window, 64)` 预留，默认窗口避免填满时连续扩容；任意大配置不导致巨大初始分配。实际流量仍受消息数量和字节预算控制。预分配会增加空闲会话的初始内存，属于明确取舍，不宣称总内存减少 40%。",
+      "verification": "`TestPayloadCopyAndBoundedCapacity`，覆盖 0、1、64、MaxInt；实际满窗口与并发流验收。"
+    },
+    {
+      "id": "Q-011",
+      "issue": "Q-011：Endpoint 字段混杂",
+      "disposition": "已分组",
+      "resolution": "生命周期、输入、输出、响应四个私有状态结构按值嵌入，统一由 Endpoint.mu 保护。没有引入每方向独立锁、指针对象或新包；不复制运行中的端点。",
+      "verification": "状态顺序、半关闭、幂等、终态、取消的全部既有回归与 race。"
+    }
+  ],
+  "benchmark_report": "sdks/wego/docs/optimization-benchmarks.json",
+  "runtime_diagnostics": "sdks/wego/docs/deep-quality-runtime-diagnostics.json",
+  "final_source_snapshot": {
+    "go_file_count": 215,
+    "sha256": "3dda6483d707a476448a76f9eb13575eb1af4e720ad8b13a852d0d5bdad998fa",
+    "algorithm": "SHA256 sorted SDK-relative Go path + NUL + file bytes + NUL; hidden directories excluded"
+  },
+  "verification": {
+    "targeted_session_race_repetitions": 10,
+    "targeted_session_race": "PASSED",
+    "new_protocol_boundary_tests": 11,
+    "event_visibility_tests": 4,
+    "full_acceptance": "PASSED",
+    "quality_gate_count": 15,
+    "source_count": 28,
+    "fragment_count": 74,
+    "scenario_count": 30,
+    "required_assertion_count": 252,
+    "stream_fault_modes": 9,
+    "quality_gates": [
+      {
+        "name": "source-boundary",
+        "command": "python3 sdks/wego/scripts/check-upstream.py",
+        "cwd": ".",
+        "status": "PASSED",
+        "exit_code": 0,
+        "log": "sdks/wego/.test-results/gate-1791385446-source-boundary.log",
+        "at": "2026-10-07T15:04:06.354931+00:00"
+      },
+      {
+        "name": "published-dependency",
+        "command": "python3 sdks/wego/scripts/check-released.py",
+        "cwd": ".",
+        "status": "PASSED",
+        "exit_code": 0,
+        "log": "sdks/wego/.test-results/gate-1791385446-published-dependency.log",
+        "at": "2026-10-07T15:04:11.673585+00:00"
+      },
+      {
+        "name": "format",
+        "command": "gofmt -l sdks/wego",
+        "cwd": ".",
+        "status": "PASSED",
+        "exit_code": 0,
+        "log": "sdks/wego/.test-results/gate-1791385446-format.log",
+        "at": "2026-10-07T15:04:11.701801+00:00"
+      },
+      {
+        "name": "unit",
+        "command": "go test ./sdks/wego/...",
+        "cwd": ".",
+        "status": "PASSED",
+        "exit_code": 0,
+        "log": "sdks/wego/.test-results/gate-1791385446-unit.log",
+        "at": "2026-10-07T15:04:15.363436+00:00"
+      },
+      {
+        "name": "vet",
+        "command": "go vet ./sdks/wego/...",
+        "cwd": ".",
+        "status": "PASSED",
+        "exit_code": 0,
+        "log": "sdks/wego/.test-results/gate-1791385446-vet.log",
+        "at": "2026-10-07T15:04:16.116582+00:00"
+      },
+      {
+        "name": "race",
+        "command": "go test -race ./sdks/wego/...",
+        "cwd": ".",
+        "status": "PASSED",
+        "exit_code": 0,
+        "log": "sdks/wego/.test-results/gate-1791385446-race.log",
+        "at": "2026-10-07T15:04:23.224865+00:00"
+      },
+      {
+        "name": "upstream",
+        "command": "go test ./sdks/go/... ./pkg/client/... ./pkg/worker/...",
+        "cwd": ".",
+        "status": "PASSED",
+        "exit_code": 0,
+        "log": "sdks/wego/.test-results/gate-1791385446-upstream.log",
+        "at": "2026-10-07T15:04:23.844571+00:00"
+      },
+      {
+        "name": "upstream-embedded",
+        "command": "go test ./...",
+        "cwd": "sdks/go/examples/embedded",
+        "status": "PASSED",
+        "exit_code": 0,
+        "log": "sdks/wego/.test-results/gate-1791385446-upstream-embedded.log",
+        "at": "2026-10-07T15:04:24.513585+00:00"
+      },
+      {
+        "name": "embedded-module",
+        "command": "go test -tags=wego_embedded ./...",
+        "cwd": "sdks/wego/examples/embedded",
+        "status": "PASSED",
+        "exit_code": 0,
+        "log": "sdks/wego/.test-results/gate-1791385446-embedded-module.log",
+        "at": "2026-10-07T15:04:25.223068+00:00"
+      },
+      {
+        "name": "generation",
+        "command": "go test ./sdks/wego/tests/quality -run ^TestGenerationAndAcceptanceManifestAreReproducible$",
+        "cwd": ".",
+        "status": "PASSED",
+        "exit_code": 0,
+        "log": "sdks/wego/.test-results/gate-1791385446-generation.log",
+        "at": "2026-10-07T15:04:27.601959+00:00"
+      },
+      {
+        "name": "fuzz",
+        "command": "go test ./sdks/wego/internal/wire -run ^$ -fuzz FuzzDecodeFrame -fuzztime=10s",
+        "cwd": ".",
+        "status": "PASSED",
+        "exit_code": 0,
+        "log": "sdks/wego/.test-results/gate-1791385446-fuzz.log",
+        "at": "2026-10-07T15:04:40.209672+00:00"
+      },
+      {
+        "name": "compose-config",
+        "command": "docker compose -f sdks/wego/tests/compose.yml config --quiet",
+        "cwd": ".",
+        "status": "PASSED",
+        "exit_code": 0,
+        "log": "sdks/wego/.test-results/gate-1791385446-compose-config.log",
+        "at": "2026-10-07T15:04:40.404751+00:00"
+      },
+      {
+        "name": "engine",
+        "command": "sdks/wego/scripts/local-test.py go test -json -count=1 -tags=e2e ./sdks/wego/tests/e2e/... -timeout 30m",
+        "cwd": ".",
+        "status": "PASSED",
+        "exit_code": 0,
+        "log": "sdks/wego/.test-results/gate-1791385446-engine.log",
+        "at": "2026-10-07T15:12:42.884414+00:00"
+      },
+      {
+        "name": "engine-race",
+        "command": "sdks/wego/scripts/local-test.py go test -race -json -count=1 -tags=e2e ./sdks/wego/tests/e2e/... -run TestExamples/(batch|grpc-streams|shutdown|dual-entry)$|TestBatchShutdownBudget$|TestReview|TestIndependentReview -timeout 10m",
+        "cwd": ".",
+        "status": "PASSED",
+        "exit_code": 0,
+        "log": "sdks/wego/.test-results/gate-1791385446-engine-race.log",
+        "at": "2026-10-07T15:13:56.136980+00:00"
+      },
+      {
+        "name": "embedded-engine",
+        "command": "sdks/wego/scripts/local-test.py go test -json -count=1 -tags=e2e,wego_embedded ./sdks/wego/tests/e2e/... -run ^TestEmbedded$ -timeout 10m",
+        "cwd": ".",
+        "status": "PASSED",
+        "exit_code": 0,
+        "log": "sdks/wego/.test-results/gate-1791385446-embedded-engine.log",
+        "at": "2026-10-07T15:14:27.088224+00:00"
+      }
+    ],
+    "acceptance_report": "sdks/wego/docs/design/acceptance-report.json"
+  },
+  "limits": [
+    "no production throughput, aggregate memory or lock-contention percentage asserted",
+    "notify with waiters still allocates a channel per broadcast generation",
+    "slice capacity does not avoid heap allocator rounding",
+    "unreproduced code-wide issues cannot be ruled out by this report",
+    "hosted CI not executed; local CI template/compose validation included",
+    "Local v0.107.0 engine required an idle restart after assignment starvation. Passing fresh runs do not prove long-lived scheduler/cache stability. No server source or scheduling table was modified."
+  ],
+  "completed_at": "2026-10-07T15:14:27.098397+00:00",
+  "execution_evidence": {
+    "grpc-streams": "PASSED",
+    "middleware": "PASSED",
+    "shutdown": "PASSED",
+    "dual-entry": "PASSED",
+    "stream-cost": {
+      "cleanup": "workflow definitions deleted; owned transports closed; run and worker history retained",
+      "command": "go test -race -json -count=1 -tags=e2e ./sdks/wego/tests/e2e/... -run 'TestExamples/(batch|grpc-streams|shutdown|dual-entry)$|TestBatchShutdownBudget$|TestReview|TestIndependentReview' -timeout 10m",
+      "concurrency": 1,
+      "elapsed_seconds": 0.898373083,
+      "handshake_budget_ms": 20000,
+      "handshake_ms": 258.529417,
+      "handshakes_ms": [
+        258.529417
+      ],
+      "messages": 8,
+      "messages_per_second_including_handshake": 8.904986304003055,
+      "messages_per_session": 8,
+      "mq": "postgresql",
+      "namespace": "wego_accept_stream-cost_1791386021340026000_",
+      "payload_bytes": 256,
+      "round_trip_ms": [
+        60.415209,
+        87.809042,
+        67.36125,
+        80.166917,
+        74.22425,
+        70.147208,
+        73.062875,
+        82.5435
+      ],
+      "scope": "local concurrent bidi sessions with sequential messages within each; elapsed includes handshake; task submissions exclude output publication and HTTP polling",
+      "sdk_version": "0.1.10",
+      "server_version": "v0.107.0",
+      "status": "PASSED",
+      "submitted_tasks": {
+        "ACK": 8,
+        "DATA": 8,
+        "END": 1,
+        "OPEN": 1,
+        "PING": 1,
+        "RUN": 1,
+        "START": 1
+      }
+    },
+    "stream-cost-concurrent": {
+      "cleanup": "workflow definitions deleted; owned transports closed; run and worker history retained",
+      "command": "go test -race -json -count=1 -tags=e2e ./sdks/wego/tests/e2e/... -run 'TestExamples/(batch|grpc-streams|shutdown|dual-entry)$|TestBatchShutdownBudget$|TestReview|TestIndependentReview' -timeout 10m",
+      "concurrency": 4,
+      "elapsed_seconds": 8.370227416,
+      "handshake_budget_ms": 20000,
+      "handshake_ms": 2900.04325,
+      "handshakes_ms": [
+        2900.04325,
+        1560.959583,
+        2911.055875,
+        2915.822875
+      ],
+      "messages": 12,
+      "messages_per_second_including_handshake": 1.4336528033947507,
+      "messages_per_session": 3,
+      "mq": "postgresql",
+      "namespace": "wego_accept_stream-cost_1791386024078204000_",
+      "payload_bytes": 256,
+      "round_trip_ms": [
+        1598.781167,
+        1231.1815,
+        86.613958,
+        2937.88175,
+        1230.336375,
+        89.733042,
+        1644.02675,
+        1218.794875,
+        1416.441708,
+        2819.116125,
+        1453.43425,
+        79.211583
+      ],
+      "scope": "local concurrent bidi sessions with sequential messages within each; elapsed includes handshake; task submissions exclude output publication and HTTP polling",
+      "sdk_version": "0.1.10",
+      "server_version": "v0.107.0",
+      "status": "PASSED",
+      "submitted_tasks": {
+        "ACK": 12,
+        "DATA": 12,
+        "END": 4,
+        "OPEN": 4,
+        "PING": 7,
+        "RUN": 4,
+        "START": 4
+      }
+    },
+    "durable-memo-recovery": {
+      "after_invocation": 3,
+      "after_worker_id": "9dc7f8bc-0f0b-4c2f-86e3-6b1bb2370447",
+      "assertions": [
+        "worker process exited and restarted",
+        "same parent and child RunID",
+        "completed memo reused; pending memo recomputed then persisted when injected",
+        "wait sequence resumed",
+        "completed correlated event",
+        "engine redispatch preserves durable state"
+      ],
+      "before_worker_id": "c04dec21-34d4-428d-aba2-7c6e1960f34a",
+      "child_run_id": "a525017f-2f66-4807-9998-9ac514583944",
+      "cleanup": "worker processes stopped; workflow definitions deleted; history retained",
+      "command": "go test -json -count=1 -tags=e2e ./sdks/wego/tests/e2e/... -timeout 30m",
+      "mq": "postgresql",
+      "namespace": "wego_restart_1791385486409926000_",
+      "pending_memo_injected": true,
+      "recomputed_time": "2026-10-07T15:05:21.803006Z",
+      "run_id": "184f76c3-4a92-490d-b9ef-d7859aba3fe2",
+      "sdk_version": "0.1.10",
+      "server_version": "v0.107.0",
+      "status": "PASSED"
+    },
+    "stream-faults": {
+      "command": "sdks/wego/scripts/local-test.py go test -tags=e2e ./sdks/wego/tests/e2e/... -run TestStreamFaults -v -timeout 10m",
+      "mq": "postgresql",
+      "records": [
+        {
+          "scenario": "stream-faults",
+          "namespace": "wego_accept_stream-faults_1791385938095371000_",
+          "assertion": "delayed-subscription: ordered complete output and one handler",
+          "assertion_id": "0754abaf025cfbbd10ec195c",
+          "run_id": "345c546e-0a28-41ac-aad8-689b13a43612",
+          "worker_id": "8e066365-7b1f-4358-9ed6-a076aceb9d22",
+          "at": "2026-10-07T15:12:20.610345Z"
+        },
+        {
+          "scenario": "stream-faults",
+          "namespace": "wego_accept_stream-faults_1791385938095371000_",
+          "assertion": "delayed-subscription: session identity recorded",
+          "assertion_id": "6238a2f8a07cc05174c99fa0",
+          "run_id": "345c546e-0a28-41ac-aad8-689b13a43612",
+          "at": "2026-10-07T15:12:20.610347Z"
+        },
+        {
+          "scenario": "stream-faults",
+          "namespace": "wego_accept_stream-faults_1791385938095371000_",
+          "assertion": "workflow resources deleted; run history retained",
+          "assertion_id": "bc61cfe35826be28b668b794",
+          "at": "2026-10-07T15:12:20.72035Z"
+        },
+        {
+          "scenario": "stream-faults",
+          "namespace": "wego_accept_stream-faults_1791385940720417000_",
+          "assertion": "duplicate-open: ordered complete output and one handler",
+          "assertion_id": "4c93f5325cba4d8fdc9cd5dd",
+          "run_id": "08e44173-7cd5-41e6-8854-e3bb7923a54f",
+          "worker_id": "e74577de-0d75-4ee7-a528-92900cf096f6",
+          "at": "2026-10-07T15:12:27.547748Z"
+        },
+        {
+          "scenario": "stream-faults",
+          "namespace": "wego_accept_stream-faults_1791385940720417000_",
+          "assertion": "duplicate-open: session identity recorded",
+          "assertion_id": "6b7fdca4d1bacea2f8d30792",
+          "run_id": "08e44173-7cd5-41e6-8854-e3bb7923a54f",
+          "at": "2026-10-07T15:12:27.54775Z"
+        },
+        {
+          "scenario": "stream-faults",
+          "namespace": "wego_accept_stream-faults_1791385940720417000_",
+          "assertion": "workflow resources deleted; run history retained",
+          "assertion_id": "bc61cfe35826be28b668b794",
+          "at": "2026-10-07T15:12:27.665671Z"
+        },
+        {
+          "scenario": "stream-faults",
+          "namespace": "wego_accept_stream-faults_1791385947665739000_",
+          "assertion": "input-reorder: ordered complete output and one handler",
+          "assertion_id": "e4c9cf79c0fc54c0b0756439",
+          "run_id": "dff5db38-93c0-4ae3-aaf6-bfda995ccf66",
+          "worker_id": "4e57ec7e-4cd5-48cc-974d-231fffc0d9d7",
+          "at": "2026-10-07T15:12:29.71894Z"
+        },
+        {
+          "scenario": "stream-faults",
+          "namespace": "wego_accept_stream-faults_1791385947665739000_",
+          "assertion": "input-reorder: session identity recorded",
+          "assertion_id": "3d58a4c4ca99455636276ada",
+          "run_id": "dff5db38-93c0-4ae3-aaf6-bfda995ccf66",
+          "at": "2026-10-07T15:12:29.718942Z"
+        },
+        {
+          "scenario": "stream-faults",
+          "namespace": "wego_accept_stream-faults_1791385947665739000_",
+          "assertion": "workflow resources deleted; run history retained",
+          "assertion_id": "bc61cfe35826be28b668b794",
+          "at": "2026-10-07T15:12:29.82392Z"
+        },
+        {
+          "scenario": "stream-faults",
+          "namespace": "wego_accept_stream-faults_1791385949824004000_",
+          "assertion": "output-reorder: protocol result asserted",
+          "assertion_id": "0a4ca16aaa148c7435f89517",
+          "at": "2026-10-07T15:12:31.858085Z"
+        },
+        {
+          "scenario": "stream-faults",
+          "namespace": "wego_accept_stream-faults_1791385949824004000_",
+          "assertion": "output-reorder: session identity recorded",
+          "assertion_id": "f0dfb3bc1a449e51e23fbdfc",
+          "run_id": "112f3b54-c558-4c5d-88d8-c5d1c0404019",
+          "at": "2026-10-07T15:12:31.858087Z"
+        },
+        {
+          "scenario": "stream-faults",
+          "namespace": "wego_accept_stream-faults_1791385949824004000_",
+          "assertion": "workflow resources deleted; run history retained",
+          "assertion_id": "bc61cfe35826be28b668b794",
+          "at": "2026-10-07T15:12:31.965599Z"
+        },
+        {
+          "scenario": "stream-faults",
+          "namespace": "wego_accept_stream-faults_1791385951965639000_",
+          "assertion": "output-gap: protocol result asserted",
+          "assertion_id": "a8969e7922da9469ea7079fb",
+          "at": "2026-10-07T15:12:34.406851Z"
+        },
+        {
+          "scenario": "stream-faults",
+          "namespace": "wego_accept_stream-faults_1791385951965639000_",
+          "assertion": "output-gap: session identity recorded",
+          "assertion_id": "6c1c0f8c397daf85058980a6",
+          "run_id": "585eb586-795f-4c18-b010-69b8e08645f7",
+          "at": "2026-10-07T15:12:34.406854Z"
+        },
+        {
+          "scenario": "stream-faults",
+          "namespace": "wego_accept_stream-faults_1791385951965639000_",
+          "assertion": "workflow resources deleted; run history retained",
+          "assertion_id": "bc61cfe35826be28b668b794",
+          "at": "2026-10-07T15:12:34.567762Z"
+        },
+        {
+          "scenario": "stream-faults",
+          "namespace": "wego_accept_stream-faults_1791385954567889000_",
+          "assertion": "malformed output rejected during generated client initialization",
+          "assertion_id": "618cd2872c3fc85b7fd1eb29",
+          "at": "2026-10-07T15:12:36.464195Z"
+        },
+        {
+          "scenario": "stream-faults",
+          "namespace": "wego_accept_stream-faults_1791385954567889000_",
+          "assertion": "workflow resources deleted; run history retained",
+          "assertion_id": "bc61cfe35826be28b668b794",
+          "at": "2026-10-07T15:12:36.618152Z"
+        },
+        {
+          "scenario": "stream-faults",
+          "namespace": "wego_accept_stream-faults_1791385956618228000_",
+          "assertion": "subscription disconnect fails without restarting session",
+          "assertion_id": "79ed809a6a3668b4bef7508d",
+          "at": "2026-10-07T15:12:38.497076Z"
+        },
+        {
+          "scenario": "stream-faults",
+          "namespace": "wego_accept_stream-faults_1791385956618228000_",
+          "assertion": "disconnect: session identity recorded",
+          "assertion_id": "71fe3a9f43241a8ec047f9da",
+          "run_id": "d275d001-c936-4548-84de-9bb1277b4b36",
+          "at": "2026-10-07T15:12:38.497083Z"
+        },
+        {
+          "scenario": "stream-faults",
+          "namespace": "wego_accept_stream-faults_1791385956618228000_",
+          "assertion": "workflow resources deleted; run history retained",
+          "assertion_id": "bc61cfe35826be28b668b794",
+          "at": "2026-10-07T15:12:38.620112Z"
+        },
+        {
+          "scenario": "stream-faults",
+          "namespace": "wego_accept_stream-faults_1791385958620182000_",
+          "assertion": "full-window: ordered complete output and one handler",
+          "assertion_id": "30fa669b2f8a194987a34634",
+          "run_id": "6cd34d8e-b2e1-46d6-a096-6b6dd47eae0a",
+          "worker_id": "4191f6e0-814d-4669-b515-7b840ce213f3",
+          "at": "2026-10-07T15:12:40.840405Z"
+        },
+        {
+          "scenario": "stream-faults",
+          "namespace": "wego_accept_stream-faults_1791385958620182000_",
+          "assertion": "full-window: session identity recorded",
+          "assertion_id": "fd287a5fefec46e1852071ff",
+          "run_id": "6cd34d8e-b2e1-46d6-a096-6b6dd47eae0a",
+          "at": "2026-10-07T15:12:40.840407Z"
+        },
+        {
+          "scenario": "stream-faults",
+          "namespace": "wego_accept_stream-faults_1791385958620182000_",
+          "assertion": "workflow resources deleted; run history retained",
+          "assertion_id": "bc61cfe35826be28b668b794",
+          "at": "2026-10-07T15:12:40.962556Z"
+        },
+        {
+          "scenario": "stream-faults",
+          "namespace": "wego_accept_stream-faults_1791385960962689000_",
+          "assertion": "owner exit explicitly fails stream without reassignment",
+          "assertion_id": "e1f300f476347ab2024caf7c",
+          "run_id": "02e68a65-fe81-49f2-9aa0-bcb0f93e36f5",
+          "worker_id": "207a16e1-5549-4dcc-9288-1a471e96e14a",
+          "at": "2026-10-07T15:12:42.763041Z"
+        },
+        {
+          "scenario": "stream-faults",
+          "namespace": "wego_accept_stream-faults_1791385960962689000_",
+          "assertion": "owner-exit: session identity recorded",
+          "assertion_id": "0220f90933f52cd42e27b6a2",
+          "run_id": "02e68a65-fe81-49f2-9aa0-bcb0f93e36f5",
+          "at": "2026-10-07T15:12:42.763043Z"
+        },
+        {
+          "scenario": "stream-faults",
+          "namespace": "wego_accept_stream-faults_1791385960962689000_",
+          "assertion": "workflow resources deleted; run history retained",
+          "assertion_id": "bc61cfe35826be28b668b794",
+          "at": "2026-10-07T15:12:42.82455Z"
+        }
+      ],
+      "results": {
+        "delayed-subscription": "PASSED",
+        "disconnect": "PASSED",
+        "duplicate-open": "PASSED",
+        "full-window": "PASSED",
+        "input-reorder": "PASSED",
+        "invalid-direction": "PASSED",
+        "output-gap": "PASSED",
+        "output-reorder": "PASSED",
+        "owner-exit": "PASSED"
+      },
+      "server_version": "v0.107.0"
+    },
+    "durable-restart": {
+      "after_invocation": 2,
+      "after_worker_id": "98c99303-b9cc-4724-b32b-9a736ce326a6",
+      "assertions": [
+        "worker process exited and restarted",
+        "same parent and child RunID",
+        "completed memo reused; pending memo recomputed then persisted when injected",
+        "wait sequence resumed",
+        "completed correlated event",
+        "engine redispatch preserves durable state"
+      ],
+      "before_worker_id": "fe8526f9-11ea-49fa-9575-5c149009d362",
+      "child_run_id": "070d315d-e3b5-47cf-90fa-3a54c6f84571",
+      "cleanup": "worker processes stopped; workflow definitions deleted; history retained",
+      "command": "go test -json -count=1 -tags=e2e ./sdks/wego/tests/e2e/... -timeout 30m",
+      "mq": "postgresql",
+      "namespace": "wego_restart_1791385554668082000_",
+      "pending_memo_injected": false,
+      "recomputed_time": "2026-10-07T15:05:59.867071Z",
+      "run_id": "b09aff57-8622-4fb6-8743-d4d26020fb73",
+      "sdk_version": "0.1.10",
+      "server_version": "v0.107.0",
+      "status": "PASSED"
+    },
+    "embedded": {
+      "assertion_ids": [
+        "87825ad3f77c324e9b69f0b2"
+      ],
+      "assertions": [
+        "independent process and PostgreSQL database",
+        "migrations and registration",
+        "standard protobuf RPC result",
+        "engine and API listeners closed"
+      ],
+      "cleanup": "workflow definitions deleted; API/gRPC listeners closed; independent PostgreSQL database dropped",
+      "command": "go test -json -count=1 -tags=e2e,wego_embedded ./sdks/wego/tests/e2e/... -run '^TestEmbedded$' -timeout 10m",
+      "database_dropped": true,
+      "independent_example": "PASSED: Hello, embed!",
+      "mq": "postgresql",
+      "run_id": "e9ad9d58-1cb9-4897-84fb-b8dbeba94b57",
+      "scenario": "embedded",
+      "server_version": "v0.109.0",
+      "status": "PASSED",
+      "worker_id": "7c52365c-002c-4298-b596-f47b02a26104"
+    },
+    "batch-shutdown": {
+      "command": "sdks/wego/scripts/local-test.py go test -race -tags=e2e ./sdks/wego/tests/e2e/... -run TestBatchShutdownBudget -v -timeout 5m",
+      "mq": "postgresql",
+      "records": [
+        {
+          "scenario": "batch-shutdown",
+          "namespace": "wego_batch_shutdown_1791385967237894000_",
+          "assertion": "concurrent batch context canceled within shutdown budget",
+          "assertion_id": "d702be1dac4cf7258279419d",
+          "run_id": "a6e4332a-7c7d-47e0-8949-bf54c7d698ad",
+          "worker_id": "d1c4adcb-33ee-489f-8f34-edd2a12b176d",
+          "at": "2026-10-07T15:12:51.360683Z"
+        },
+        {
+          "scenario": "batch-shutdown",
+          "namespace": "wego_batch_shutdown_1791385967237894000_",
+          "assertion": "concurrent batch context canceled within shutdown budget",
+          "assertion_id": "d702be1dac4cf7258279419d",
+          "run_id": "c549076f-c952-439c-abe0-90d0dea76307",
+          "worker_id": "d1c4adcb-33ee-489f-8f34-edd2a12b176d",
+          "at": "2026-10-07T15:12:51.360716Z"
+        },
+        {
+          "scenario": "batch-shutdown",
+          "namespace": "wego_batch_shutdown_1791385967237894000_",
+          "assertion": "workflow resources deleted; run history retained",
+          "assertion_id": "bc61cfe35826be28b668b794",
+          "at": "2026-10-07T15:12:51.419331Z"
+        }
+      ],
+      "server_version": "v0.107.0",
+      "status": "PASSED"
+    }
+  },
+  "cleanup": {
+    "workflow_and_trigger_resources": "deleted under unique namespaces",
+    "embedded_database": "dropped",
+    "owned_listeners_and_connections": "closed",
+    "retained": "run history and engine worker records, including intentional owner-loss cases"
+  },
+  "ci": "SDK CI template and compose configuration validated locally; no repository workflow installed"
+}

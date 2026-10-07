@@ -1,0 +1,256 @@
+# Embedded Mode
+
+
+Hatchet can run in an [embedded mode](https://github.com/hatchet-dev/hatchet-embedded) from inside your workers. The goal is to make local testing as easy as possible and be able to test workers end to end in ephemeral CI environments. There is no need to provision tenants, users, or API tokens to get started.
+
+When using the embedded mode, you get a full Hatchet engine running locally without any external dependencies including Postgres. By default it uses [embedded-postgres](https://github.com/fergusstrange/embedded-postgres) to provision a Postgres database.
+
+
+## How it works
+
+- **Go** runs the engine in-process: the `hatchet-embedded` package registers itself with the Go SDK via a blank import, and the SDK boots the engine on `NewClient`.
+- **TypeScript and Python** run the engine as a sidecar process. On first use the SDK downloads the `hatchet-embedded-sidecar` binary for your platform from the hatchet-embedded [releases](https://github.com/hatchet-dev/hatchet-embedded/releases) (signed and notarized on macOS), caches it under `~/.hatchet/embedded/<version>`, and spawns it. The binary is verified against the release checksums on every start, and the sidecar shuts down with your process.
+
+## Usage
+
+#### Python
+
+```python
+hatchet = Hatchet.from_embedded()
+```
+
+Configure the embedded engine through `ClientConfig.embedded` (see [Options](#options)).
+
+When you are done, stop the engine and wait for it to exit:
+
+```python
+hatchet.stop_embedded()
+```
+
+> **Warning:** Python workers run tasks in subprocesses that re-import your main module.
+>   `Hatchet.from_embedded()` handles this automatically, and subprocesses connect
+>   to the parent's engine instead of booting their own. Keep worker startup and
+>   task triggering under an `if __name__ == "__main__":` guard, as with any
+>   Python program that uses multiprocessing.
+
+#### Typescript
+
+Embedded mode is a separate entry point, so it stays out of production bundles:
+
+```typescript
+const hatchet = await HatchetEmbeddedClient.init();
+```
+
+Options are passed as the first argument (see [Options](#options)).
+
+When you are done, stop the engine and wait for it to exit:
+
+```typescript
+await hatchet.stopEmbedded();
+```
+
+#### Go
+
+```sh
+go get github.com/hatchet-dev/hatchet-embedded
+```
+
+Import the package for side effects alongside the SDK; the SDK detects the embedded config and boots the engine on `NewClient`:
+
+```go
+import (
+	hatchet "github.com/hatchet-dev/hatchet/sdks/go"
+
+	_ "github.com/hatchet-dev/hatchet-embedded"
+)
+```
+
+Options are passed to `WithEmbedded` (see [Options](#options)).
+
+When you are done, `client.Close(ctx)` stops the embedded engine and waits for it to exit:
+
+```go
+return client.Close(ctx)
+```
+
+#### Ruby
+
+> **Info:** Embedded mode for the Ruby SDK is coming soon. Join our
+>       <a href="https://hatchet.run/discord">Discord</a> to stay up to date.
+
+See runnable examples for all three SDKs in the [hatchet-embedded repo](https://github.com/hatchet-dev/hatchet-embedded/tree/main/examples).
+
+## Options
+
+#### Python
+
+All options live on `EmbeddedHatchetConfig`. Every field can also be set through a `HATCHET_CLIENT_EMBEDDED_*` environment variable (for example, `HATCHET_CLIENT_EMBEDDED_BINARY_PATH`):
+
+```python
+hatchet = Hatchet.from_embedded(
+    ClientConfig(
+        embedded=EmbeddedHatchetConfig(
+            # use your own Postgres instead of the bundled one
+            database_url="postgres://...",
+            # store the bundled Postgres runtime and data under this directory
+            postgres_data_dir="~/my-project/.hatchet-pg",
+            # use RabbitMQ instead of the Postgres message queue
+            rabbitmq_url="amqp://...",
+            # bind the API / gRPC servers to specific ports
+            api_port=28243,
+            grpc_port=7070,
+            # start only the engine + gRPC, no REST API
+            start_api=False,
+            # skip running migrations on startup
+            run_migrations=False,
+            # engine log level (default "warn")
+            log_level="info",
+            # hatchet-embedded release tag to download
+            version="v0.105.0",
+            # use an existing sidecar binary, skips the download
+            binary_path="/path/to/hatchet-embedded-sidecar",
+            # pinned sha256 of the sidecar binary, replaces
+            # checksums.txt as the trust anchor
+            checksum="4f2a...",
+        )
+    )
+)
+```
+
+#### Typescript
+
+```typescript
+const hatchet = await HatchetEmbeddedClient.init({
+  // use your own Postgres instead of the bundled one
+  databaseUrl: 'postgres://...',
+  // store the bundled Postgres runtime and data under this directory
+  postgresDataDir: '~/my-project/.hatchet-pg',
+  // use RabbitMQ instead of the Postgres message queue
+  rabbitmqUrl: 'amqp://...',
+  // bind the API / gRPC servers to specific ports
+  apiPort: 28243,
+  grpcPort: 7070,
+  // start only the engine + gRPC, no REST API
+  startApi: false,
+  // skip running migrations on startup
+  runMigrations: false,
+  // engine log level (default "warn")
+  logLevel: 'info',
+  // hatchet-embedded release tag to download
+  version: 'v0.105.0',
+  // use an existing sidecar binary, skips the download
+  binaryPath: '/path/to/hatchet-embedded-sidecar',
+  // pinned sha256 of the sidecar binary, replaces checksums.txt as the trust anchor
+  checksum: '4f2a...',
+});
+```
+
+#### Go
+
+```go
+client, err := hatchet.NewClient(hatchet.WithEmbedded(
+	// use your own Postgres instead of the bundled one
+	hatchet.WithEmbeddedDatabaseURL("postgres://..."),
+	// use RabbitMQ instead of the Postgres message queue
+	hatchet.WithEmbeddedRabbitMQ("amqp://..."),
+	// bind the API / gRPC servers to specific ports
+	hatchet.WithEmbeddedAPIPort(28243),
+	hatchet.WithEmbeddedGRPCPort(7070),
+	// start only the engine + gRPC, no REST API
+	hatchet.WithoutEmbeddedAPI(),
+	// skip running migrations on startup
+	hatchet.WithoutEmbeddedMigrations(),
+	// engine log level (default "warn")
+	hatchet.WithEmbeddedLogLevel("info"),
+))
+```
+
+`version`, `binaryPath`, and `checksum` do not apply to Go: the engine runs in-process, so there is no sidecar to download. The `embed` package also offers `WithPostgresDataDir(dir)`, `WithAdminUser(email, password)`, `WithKeysets(...)`, and `WithLogger(...)` when you drive the engine yourself via `embed.StartServer`.
+
+#### Ruby
+
+> **Info:** Embedded mode for the Ruby SDK is coming soon. Join our
+>       <a href="https://hatchet.run/discord">Discord</a> to stay up to date.
+
+## Serve the dashboard
+
+Embedded instances do not ship a frontend. The `hatchet embedded-ui` CLI command serves the dashboard bundled in the CLI binary on your machine and proxies API requests to the instance's API server. With no flags it targets the default embedded API port (`http://localhost:28243`):
+
+```sh
+hatchet embedded-ui
+```
+
+This opens a browser to the locally served dashboard. The URL contains a one-time `ui_token` that is exchanged for a local session cookie; requests without the cookie are rejected, so other processes or machines cannot use the proxy port. The server binds to `localhost` unless you override `--host`.
+
+If your instance is not on the default port (for example, a second instance on the same machine), pass its API server explicitly with `--api-url`, using the address from the engine's ready line. The target must report itself as an embedded instance (via `/api/v1/meta`); the command errors out for any other deployment.
+
+Flag, Description
+
+`--api-url`, API server URL to proxy to (defaults to `http://localhost:28243`).
+`--profile`, Profile whose API server the UI targets.
+`--port`, Port to serve the UI on (defaults to auto-detecting from `8080`).
+`--host`, Host interface to bind the UI server to (defaults to `localhost`).
+`--no-open`, Do not automatically open a browser.
+
+## Versioning
+
+hatchet-embedded release tags correspond to the publicly released [Hatchet engine](https://github.com/hatchet-dev/hatchet/releases) versions.
+
+The TypeScript and Python SDKs resolve the version in this order:
+
+1. The `version` option
+2. The `HATCHET_CLIENT_EMBEDDED_VERSION` environment variable
+3. The latest hatchet-embedded release
+
+## Running multiple instances
+
+Multiple embedded instances on one machine work out of the box: the first instance's API binds to the default port `28243` and the rest get random free ports (printed on each engine's ready line), gRPC and Postgres ports are auto-allocated, and the bundled Postgres keeps its data in a per-project directory (`~/.hatchet-embedded/<hash of working dir>`), which also persists across restarts.
+
+Two instances started from the _same_ working directory cannot share the bundled Postgres data directory concurrently. Give each its own via the Postgres data dir option, or point them at an external Postgres.
+
+## Run a fleet with a shared database
+
+You can run many embedded engines as one fleet. Point each engine to the same external Postgres database. The engines then operate on the same tenant. They share the task queue. This works the same in Go, TypeScript, and Python, and you can mix them.
+
+Set the database URL when you create each client:
+
+#### Python
+
+```python
+hatchet = Hatchet.from_embedded(
+    ClientConfig(
+        embedded=EmbeddedHatchetConfig(
+            database_url="postgres://user:pass@db.internal:5432/hatchet"
+        )
+    )
+)
+```
+
+#### Typescript
+
+```typescript
+const hatchet = await HatchetEmbeddedClient.init({
+  databaseUrl: 'postgres://user:pass@db.internal:5432/hatchet',
+});
+```
+
+#### Go
+
+```go
+client, err := hatchet.NewClient(hatchet.WithEmbedded(
+	hatchet.WithEmbeddedDatabaseURL("postgres://user:pass@db.internal:5432/hatchet"),
+))
+```
+
+#### Ruby
+
+> **Info:** Embedded mode for the Ruby SDK is coming soon. Join our
+>       <a href="https://hatchet.run/discord">Discord</a> to stay up to date.
+
+Start more processes with the same database URL to make the fleet larger. Stop a process to make the fleet smaller. The other engines continue the work.
+
+Each engine applies database migrations at startup. Do not let two engines apply migrations at the same time. Start the first engine fully before you start the others, or turn off migrations on all engines except one (`WithoutEmbeddedMigrations()`, `runMigrations: false`, `run_migrations=False`).
+
+## Encryption keysets
+
+Without explicit keysets, embedded mode auto-manages them in a schema inside the same database. This is convenient for development, but at-rest encryption offers no additional protection when the keys live next to the data they encrypt. Pass `WithKeysets` (Go, via `embed.StartServer`) to manage keys externally.

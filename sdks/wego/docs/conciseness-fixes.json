@@ -1,0 +1,356 @@
+{
+  "status": "COMPLETE",
+  "completed_at": "2026-10-07T15:49:59.866491+00:00",
+  "sdk_version": "0.1.11",
+  "protocol_version": 3,
+  "server_version": "v0.110.5",
+  "official_release": "https://github.com/hatchet-dev/hatchet/releases/tag/v0.110.5",
+  "official_dependency_version": "v0.109.0",
+  "mq": "postgresql",
+  "review": "CONCISENESS_REVIEW.md",
+  "items": [
+    {
+      "id": "C-001",
+      "status": "RESOLVED",
+      "decision": "Remove mechanical body comments; preserve declarations and invariants."
+    },
+    {
+      "id": "C-002",
+      "status": "RESOLVED",
+      "decision": "Use taskID; retain necessary locked snapshots and envelope payload ownership."
+    },
+    {
+      "id": "C-003",
+      "status": "RESOLVED",
+      "decision": "Share protobuf validation; reject nil responses before consuming cached messages."
+    },
+    {
+      "id": "C-004",
+      "status": "RESOLVED",
+      "decision": "Name window/gap predicates without moving lock boundaries; compiler inlines all three."
+    },
+    {
+      "id": "C-005",
+      "status": "RESOLVED",
+      "decision": "Concise state getters; document mutex constraints at declarations and operation boundaries."
+    },
+    {
+      "id": "C-006",
+      "status": "RESOLVED",
+      "decision": "Share failCall and use a single deferred subscription failure exit; retain first-error priority."
+    }
+  ],
+  "source_fingerprint": {
+    "sdk_version": "0.1.11",
+    "go_files": 216,
+    "algorithm": "sorted SDK-relative Go path + NUL + bytes + NUL",
+    "sha256": "c87a4d34058ae69dec080bcd0a2827c6871bef4ef45340c77c71ad87137f7327"
+  },
+  "quality_gates": [
+    {
+      "name": "source-boundary",
+      "command": "python3 sdks/wego/scripts/check-upstream.py",
+      "cwd": ".",
+      "status": "PASSED",
+      "exit_code": 0,
+      "log": "sdks/wego/.test-results/gate-1791387467-source-boundary.log",
+      "at": "2026-10-07T15:37:47.702194+00:00"
+    },
+    {
+      "name": "published-dependency",
+      "command": "python3 sdks/wego/scripts/check-released.py",
+      "cwd": ".",
+      "status": "PASSED",
+      "exit_code": 0,
+      "log": "sdks/wego/.test-results/gate-1791387467-published-dependency.log",
+      "at": "2026-10-07T15:37:52.607654+00:00"
+    },
+    {
+      "name": "format",
+      "command": "gofmt -l sdks/wego",
+      "cwd": ".",
+      "status": "PASSED",
+      "exit_code": 0,
+      "log": "sdks/wego/.test-results/gate-1791387467-format.log",
+      "at": "2026-10-07T15:37:52.643150+00:00"
+    },
+    {
+      "name": "unit",
+      "command": "go test ./sdks/wego/...",
+      "cwd": ".",
+      "status": "PASSED",
+      "exit_code": 0,
+      "log": "sdks/wego/.test-results/gate-1791387467-unit.log",
+      "at": "2026-10-07T15:38:05.167629+00:00"
+    },
+    {
+      "name": "vet",
+      "command": "go vet ./sdks/wego/...",
+      "cwd": ".",
+      "status": "PASSED",
+      "exit_code": 0,
+      "log": "sdks/wego/.test-results/gate-1791387467-vet.log",
+      "at": "2026-10-07T15:38:06.027014+00:00"
+    },
+    {
+      "name": "race",
+      "command": "go test -race ./sdks/wego/...",
+      "cwd": ".",
+      "status": "PASSED",
+      "exit_code": 0,
+      "log": "sdks/wego/.test-results/gate-1791387467-race.log",
+      "at": "2026-10-07T15:38:18.639816+00:00"
+    },
+    {
+      "name": "upstream",
+      "command": "go test ./sdks/go/... ./pkg/client/... ./pkg/worker/...",
+      "cwd": ".",
+      "status": "PASSED",
+      "exit_code": 0,
+      "log": "sdks/wego/.test-results/gate-1791387467-upstream.log",
+      "at": "2026-10-07T15:38:19.171694+00:00"
+    },
+    {
+      "name": "upstream-embedded",
+      "command": "go test ./...",
+      "cwd": "sdks/go/examples/embedded",
+      "status": "PASSED",
+      "exit_code": 0,
+      "log": "sdks/wego/.test-results/gate-1791387467-upstream-embedded.log",
+      "at": "2026-10-07T15:38:19.761741+00:00"
+    },
+    {
+      "name": "embedded-module",
+      "command": "go test -tags=wego_embedded ./...",
+      "cwd": "sdks/wego/examples/embedded",
+      "status": "PASSED",
+      "exit_code": 0,
+      "log": "sdks/wego/.test-results/gate-1791387467-embedded-module.log",
+      "at": "2026-10-07T15:38:20.573418+00:00"
+    },
+    {
+      "name": "generation",
+      "command": "go test ./sdks/wego/tests/quality -run ^TestGenerationAndAcceptanceManifestAreReproducible$",
+      "cwd": ".",
+      "status": "PASSED",
+      "exit_code": 0,
+      "log": "sdks/wego/.test-results/gate-1791387467-generation.log",
+      "at": "2026-10-07T15:38:23.138942+00:00"
+    },
+    {
+      "name": "fuzz",
+      "command": "go test ./sdks/wego/internal/wire -run ^$ -fuzz FuzzDecodeFrame -fuzztime=10s",
+      "cwd": ".",
+      "status": "PASSED",
+      "exit_code": 0,
+      "log": "sdks/wego/.test-results/gate-1791387467-fuzz.log",
+      "at": "2026-10-07T15:38:35.718903+00:00"
+    },
+    {
+      "name": "compose-config",
+      "command": "docker compose -f sdks/wego/tests/compose.yml config --quiet",
+      "cwd": ".",
+      "status": "PASSED",
+      "exit_code": 0,
+      "log": "sdks/wego/.test-results/gate-1791387467-compose-config.log",
+      "at": "2026-10-07T15:38:35.898123+00:00"
+    },
+    {
+      "name": "engine",
+      "command": "sdks/wego/scripts/local-test.py go test -json -count=1 -tags=e2e ./sdks/wego/tests/e2e/... -timeout 30m",
+      "cwd": ".",
+      "status": "PASSED",
+      "exit_code": 0,
+      "log": "sdks/wego/.test-results/gate-1791387467-engine.log",
+      "at": "2026-10-07T15:48:02.398108+00:00"
+    },
+    {
+      "name": "engine-race",
+      "command": "sdks/wego/scripts/local-test.py go test -race -json -count=1 -tags=e2e ./sdks/wego/tests/e2e/... -run TestExamples/(batch|grpc-streams|shutdown|dual-entry)$|TestBatchShutdownBudget$|TestReview|TestIndependentReview -timeout 10m",
+      "cwd": ".",
+      "status": "PASSED",
+      "exit_code": 0,
+      "log": "sdks/wego/.test-results/gate-1791387467-engine-race.log",
+      "at": "2026-10-07T15:49:27.948394+00:00"
+    },
+    {
+      "name": "embedded-engine",
+      "command": "sdks/wego/scripts/local-test.py go test -json -count=1 -tags=e2e,wego_embedded ./sdks/wego/tests/e2e/... -run ^TestEmbedded$ -timeout 10m",
+      "cwd": ".",
+      "status": "PASSED",
+      "exit_code": 0,
+      "log": "sdks/wego/.test-results/gate-1791387467-embedded-engine.log",
+      "at": "2026-10-07T15:49:59.855775+00:00"
+    }
+  ],
+  "source_count": 28,
+  "fragment_count": 74,
+  "scenario_count": 30,
+  "assertion_count": 252,
+  "stream_faults": {
+    "delayed-subscription": "PASSED",
+    "disconnect": "PASSED",
+    "duplicate-open": "PASSED",
+    "full-window": "PASSED",
+    "input-reorder": "PASSED",
+    "invalid-direction": "PASSED",
+    "output-gap": "PASSED",
+    "output-reorder": "PASSED",
+    "owner-exit": "PASSED"
+  },
+  "cleanup": {
+    "workflow_and_trigger_resources": "deleted under unique namespaces",
+    "embedded_database": "dropped",
+    "owned_listeners_and_connections": "closed",
+    "retained": "run history and engine worker records, including intentional owner-loss cases"
+  },
+  "final_database_check": {
+    "database": "hatchet",
+    "timezone": "UTC",
+    "schema_version": 20261002182802,
+    "active_task_runtimes": 0,
+    "live_workers": 0
+  },
+  "local_upgrade": {
+    "services": [
+      {
+        "service": "migration",
+        "image": "ghcr.io/hatchet-dev/hatchet/hatchet-migrate:v0.110.5",
+        "image_id": "sha256:b2112d73f37a11190fe08b3325a6495d76d100a325739291b9ddd0f6c9929067",
+        "digests": [
+          "ghcr.io/hatchet-dev/hatchet/hatchet-migrate@sha256:b2112d73f37a11190fe08b3325a6495d76d100a325739291b9ddd0f6c9929067"
+        ],
+        "running": false,
+        "exit_code": 0,
+        "health": null,
+        "started": "2026-10-07T15:26:22.047489801Z",
+        "mq": "postgres",
+        "observability": "true",
+        "security_check": "false",
+        "grpc_insecure": "true",
+        "otel_service": null,
+        "otel_collector": null
+      },
+      {
+        "service": "setup-config",
+        "image": "ghcr.io/hatchet-dev/hatchet/hatchet-admin:v0.110.5",
+        "image_id": "sha256:7c233e606095c30623e2592d718d013614097a3c164640a238d583c4d50b9023",
+        "digests": [
+          "ghcr.io/hatchet-dev/hatchet/hatchet-admin@sha256:7c233e606095c30623e2592d718d013614097a3c164640a238d583c4d50b9023"
+        ],
+        "running": false,
+        "exit_code": 0,
+        "health": null,
+        "started": "2026-10-07T15:26:22.612987426Z",
+        "mq": "postgres",
+        "observability": "true",
+        "security_check": "false",
+        "grpc_insecure": "true",
+        "otel_service": null,
+        "otel_collector": null
+      },
+      {
+        "service": "hatchet-engine",
+        "image": "ghcr.io/hatchet-dev/hatchet/hatchet-engine:v0.110.5",
+        "image_id": "sha256:185c4311d23fad2faecd5fdd771369a369f33cbfa0e9f4083a952c4fe1c15808",
+        "digests": [
+          "ghcr.io/hatchet-dev/hatchet/hatchet-engine@sha256:185c4311d23fad2faecd5fdd771369a369f33cbfa0e9f4083a952c4fe1c15808"
+        ],
+        "running": true,
+        "exit_code": 0,
+        "health": "healthy",
+        "started": "2026-10-07T15:26:23.188818093Z",
+        "mq": "postgres",
+        "observability": "true",
+        "security_check": "false",
+        "grpc_insecure": "true",
+        "otel_service": "hatchet-engine",
+        "otel_collector": "host.docker.internal:4317"
+      },
+      {
+        "service": "hatchet-dashboard",
+        "image": "ghcr.io/hatchet-dev/hatchet/hatchet-dashboard:v0.110.5",
+        "image_id": "sha256:d1a8e8ef1c0ad4e8083b93ef98a1dbd8e2519d5a4537dc1a9562f5e8e8086680",
+        "digests": [
+          "ghcr.io/hatchet-dev/hatchet/hatchet-dashboard@sha256:d1a8e8ef1c0ad4e8083b93ef98a1dbd8e2519d5a4537dc1a9562f5e8e8086680"
+        ],
+        "running": true,
+        "exit_code": 0,
+        "health": "healthy",
+        "started": "2026-10-07T15:26:23.266186427Z",
+        "mq": "postgres",
+        "observability": "true",
+        "security_check": "false",
+        "grpc_insecure": "true",
+        "otel_service": "hatchet-api",
+        "otel_collector": "host.docker.internal:4317"
+      }
+    ],
+    "migration_version": 20261002182802,
+    "backup_verified": true,
+    "configuration_volume_preserved": true,
+    "tracing_after_upgrade": [
+      {
+        "service": "hatchet-engine",
+        "spans": 6,
+        "trace_ids": [
+          "d7ce2af6f648a8694e8214930d38f790"
+        ]
+      },
+      {
+        "service": "hatchet-api",
+        "spans": 29,
+        "trace_ids": [
+          "9e79fea7a643298cd08b9f4baed61301"
+        ]
+      }
+    ],
+    "record": "deployment/compose/UPGRADE-0.110.5.json"
+  },
+  "benchmark_report": "conciseness-benchmarks.json",
+  "benchmark_allocations_unchanged": true,
+  "metrics": {
+    "non_test_lines": {
+      "before": 1928,
+      "after": 1799
+    },
+    "all_session_lines": {
+      "before": 3353,
+      "after": 3282
+    },
+    "non_test_body_comment_lines": {
+      "before": 211,
+      "after": 53
+    },
+    "non_test_all_comment_lines": {
+      "before": 389,
+      "after": 240
+    }
+  },
+  "regressions_added": [
+    "TestInvalidMessagesDoNotAdvanceWindows",
+    "TestCallFailureRetainsFirstStatus"
+  ],
+  "prior_validation_attempts": [
+    {
+      "status": "FAILED",
+      "gate": "format",
+      "log": "sdks/wego/.test-results/gate-1791387391-format.log",
+      "cause": "Temporary AST measurement tool was not formatted; removed before rerunning all gates."
+    }
+  ],
+  "limitations": [
+    "No hosted CI was executed.",
+    "Five sequential benchmark samples cannot prove statistically significant absence of all performance regression.",
+    "Required declaration comments and concurrency snapshots are retained; no arbitrary 10% total line-count target or self-awarded 5/5 score.",
+    "Archived 0.1.10 and earlier reports remain bound to their actual old server versions."
+  ],
+  "full_acceptance_report": "design/acceptance-report.json",
+  "final_session_race": {
+    "command": "go test -race ./internal/session -count=10",
+    "status": "PASSED",
+    "elapsed_seconds": 6.704,
+    "log": "sdks/wego/.test-results/conciseness-session-final-race.log",
+    "source_sha256": "c87a4d34058ae69dec080bcd0a2827c6871bef4ef45340c77c71ad87137f7327"
+  }
+}

@@ -1,0 +1,19 @@
+<a id="tenantclient"></a>
+
+### Tenant Client
+
+Client for managing Tenants
+
+#### Methods
+
+<a id="get"></a>
+
+##### `get()`
+
+Retrieves the current tenant.
+
+Returns
+
+`Promise`\<`Tenant`\>
+
+The Tenant object.

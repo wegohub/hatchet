@@ -1,0 +1,66 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/hatchet-dev/hatchet/sdks/wego/internal/session
+cpu: Apple M2 Max
+BenchmarkEndpointInput-12     	14142159	        79.84 ns/op	     256 B/op	       1 allocs/op
+BenchmarkEndpointInput-12     	14842024	        80.55 ns/op	     256 B/op	       1 allocs/op
+BenchmarkEndpointInput-12     	14966962	        80.74 ns/op	     256 B/op	       1 allocs/op
+BenchmarkEndpointInput-12     	14068833	        82.24 ns/op	     256 B/op	       1 allocs/op
+BenchmarkEndpointInput-12     	14439050	        84.56 ns/op	     256 B/op	       1 allocs/op
+BenchmarkPayloadCopy/append/253-12         	27533407	        45.51 ns/op	     256 B/op	       1 allocs/op
+BenchmarkPayloadCopy/append/253-12         	26430432	        45.96 ns/op	     256 B/op	       1 allocs/op
+BenchmarkPayloadCopy/append/253-12         	27581476	        45.18 ns/op	     256 B/op	       1 allocs/op
+BenchmarkPayloadCopy/append/253-12         	26498059	        49.18 ns/op	     256 B/op	       1 allocs/op
+BenchmarkPayloadCopy/append/253-12         	25692909	        43.95 ns/op	     256 B/op	       1 allocs/op
+BenchmarkPayloadCopy/exact/253-12          	33031612	        40.68 ns/op	     256 B/op	       1 allocs/op
+BenchmarkPayloadCopy/exact/253-12          	29935887	        43.05 ns/op	     256 B/op	       1 allocs/op
+BenchmarkPayloadCopy/exact/253-12          	31696941	        39.98 ns/op	     256 B/op	       1 allocs/op
+BenchmarkPayloadCopy/exact/253-12          	31683132	        38.87 ns/op	     256 B/op	       1 allocs/op
+BenchmarkPayloadCopy/exact/253-12          	31029064	        40.23 ns/op	     256 B/op	       1 allocs/op
+BenchmarkPayloadCopy/append/4097-12        	 2395645	       521.5 ns/op	    4864 B/op	       1 allocs/op
+BenchmarkPayloadCopy/append/4097-12        	 2459553	       491.4 ns/op	    4864 B/op	       1 allocs/op
+BenchmarkPayloadCopy/append/4097-12        	 2385097	       497.1 ns/op	    4864 B/op	       1 allocs/op
+BenchmarkPayloadCopy/append/4097-12        	 2288983	       517.3 ns/op	    4864 B/op	       1 allocs/op
+BenchmarkPayloadCopy/append/4097-12        	 2400517	       503.0 ns/op	    4864 B/op	       1 allocs/op
+BenchmarkPayloadCopy/exact/4097-12         	 2495803	       503.1 ns/op	    4864 B/op	       1 allocs/op
+BenchmarkPayloadCopy/exact/4097-12         	 2455546	       527.1 ns/op	    4864 B/op	       1 allocs/op
+BenchmarkPayloadCopy/exact/4097-12         	 2322939	       514.4 ns/op	    4864 B/op	       1 allocs/op
+BenchmarkPayloadCopy/exact/4097-12         	 2305381	       518.6 ns/op	    4864 B/op	       1 allocs/op
+BenchmarkPayloadCopy/exact/4097-12         	 2196016	       543.1 ns/op	    4864 B/op	       1 allocs/op
+BenchmarkEndpointACK/64-12                 	23119976	        51.88 ns/op	       0 B/op	       0 allocs/op
+BenchmarkEndpointACK/64-12                 	23807378	        51.28 ns/op	       0 B/op	       0 allocs/op
+BenchmarkEndpointACK/64-12                 	23121331	        50.95 ns/op	       0 B/op	       0 allocs/op
+BenchmarkEndpointACK/64-12                 	23896567	        52.38 ns/op	       0 B/op	       0 allocs/op
+BenchmarkEndpointACK/64-12                 	24118299	        50.99 ns/op	       0 B/op	       0 allocs/op
+BenchmarkEndpointACK/1024-12               	20725164	        58.75 ns/op	       0 B/op	       0 allocs/op
+BenchmarkEndpointACK/1024-12               	20990227	        58.68 ns/op	       0 B/op	       0 allocs/op
+BenchmarkEndpointACK/1024-12               	20593138	        58.36 ns/op	       0 B/op	       0 allocs/op
+BenchmarkEndpointACK/1024-12               	20570854	        58.55 ns/op	       0 B/op	       0 allocs/op
+BenchmarkEndpointACK/1024-12               	20705286	        57.90 ns/op	       0 B/op	       0 allocs/op
+BenchmarkEndpointNotify/false-12           	143985874	         8.210 ns/op	       0 B/op	       0 allocs/op
+BenchmarkEndpointNotify/false-12           	146194094	         8.156 ns/op	       0 B/op	       0 allocs/op
+BenchmarkEndpointNotify/false-12           	143573006	         8.191 ns/op	       0 B/op	       0 allocs/op
+BenchmarkEndpointNotify/false-12           	147142304	         8.120 ns/op	       0 B/op	       0 allocs/op
+BenchmarkEndpointNotify/false-12           	146553354	         8.151 ns/op	       0 B/op	       0 allocs/op
+BenchmarkEndpointNotify/true-12            	31825032	        39.92 ns/op	     112 B/op	       1 allocs/op
+BenchmarkEndpointNotify/true-12            	31910862	        40.44 ns/op	     112 B/op	       1 allocs/op
+BenchmarkEndpointNotify/true-12            	28326159	        40.73 ns/op	     112 B/op	       1 allocs/op
+BenchmarkEndpointNotify/true-12            	29983102	        40.98 ns/op	     112 B/op	       1 allocs/op
+BenchmarkEndpointNotify/true-12            	30072990	        40.74 ns/op	     112 B/op	       1 allocs/op
+BenchmarkSessionDecode/string-12           	 2520256	       457.8 ns/op	     272 B/op	       6 allocs/op
+BenchmarkSessionDecode/string-12           	 2563148	       463.8 ns/op	     272 B/op	       6 allocs/op
+BenchmarkSessionDecode/string-12           	 2552726	       474.9 ns/op	     272 B/op	       6 allocs/op
+BenchmarkSessionDecode/string-12           	 2592576	       465.1 ns/op	     272 B/op	       6 allocs/op
+BenchmarkSessionDecode/string-12           	 2578436	       476.4 ns/op	     272 B/op	       6 allocs/op
+BenchmarkSessionDecode/raw-12              	 2625874	       445.5 ns/op	     224 B/op	       5 allocs/op
+BenchmarkSessionDecode/raw-12              	 2686186	       446.5 ns/op	     224 B/op	       5 allocs/op
+BenchmarkSessionDecode/raw-12              	 2652770	       450.1 ns/op	     224 B/op	       5 allocs/op
+BenchmarkSessionDecode/raw-12              	 2651023	       444.7 ns/op	     224 B/op	       5 allocs/op
+BenchmarkSessionDecode/raw-12              	 2691886	       451.0 ns/op	     224 B/op	       5 allocs/op
+BenchmarkSessionDecode/object-12           	 1514149	       804.1 ns/op	     416 B/op	      11 allocs/op
+BenchmarkSessionDecode/object-12           	 1495554	       804.9 ns/op	     416 B/op	      11 allocs/op
+BenchmarkSessionDecode/object-12           	 1526552	       793.7 ns/op	     416 B/op	      11 allocs/op
+BenchmarkSessionDecode/object-12           	 1511668	       808.7 ns/op	     416 B/op	      11 allocs/op
+BenchmarkSessionDecode/object-12           	 1537599	       790.5 ns/op	     416 B/op	      11 allocs/op
+PASS
+ok  	github.com/hatchet-dev/hatchet/sdks/wego/internal/session	94.984s

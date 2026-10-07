@@ -1,0 +1,115 @@
+{
+  "sdk_version": "0.1.4",
+  "protocol_version": 1,
+  "date": "2026-10-04",
+  "scope": {
+    "go_files": 168,
+    "generated_go_files": 3,
+    "test_go_files": 19,
+    "proto_files": 2,
+    "syntax_nodes": {
+      "type": 190,
+      "func": 756,
+      "range": 179,
+      "field": 616,
+      "local": 1640,
+      "if": 1599,
+      "value": 234,
+      "method": 87,
+      "select": 85,
+      "loop": 79,
+      "case": 95,
+      "switch": 14
+    }
+  },
+  "semantic_comparison": {
+    "existing_go_files": 167,
+    "unchanged_go_files": 166,
+    "changed_go_files": [
+      "sdks/wego/version.go"
+    ],
+    "allowed_change": "Version: 0.1.3 -> 0.1.4",
+    "new_go_files": [
+      "sdks/wego/tests/quality/comments_test.go"
+    ],
+    "unchanged_normalized_ast_sha256": "efd3e84dad87f842ce7ea1d4993027ce0f41af6f142d722af48db62031cc6814"
+  },
+  "checks": [
+    {
+      "command": "gofmt -l sdks/wego",
+      "result": "PASSED"
+    },
+    {
+      "command": "go test ./sdks/wego/... -count=1",
+      "result": "PASSED"
+    },
+    {
+      "command": "go vet ./sdks/wego/...",
+      "result": "PASSED"
+    },
+    {
+      "command": "go test -race ./sdks/wego/...",
+      "result": "PASSED"
+    },
+    {
+      "command": "go test ./sdks/wego/tests/quality -count=1",
+      "result": "PASSED",
+      "includes": [
+        "API isolation",
+        "pinned generation",
+        "acceptance manifest",
+        "Chinese declaration comments"
+      ]
+    },
+    {
+      "command": "go test ./sdks/wego/tests/quality -run TestDeclarationsHaveChineseComments -count=1",
+      "result": "PASSED",
+      "includes": [
+        "public and private declarations",
+        "struct fields",
+        "interface methods",
+        "variable and constant declarations",
+        "short local declarations",
+        "range declarations",
+        "tests and generated code"
+      ]
+    },
+    {
+      "command": "go test -tags=e2e ./sdks/wego/tests/e2e/... -run '^$'",
+      "result": "PASSED",
+      "scope": "compile only"
+    },
+    {
+      "command": "go test -tags=wego_embedded ./... -run '^$'",
+      "directory": "sdks/wego/examples/embedded",
+      "result": "PASSED",
+      "scope": "compile only"
+    },
+    {
+      "command": "go test -tags=e2e,wego_embedded ./... -run '^$'",
+      "directory": "sdks/wego/tests/e2e/embedded",
+      "result": "PASSED",
+      "scope": "compile only"
+    },
+    {
+      "command": "python3 -m py_compile sdks/wego/scripts/comment-generated.py sdks/wego/scripts/acceptance.py sdks/wego/scripts/local-test.py",
+      "result": "PASSED"
+    },
+    {
+      "command": "sh -n sdks/wego/scripts/generate.sh sdks/wego/scripts/install-tools.sh",
+      "result": "PASSED"
+    },
+    {
+      "command": "go test -race ./sdks/wego/tests/quality -count=1",
+      "result": "PASSED",
+      "scope": "final comment gate including local and range declarations"
+    }
+  ],
+  "engine_acceptance": {
+    "executed_for_this_revision": false,
+    "reason": "Only comments, version metadata, generated-comment tooling and comment quality gate changed; existing business Go AST remained unchanged.",
+    "retained_report": "acceptance-report.json",
+    "retained_sdk_version": "0.1.3"
+  },
+  "generation": "Chinese business comments are maintained in .proto; deterministic comment-generated.py documents generated runtime declarations and locals. generate.sh and reproducibility gate include the postprocessor."
+}

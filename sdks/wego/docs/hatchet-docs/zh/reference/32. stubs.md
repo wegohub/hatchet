@@ -1,0 +1,18 @@
+# Stubs Client
+
+Methods:
+
+Name, Description
+
+`task`
+`workflow`
+
+### Attributes
+
+#### `client = client` `instance-attribute`
+
+### Functions
+
+#### `task`
+
+#### `workflow`

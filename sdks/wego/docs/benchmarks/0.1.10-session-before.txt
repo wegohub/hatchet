@@ -1,0 +1,41 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/hatchet-dev/hatchet/sdks/wego/internal/session
+cpu: Apple M2 Max
+BenchmarkEndpointACK/64-12    	 1932733	       619.8 ns/op	     112 B/op	       1 allocs/op
+BenchmarkEndpointACK/64-12    	 1970048	       607.0 ns/op	     112 B/op	       1 allocs/op
+BenchmarkEndpointACK/64-12    	 1991564	       615.2 ns/op	     112 B/op	       1 allocs/op
+BenchmarkEndpointACK/64-12    	 1958862	       607.1 ns/op	     112 B/op	       1 allocs/op
+BenchmarkEndpointACK/64-12    	 1973636	       610.3 ns/op	     112 B/op	       1 allocs/op
+BenchmarkEndpointACK/1024-12  	  150399	      8033 ns/op	     112 B/op	       1 allocs/op
+BenchmarkEndpointACK/1024-12  	  155577	      7955 ns/op	     112 B/op	       1 allocs/op
+BenchmarkEndpointACK/1024-12  	  149659	      7990 ns/op	     112 B/op	       1 allocs/op
+BenchmarkEndpointACK/1024-12  	  145647	      8083 ns/op	     112 B/op	       1 allocs/op
+BenchmarkEndpointACK/1024-12  	  148918	      7971 ns/op	     112 B/op	       1 allocs/op
+BenchmarkEndpointNotify/false-12         	36691964	        34.14 ns/op	     112 B/op	       1 allocs/op
+BenchmarkEndpointNotify/false-12         	31343424	        34.60 ns/op	     112 B/op	       1 allocs/op
+BenchmarkEndpointNotify/false-12         	35814034	        33.69 ns/op	     112 B/op	       1 allocs/op
+BenchmarkEndpointNotify/false-12         	36944106	        36.45 ns/op	     112 B/op	       1 allocs/op
+BenchmarkEndpointNotify/false-12         	33586161	        35.93 ns/op	     112 B/op	       1 allocs/op
+BenchmarkEndpointNotify/true-12          	28818327	        36.96 ns/op	     112 B/op	       1 allocs/op
+BenchmarkEndpointNotify/true-12          	31875436	        36.32 ns/op	     112 B/op	       1 allocs/op
+BenchmarkEndpointNotify/true-12          	34243642	        37.30 ns/op	     112 B/op	       1 allocs/op
+BenchmarkEndpointNotify/true-12          	33814524	        35.64 ns/op	     112 B/op	       1 allocs/op
+BenchmarkEndpointNotify/true-12          	34915354	        36.73 ns/op	     112 B/op	       1 allocs/op
+BenchmarkSessionDecode/string-12         	 2699865	       443.7 ns/op	     272 B/op	       6 allocs/op
+BenchmarkSessionDecode/string-12         	 2744599	       429.2 ns/op	     272 B/op	       6 allocs/op
+BenchmarkSessionDecode/string-12         	 2739058	       446.4 ns/op	     272 B/op	       6 allocs/op
+BenchmarkSessionDecode/string-12         	 2665308	       433.5 ns/op	     272 B/op	       6 allocs/op
+BenchmarkSessionDecode/string-12         	 2698596	       440.5 ns/op	     272 B/op	       6 allocs/op
+BenchmarkSessionDecode/raw-12            	 1820208	       663.6 ns/op	     272 B/op	       6 allocs/op
+BenchmarkSessionDecode/raw-12            	 1845013	       658.2 ns/op	     272 B/op	       6 allocs/op
+BenchmarkSessionDecode/raw-12            	 1861480	       664.1 ns/op	     272 B/op	       6 allocs/op
+BenchmarkSessionDecode/raw-12            	 1833028	       655.4 ns/op	     272 B/op	       6 allocs/op
+BenchmarkSessionDecode/raw-12            	 1840357	       671.0 ns/op	     272 B/op	       6 allocs/op
+BenchmarkSessionDecode/object-12         	 1630676	       739.8 ns/op	     416 B/op	      11 allocs/op
+BenchmarkSessionDecode/object-12         	 1614030	       754.0 ns/op	     416 B/op	      11 allocs/op
+BenchmarkSessionDecode/object-12         	 1599070	       739.5 ns/op	     416 B/op	      11 allocs/op
+BenchmarkSessionDecode/object-12         	 1596194	       846.3 ns/op	     416 B/op	      11 allocs/op
+BenchmarkSessionDecode/object-12         	 1571738	       753.1 ns/op	     416 B/op	      11 allocs/op
+PASS
+ok  	github.com/hatchet-dev/hatchet/sdks/wego/internal/session	56.287s

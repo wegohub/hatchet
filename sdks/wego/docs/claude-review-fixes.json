@@ -1,0 +1,340 @@
+{
+  "status": "PASSED",
+  "sdk_version": "0.1.9",
+  "protocol_version": 3,
+  "completed_at": "2026-10-07T13:03:39.865221+00:00",
+  "input": "code-review-report.md",
+  "scope": "sdks/wego only; Hatchet sources and root dependencies unchanged",
+  "fixes": [
+    {
+      "id": "1.1.1",
+      "status": "RESOLVED",
+      "resolution": "Verified Stop/CleanupTaskState ACK failure; added root lifecycle cancellation without unsafe timeout unlock."
+    },
+    {
+      "id": "2.1.1",
+      "status": "RESOLVED",
+      "resolution": "Single in-flight PING with bounded backoff; READY interrupts and joins PING result waiting before OPEN."
+    },
+    {
+      "id": "2.4.1",
+      "status": "RESOLVED",
+      "resolution": "Independent CANCEL timeout and structured lifecycle diagnostics; transport joins retained."
+    },
+    {
+      "id": "3.1.1",
+      "status": "RESOLVED",
+      "resolution": "Named owned I/O snapshots and lock-free diagnostic logging; shutdown stages extracted."
+    },
+    {
+      "id": "5.2.1",
+      "status": "RESOLVED",
+      "resolution": "DTO, policy and error files separated within model; public package paths preserved."
+    },
+    {
+      "id": "6.3.1",
+      "status": "RESOLVED",
+      "resolution": "Real pending memo completion loss, recomputation and persistence verified through two process restarts."
+    },
+    {
+      "id": "7.1",
+      "status": "RESOLVED",
+      "resolution": "Drain calls and owned I/O handled by focused shutdown helpers."
+    },
+    {
+      "id": "7.3.1",
+      "status": "RESOLVED",
+      "resolution": "Internal packages renamed client/features/telemetry; imports and active docs updated."
+    },
+    {
+      "id": "8.1",
+      "status": "RESOLVED_WITHOUT_TOKEN_LOGGING",
+      "resolution": "No token-prefix logging added; diagnostics use safe identifiers and status."
+    },
+    {
+      "id": "9.1",
+      "status": "RESOLVED_WITH_POSTGRESQL_SCOPE",
+      "resolution": "Four concurrent real sessions measured; RabbitMQ comparison omitted under explicit project constraint; no unsupported rate recommendation."
+    },
+    {
+      "id": "9.2",
+      "status": "RESOLVED",
+      "resolution": "Result poll interval configurable, default 1s, wait after query completion; Worker override rejected."
+    },
+    {
+      "id": "10.1",
+      "status": "RESOLVED",
+      "resolution": "Handshake, CANCEL, transport exit and I/O cleanup structured diagnostics."
+    }
+  ],
+  "quality_gates": [
+    {
+      "name": "source-boundary",
+      "command": "python3 sdks/wego/scripts/check-upstream.py",
+      "cwd": ".",
+      "status": "PASSED",
+      "exit_code": 0,
+      "log": "sdks/wego/.test-results/gate-1791376942-source-boundary.log",
+      "at": "2026-10-07T12:42:22.793251+00:00"
+    },
+    {
+      "name": "published-dependency",
+      "command": "python3 sdks/wego/scripts/check-released.py",
+      "cwd": ".",
+      "status": "PASSED",
+      "exit_code": 0,
+      "log": "sdks/wego/.test-results/gate-1791376942-published-dependency.log",
+      "at": "2026-10-07T12:42:41.579154+00:00"
+    },
+    {
+      "name": "format",
+      "command": "gofmt -l sdks/wego",
+      "cwd": ".",
+      "status": "PASSED",
+      "exit_code": 0,
+      "log": "sdks/wego/.test-results/gate-1791376942-format.log",
+      "at": "2026-10-07T12:42:41.608459+00:00"
+    },
+    {
+      "name": "unit",
+      "command": "go test ./sdks/wego/...",
+      "cwd": ".",
+      "status": "PASSED",
+      "exit_code": 0,
+      "log": "sdks/wego/.test-results/gate-1791376942-unit.log",
+      "at": "2026-10-07T12:42:51.393074+00:00"
+    },
+    {
+      "name": "vet",
+      "command": "go vet ./sdks/wego/...",
+      "cwd": ".",
+      "status": "PASSED",
+      "exit_code": 0,
+      "log": "sdks/wego/.test-results/gate-1791376942-vet.log",
+      "at": "2026-10-07T12:42:52.040066+00:00"
+    },
+    {
+      "name": "race",
+      "command": "go test -race ./sdks/wego/...",
+      "cwd": ".",
+      "status": "PASSED",
+      "exit_code": 0,
+      "log": "sdks/wego/.test-results/gate-1791376942-race.log",
+      "at": "2026-10-07T12:43:03.377473+00:00"
+    },
+    {
+      "name": "upstream",
+      "command": "go test ./sdks/go/... ./pkg/client/... ./pkg/worker/...",
+      "cwd": ".",
+      "status": "PASSED",
+      "exit_code": 0,
+      "log": "sdks/wego/.test-results/gate-1791376942-upstream.log",
+      "at": "2026-10-07T12:43:03.922328+00:00"
+    },
+    {
+      "name": "upstream-embedded",
+      "command": "go test ./...",
+      "cwd": "sdks/go/examples/embedded",
+      "status": "PASSED",
+      "exit_code": 0,
+      "log": "sdks/wego/.test-results/gate-1791376942-upstream-embedded.log",
+      "at": "2026-10-07T12:43:04.492967+00:00"
+    },
+    {
+      "name": "embedded-module",
+      "command": "go test -tags=wego_embedded ./...",
+      "cwd": "sdks/wego/examples/embedded",
+      "status": "PASSED",
+      "exit_code": 0,
+      "log": "sdks/wego/.test-results/gate-1791376942-embedded-module.log",
+      "at": "2026-10-07T12:43:05.678581+00:00"
+    },
+    {
+      "name": "generation",
+      "command": "go test ./sdks/wego/tests/quality -run ^TestGenerationAndAcceptanceManifestAreReproducible$",
+      "cwd": ".",
+      "status": "PASSED",
+      "exit_code": 0,
+      "log": "sdks/wego/.test-results/gate-1791376942-generation.log",
+      "at": "2026-10-07T12:43:07.987473+00:00"
+    },
+    {
+      "name": "fuzz",
+      "command": "go test ./sdks/wego/internal/wire -run ^$ -fuzz FuzzDecodeFrame -fuzztime=10s",
+      "cwd": ".",
+      "status": "PASSED",
+      "exit_code": 0,
+      "log": "sdks/wego/.test-results/gate-1791376942-fuzz.log",
+      "at": "2026-10-07T12:43:20.839514+00:00"
+    },
+    {
+      "name": "compose-config",
+      "command": "docker compose -f sdks/wego/tests/compose.yml config --quiet",
+      "cwd": ".",
+      "status": "PASSED",
+      "exit_code": 0,
+      "log": "sdks/wego/.test-results/gate-1791376942-compose-config.log",
+      "at": "2026-10-07T12:43:21.025566+00:00"
+    },
+    {
+      "name": "engine",
+      "command": "sdks/wego/scripts/local-test.py go test -json -count=1 -tags=e2e ./sdks/wego/tests/e2e/... -timeout 30m",
+      "cwd": ".",
+      "status": "PASSED",
+      "exit_code": 0,
+      "log": "sdks/wego/.test-results/gate-1791376942-engine.log",
+      "at": "2026-10-07T13:00:18.006062+00:00"
+    },
+    {
+      "name": "engine-race",
+      "command": "sdks/wego/scripts/local-test.py go test -race -json -count=1 -tags=e2e ./sdks/wego/tests/e2e/... -run TestExamples/(batch|grpc-streams|shutdown|dual-entry)$|TestBatchShutdownBudget$|TestReview|TestIndependentReview -timeout 10m",
+      "cwd": ".",
+      "status": "PASSED",
+      "exit_code": 0,
+      "log": "sdks/wego/.test-results/gate-1791376942-engine-race.log",
+      "at": "2026-10-07T13:03:07.390099+00:00"
+    },
+    {
+      "name": "embedded-engine",
+      "command": "sdks/wego/scripts/local-test.py go test -json -count=1 -tags=e2e,wego_embedded ./sdks/wego/tests/e2e/... -run ^TestEmbedded$ -timeout 10m",
+      "cwd": ".",
+      "status": "PASSED",
+      "exit_code": 0,
+      "log": "sdks/wego/.test-results/gate-1791376942-embedded-engine.log",
+      "at": "2026-10-07T13:03:39.856277+00:00"
+    }
+  ],
+  "final_source_checks": {
+    "status": "PASSED",
+    "sdk_version": "0.1.9",
+    "protocol_version": 3,
+    "go_file_count": 211,
+    "source_snapshot": "b0dc12e7eeae69abcdd5d37247415561b09ce0acf5a3bdec3ceeac1092d88f8f",
+    "algorithm": "SHA256 sorted SDK-relative Go path + NUL + file bytes + NUL; hidden directories excluded",
+    "note": "All 15 gates used final implementation; subsequent edits are documentation and evidence only."
+  },
+  "new_evidence": {
+    "durable-memo-recovery": {
+      "after_invocation": 3,
+      "after_worker_id": "ccebc19b-ed97-4c05-b531-3dadcdbc7aef",
+      "assertions": [
+        "worker process exited and restarted",
+        "same parent and child RunID",
+        "completed memo reused; pending memo recomputed then persisted when injected",
+        "wait sequence resumed",
+        "completed correlated event",
+        "engine redispatch preserves durable state"
+      ],
+      "before_worker_id": "dfa80c4f-e075-4949-b88d-070e5f05e59f",
+      "child_run_id": "c80b4115-b00b-4e74-9c77-00ece4965907",
+      "cleanup": "worker processes stopped; workflow definitions deleted; history retained",
+      "command": "go test -json -count=1 -tags=e2e ./sdks/wego/tests/e2e/... -timeout 30m",
+      "mq": "postgresql",
+      "namespace": "wego_restart_1791377009972535000_",
+      "pending_memo_injected": true,
+      "recomputed_time": "2026-10-07T12:44:14.210583Z",
+      "run_id": "2323f5e7-8db0-4627-8c51-26d17a69c762",
+      "sdk_version": "0.1.9",
+      "server_version": "v0.107.0",
+      "status": "PASSED"
+    },
+    "stream-cost": {
+      "cleanup": "workflow definitions deleted; owned transports closed; run and worker history retained",
+      "command": "go test -race -json -count=1 -tags=e2e ./sdks/wego/tests/e2e/... -run 'TestExamples/(batch|grpc-streams|shutdown|dual-entry)$|TestBatchShutdownBudget$|TestReview|TestIndependentReview' -timeout 10m",
+      "concurrency": 1,
+      "elapsed_seconds": 9.216159958,
+      "handshake_budget_ms": 20000,
+      "handshake_ms": 2805.004375,
+      "handshakes_ms": [
+        2805.004375
+      ],
+      "messages": 8,
+      "messages_per_second_including_handshake": 0.8680404893640844,
+      "messages_per_session": 8,
+      "mq": "postgresql",
+      "namespace": "wego_accept_stream-cost_1791378162411770000_",
+      "payload_bytes": 256,
+      "round_trip_ms": [
+        936.625125,
+        90.822666,
+        917.23425,
+        74.086333,
+        1063.701125,
+        68.849,
+        1081.618417,
+        79.113625
+      ],
+      "scope": "local concurrent bidi sessions with sequential messages within each; elapsed includes handshake; task submissions exclude output publication and HTTP polling",
+      "sdk_version": "0.1.9",
+      "server_version": "v0.107.0",
+      "status": "PASSED",
+      "submitted_tasks": {
+        "ACK": 8,
+        "DATA": 8,
+        "END": 1,
+        "OPEN": 1,
+        "PING": 2,
+        "RUN": 1,
+        "START": 1
+      }
+    },
+    "stream-cost-concurrent": {
+      "cleanup": "workflow definitions deleted; owned transports closed; run and worker history retained",
+      "command": "go test -race -json -count=1 -tags=e2e ./sdks/wego/tests/e2e/... -run 'TestExamples/(batch|grpc-streams|shutdown|dual-entry)$|TestBatchShutdownBudget$|TestReview|TestIndependentReview' -timeout 10m",
+      "concurrency": 4,
+      "elapsed_seconds": 11.937107625,
+      "handshake_budget_ms": 20000,
+      "handshake_ms": 4200.8935,
+      "handshakes_ms": [
+        4200.8935,
+        4217.521833,
+        4193.853292,
+        4195.04975
+      ],
+      "messages": 12,
+      "messages_per_second_including_handshake": 1.00526864437984,
+      "messages_per_session": 3,
+      "mq": "postgresql",
+      "namespace": "wego_accept_stream-cost_1791378173019850000_",
+      "payload_bytes": 256,
+      "round_trip_ms": [
+        1366.539375,
+        2587.696375,
+        2489.521542,
+        1346.795125,
+        2601.553583,
+        2468.938292,
+        1370.466,
+        2602.856,
+        2467.51175,
+        1351.782166,
+        2617.244292,
+        2472.067375
+      ],
+      "scope": "local concurrent bidi sessions with sequential messages within each; elapsed includes handshake; task submissions exclude output publication and HTTP polling",
+      "sdk_version": "0.1.9",
+      "server_version": "v0.107.0",
+      "status": "PASSED",
+      "submitted_tasks": {
+        "ACK": 12,
+        "DATA": 12,
+        "END": 4,
+        "OPEN": 4,
+        "PING": 4,
+        "RUN": 4,
+        "START": 4
+      }
+    }
+  },
+  "cleanup": {
+    "workflow_and_trigger_resources": "deleted under unique namespaces",
+    "embedded_database": "dropped",
+    "owned_listeners_and_connections": "closed",
+    "retained": "run history and engine worker records, including intentional owner-loss cases"
+  },
+  "ci": "SDK CI template and compose configuration validated locally; no repository workflow installed",
+  "observations": [
+    "Initial pending-memo fault fixture incorrectly parsed raw key as JSON, causing EOF; failed attempt aborted and resources cleaned; corrected targeted and full-suite runs passed.",
+    "Historical handshake timeout root causes remain unproven; passing current suite does not establish production performance."
+  ]
+}

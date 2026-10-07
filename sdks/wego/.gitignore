@@ -1,0 +1,4 @@
+deployment/
+.tools/
+.test-results/
+__pycache__/

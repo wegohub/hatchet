@@ -1,0 +1,51 @@
+// 流协议只描述传输元数据；业务 payload 仍使用对应业务消息的 protobuf 编码。
+syntax = "proto3";
+package wego.wire.v1;
+option go_package = "github.com/hatchet-dev/hatchet/sdks/wego/internal/wire";
+
+// Frame 是两个方向共用的协议帧，版本、会话身份及方向均须校验。
+// 例如 DATA(seq=2) 先于 DATA(seq=1) 到达时先缓存，按 1、2 交付后发送 ACK=2。
+message Frame {
+  // version 为 wire 协议版本，当前只接受 3。
+  uint32 version = 1;
+  // stream_id 为 START 创建的会话身份，后续帧必须使用同一值。
+  string stream_id = 2;
+  // kind 为 PING、READY、OPEN、DATA、ACK、END、CANCEL 或 HEADER。
+  string kind = 3;
+  // direction 为 input 或 output，ACK 与 DATA 必须匹配对应方向。
+  string direction = 4;
+  // seq 从 1 开始递增；END 使用 seq 声明最后输入位置，零消息时为 0。
+  uint64 seq = 5;
+  // ack 为累计消费位置；ACK=3 同时释放序号 1、2、3 的窗口与字节成本。
+  uint64 ack = 6;
+  // payload 保存业务 protobuf 字节，DATA 单条默认最多 1 MiB。
+  bytes payload = 7;
+  // nonce 关联 PING 与 READY，防止旧握手响应错误地完成当前握手。
+  string nonce = 8;
+  // metadata 保存多值响应头，例如 x-tag 对应 ["a", "b"]。
+  map<string, Values> metadata = 9;
+  // status 为 google.rpc.Status 的 protobuf 编码，保留 code 和业务 details。
+  bytes status = 10;
+}
+
+// Values 保留同名 metadata 的多个值，不能以单个字符串覆盖。
+message Values {
+  // values 保存原始字节；token-bin 的 ff00fe 不受 UTF-8 string 限制。
+  repeated bytes values = 1;
+}
+
+// StreamResult 是会话任务最终结果；输出完整交付且 status=OK 后才向业务返回 EOF。
+message StreamResult {
+  // response 为 client stream handler 的单个最终 protobuf 响应。
+  bytes response = 1;
+  // status 为最终 google.rpc.Status 的编码；非 OK 必须返回错误而不是 EOF。
+  bytes status = 2;
+  // trailers 为最终响应尾部 metadata，保持多值语义。
+  map<string, Values> trailers = 3;
+  // last_seq 为最后输出序号；例如值为 3 时缺少输出 2 不能判定成功完成。
+  uint64 last_seq = 4;
+  // headers 为响应头快照，确保延迟订阅或终态读取仍能恢复调用选项。
+  map<string, Values> headers = 5;
+  // has_response 区分未发送与零字节 protobuf 响应；恰好一个响应时才为 true。
+  bool has_response = 6;
+}

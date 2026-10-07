@@ -1,0 +1,610 @@
+{
+  "sdks/go/examples/batch_assign/main.go::main::batch-simple": [
+    {
+      "scenario": "batch",
+      "id": "a5964017b94ed74a36282908",
+      "assertion": "batch simple aggregation and result mapping"
+    }
+  ],
+  "sdks/go/examples/batch_assign/main.go::main::batch-keyed": [
+    {
+      "scenario": "batch",
+      "id": "d589ba52d67469728adfc34c",
+      "assertion": "batch keyed aggregation and result mapping"
+    }
+  ],
+  "sdks/go/examples/batch_assign/main.go::main::batch-broadcast": [
+    {
+      "scenario": "batch",
+      "id": "f10f1d88c81387f5087285c4",
+      "assertion": "batch broadcast aggregation and result mapping"
+    }
+  ],
+  "sdks/go/examples/child-workflows/main.go::Parent::parent-task": [
+    {
+      "scenario": "child-workflows",
+      "id": "63bbab2e2d509188f0e11ed7",
+      "assertion": "sequential children preserve identity"
+    },
+    {
+      "scenario": "child-workflows",
+      "id": "ab16a74a19109ea11f5f19b7",
+      "assertion": "parallel children preserve identity"
+    }
+  ],
+  "sdks/go/examples/child-workflows/main.go::Child::child-task": [
+    {
+      "scenario": "child-workflows",
+      "id": "63bbab2e2d509188f0e11ed7",
+      "assertion": "sequential children preserve identity"
+    },
+    {
+      "scenario": "child-workflows",
+      "id": "ab16a74a19109ea11f5f19b7",
+      "assertion": "parallel children preserve identity"
+    }
+  ],
+  "sdks/go/examples/concurrency/main.go::ConcurrencyRoundRobin::simple-concurrency": [
+    {
+      "scenario": "concurrency",
+      "id": "8320c746bd609115adbcbb26",
+      "assertion": "concurrency round-robin"
+    }
+  ],
+  "sdks/go/examples/concurrency/main.go::MultipleConcurrencyKeys::multi-concurrency": [
+    {
+      "scenario": "concurrency",
+      "id": "f59c2a4a9aa02818741c982c",
+      "assertion": "concurrency multiple-keys"
+    }
+  ],
+  "sdks/go/examples/concurrency/main.go::ConcurrencyCancelInProgress::cancel-in-progress": [
+    {
+      "scenario": "concurrency",
+      "id": "7f8c6f594502c5c328813481",
+      "assertion": "cancel strategy CANCEL_IN_PROGRESS"
+    }
+  ],
+  "sdks/go/examples/concurrency/main.go::ConcurrencyCancelNewest::cancel-newest": [
+    {
+      "scenario": "concurrency",
+      "id": "d4db3da9426c8f54139f5ca1",
+      "assertion": "cancel strategy CANCEL_NEWEST"
+    }
+  ],
+  "sdks/go/examples/concurrency/main.go::ConcurrencyCancelQueuedExceptNewest::cancel-queued-except-newest": [
+    {
+      "scenario": "concurrency",
+      "id": "04360045eb70ef2d0cb6b651",
+      "assertion": "cancel strategy CANCEL_QUEUED_EXCEPT_NEWEST"
+    }
+  ],
+  "sdks/go/examples/concurrency/main.go::ConcurrencyCancelQueuedExceptOldest::cancel-queued-except-oldest": [
+    {
+      "scenario": "concurrency",
+      "id": "3077d4591dd79ee4b6e73ffd",
+      "assertion": "cancel strategy CANCEL_QUEUED_EXCEPT_OLDEST"
+    }
+  ],
+  "sdks/go/examples/concurrency/main.go::SharedConcurrencyStrategy::sync-crm": [
+    {
+      "scenario": "concurrency",
+      "id": "490b3009c27635029f7f483a",
+      "assertion": "shared strategy across two workflows"
+    }
+  ],
+  "sdks/go/examples/concurrency/main.go::SharedConcurrencyStrategy::generate-report": [
+    {
+      "scenario": "concurrency",
+      "id": "490b3009c27635029f7f483a",
+      "assertion": "shared strategy across two workflows"
+    }
+  ],
+  "sdks/go/examples/concurrency/main.go::DynamicMaxRuns::dynamic-concurrency": [
+    {
+      "scenario": "concurrency",
+      "id": "d4792e72313b28a94293b382",
+      "assertion": "concurrency dynamic"
+    }
+  ],
+  "sdks/go/examples/cron/main.go::main::cleanup-temp-files": [
+    {
+      "scenario": "cron",
+      "id": "5874421d6cd5821da10d9bfd",
+      "assertion": "all five expressions registered; real minute trigger with protobuf input"
+    }
+  ],
+  "sdks/go/examples/cron/main.go::main::check-system-health": [
+    {
+      "scenario": "cron",
+      "id": "5874421d6cd5821da10d9bfd",
+      "assertion": "all five expressions registered; real minute trigger with protobuf input"
+    }
+  ],
+  "sdks/go/examples/cron/main.go::main::generate-report": [
+    {
+      "scenario": "cron",
+      "id": "5874421d6cd5821da10d9bfd",
+      "assertion": "all five expressions registered; real minute trigger with protobuf input"
+    }
+  ],
+  "sdks/go/examples/cron/main.go::main::monitor-business-systems": [
+    {
+      "scenario": "cron",
+      "id": "5874421d6cd5821da10d9bfd",
+      "assertion": "all five expressions registered; real minute trigger with protobuf input"
+    }
+  ],
+  "sdks/go/examples/durable/event/main.go::main::durable-event-task": [
+    {
+      "scenario": "durable-event",
+      "id": "e443c26ef6d5afed88bf2d1c",
+      "assertion": "durable event basic and Now"
+    },
+    {
+      "scenario": "durable-event",
+      "id": "8736354110286f5f65323b1a",
+      "assertion": "durable event filter and Now"
+    },
+    {
+      "scenario": "durable-event",
+      "id": "d55745a4d0d15a6cd6708ebc",
+      "assertion": "durable event lookback and Now"
+    }
+  ],
+  "sdks/go/examples/durable/eviction/main.go::main::evictable-sleep": [
+    {
+      "scenario": "eviction",
+      "id": "100747bceeacc790fd9cec74",
+      "assertion": "durable ttl-sleep resumed without resetting wait"
+    }
+  ],
+  "sdks/go/examples/durable/eviction/main.go::main::evictable-wait-for-event": [
+    {
+      "scenario": "eviction",
+      "id": "f1a310e2073201f13532b0d3",
+      "assertion": "durable ttl-event resumed without resetting wait"
+    }
+  ],
+  "sdks/go/examples/durable/eviction/main.go::main::non-evictable-sleep": [
+    {
+      "scenario": "eviction",
+      "id": "7eb70443bb5c7080016f4cc2",
+      "assertion": "durable disabled resumed without resetting wait"
+    }
+  ],
+  "sdks/go/examples/durable/eviction/main.go::main::capacity-evictable-sleep": [
+    {
+      "scenario": "eviction",
+      "id": "c1a45c27509b4d53caabd12e",
+      "assertion": "durable capacity resumed without resetting wait"
+    }
+  ],
+  "sdks/go/examples/durable/eviction/trigger/main.go::main::evictable-sleep": [
+    {
+      "scenario": "eviction",
+      "id": "100747bceeacc790fd9cec74",
+      "assertion": "durable ttl-sleep resumed without resetting wait"
+    }
+  ],
+  "sdks/go/examples/durable/sleep/main.go::main::long-running-task": [
+    {
+      "scenario": "durable-sleep",
+      "id": "c22816cdcc65c8c20dd9229e",
+      "assertion": "real durable Sleep and memoized Now"
+    }
+  ],
+  "sdks/go/examples/embedded/main.go::run::greet": [
+    {
+      "scenario": "embedded",
+      "id": "87825ad3f77c324e9b69f0b2",
+      "assertion": "embedded migration, protobuf invocation, shutdown and database deletion"
+    }
+  ],
+  "sdks/go/examples/events/main.go::main::process-user-event": [
+    {
+      "scenario": "events",
+      "id": "d3555d14d6b4fdaaefa4a281",
+      "assertion": "event triggers protobuf RPC and result lookup"
+    }
+  ],
+  "sdks/go/examples/idempotency/worker.go::IdempotentTask::idempotent-task": [
+    {
+      "scenario": "idempotency",
+      "id": "0db024136f3923d2041ea5e0",
+      "assertion": "idempotency status=false"
+    },
+    {
+      "scenario": "idempotency",
+      "id": "389421f3de2f4e4647b9d42b",
+      "assertion": "idempotency key released after completion=false or TTL expiry"
+    }
+  ],
+  "sdks/go/examples/idempotency/worker.go::IdempotentStatusBasedTask::idempotent-status-based-task": [
+    {
+      "scenario": "idempotency",
+      "id": "0dbf083fa3c10ef74a0a4507",
+      "assertion": "idempotency status=true"
+    },
+    {
+      "scenario": "idempotency",
+      "id": "053abd6a0a9e0734bb3f7b50",
+      "assertion": "idempotency key released after completion=true or TTL expiry"
+    }
+  ],
+  "sdks/go/examples/logs_test/main.go::main::logs-test": [
+    {
+      "scenario": "logs",
+      "id": "3b3d6a7fc7615b8e923d3fcb",
+      "assertion": "reported logs and since query"
+    }
+  ],
+  "sdks/go/examples/migration-guides/mergent.go::ImageProcessor::image-processor": [
+    {
+      "scenario": "mergent",
+      "id": "3946ee097fc53ebd4280e5cc",
+      "assertion": "image processor nested protobuf result"
+    },
+    {
+      "scenario": "mergent",
+      "id": "2c8298d324c9fb7f9e6b73ee",
+      "assertion": "scheduled image processor invocation"
+    }
+  ],
+  "sdks/go/examples/migration-guides/temporal.go::NewChargeOrder::charge-order": [
+    {
+      "scenario": "temporal",
+      "id": "ea37c7dffb062ad536e51a74",
+      "assertion": "/wego.example.v1.Temporal/Charge business result"
+    }
+  ],
+  "sdks/go/examples/migration-guides/temporal.go::NewValidateOrder::validate-order": [
+    {
+      "scenario": "temporal",
+      "id": "8060a8c476683054070fbb79",
+      "assertion": "/wego.example.v1.Temporal/Validate business result"
+    }
+  ],
+  "sdks/go/examples/migration-guides/temporal.go::NewFulfillOrder::fulfill-order": [
+    {
+      "scenario": "temporal",
+      "id": "2eb4751b563c88ea5022def2",
+      "assertion": "/wego.example.v1.Temporal/Fulfill business result"
+    }
+  ],
+  "sdks/go/examples/migration-guides/temporal.go::NewProcessOrder::ProcessOrder": [
+    {
+      "scenario": "temporal",
+      "id": "32266bbb5b067de836c5e2b9",
+      "assertion": "durable process order reused Now and completed child RunIDs"
+    }
+  ],
+  "sdks/go/examples/migration-guides/temporal.go::NewSendWelcomeEmail::send-welcome-email": [
+    {
+      "scenario": "temporal",
+      "id": "560ecb4cd30c74fbc4338493",
+      "assertion": "/wego.example.v1.Temporal/Welcome business result"
+    }
+  ],
+  "sdks/go/examples/migration-guides/temporal.go::NewSendFollowupEmail::send-followup-email": [
+    {
+      "scenario": "temporal",
+      "id": "6189d07a647ceedc08d03c70",
+      "assertion": "/wego.example.v1.Temporal/Followup business result"
+    }
+  ],
+  "sdks/go/examples/migration-guides/temporal.go::NewOnboardingFlow::OnboardingFlow": [
+    {
+      "scenario": "temporal",
+      "id": "3129dbdd23e3603fe05a8490",
+      "assertion": "durable onboarding sends two emails around sleep"
+    }
+  ],
+  "sdks/go/examples/migration-guides/temporal.go::NewChargeOrderWithRetries::charge-order-with-retries": [
+    {
+      "scenario": "temporal",
+      "id": "3f3dd93a1435e5270a9d10fd",
+      "assertion": "/wego.example.v1.Temporal/ChargeWithRetries business result"
+    }
+  ],
+  "sdks/go/examples/migration-guides/temporal.go::NewDailyDigest::DailyDigest": [
+    {
+      "scenario": "temporal",
+      "id": "93e2c44a76ef426a40e8220e",
+      "assertion": "/wego.example.v1.Temporal/Digest business result"
+    }
+  ],
+  "sdks/go/examples/migration-guides/temporal.go::NewApprovalFlow::ApprovalFlow": [
+    {
+      "scenario": "temporal",
+      "id": "fc127e93e797a4b2b1f27cfa",
+      "assertion": "correlated approval event"
+    }
+  ],
+  "sdks/go/examples/migration-guides/temporal.go::NewProcessItem::process-item": [
+    {
+      "scenario": "temporal",
+      "id": "630dc133d07318606564798f",
+      "assertion": "durable concurrent child fanout"
+    }
+  ],
+  "sdks/go/examples/migration-guides/temporal.go::NewShipOrderItems::ShipOrderItems": [
+    {
+      "scenario": "temporal",
+      "id": "630dc133d07318606564798f",
+      "assertion": "durable concurrent child fanout"
+    }
+  ],
+  "sdks/go/examples/migration-guides/temporal.go::NewWeeklyReport::weekly-report": [
+    {
+      "scenario": "temporal",
+      "id": "0770d3d664950dd88ee56a32",
+      "assertion": "runtime weekly cron and one-shot report schedule"
+    }
+  ],
+  "sdks/go/examples/migration-guides/temporal.go::NewFlowControlledTasks::SyncCustomer": [
+    {
+      "scenario": "temporal",
+      "id": "41d379ed85edb7cd04118ff3",
+      "assertion": "/wego.example.v1.Temporal/SyncRecords business result"
+    }
+  ],
+  "sdks/go/examples/migration-guides/temporal.go::NewFlowControlledTasks::call-model": [
+    {
+      "scenario": "temporal",
+      "id": "33d4d704d595b202055c7eae",
+      "assertion": "/wego.example.v1.Temporal/CallModel business result"
+    }
+  ],
+  "sdks/go/examples/migration-guides/temporal.go::NewLoggedChargeOrder::charge-order-logged": [
+    {
+      "scenario": "temporal",
+      "id": "6ea866dc2ebf8c1166c7eacc",
+      "assertion": "/wego.example.v1.Temporal/LoggedCharge business result"
+    }
+  ],
+  "sdks/go/examples/on-event/main.go::Lower::lower": [
+    {
+      "scenario": "on-event",
+      "id": "891baab90319df73718d2ad9",
+      "assertion": "filter rejects and accepts events with payload"
+    }
+  ],
+  "sdks/go/examples/on-event/main.go::LowerWithFilter::lower": [
+    {
+      "scenario": "on-event",
+      "id": "891baab90319df73718d2ad9",
+      "assertion": "filter rejects and accepts events with payload"
+    }
+  ],
+  "sdks/go/examples/on-event/main.go::Upper::upper": [
+    {
+      "scenario": "on-event",
+      "id": "891baab90319df73718d2ad9",
+      "assertion": "filter rejects and accepts events with payload"
+    }
+  ],
+  "sdks/go/examples/opentelemetry_instrumentation/main.go::main::otel-send-notification": [
+    {
+      "scenario": "observability",
+      "id": "89ef1b825f5a249faf011885",
+      "assertion": "trace propagation, task attributes, two exporters, Jaeger, metrics, unchanged global provider"
+    },
+    {
+      "scenario": "observability",
+      "id": "d7b389fae085acdf50d30e8f",
+      "assertion": "traced DAG parallel payment/inventory and ten concurrent child notifications plus second standalone"
+    }
+  ],
+  "sdks/go/examples/opentelemetry_instrumentation/main.go::main::otel-other-task": [
+    {
+      "scenario": "observability",
+      "id": "89ef1b825f5a249faf011885",
+      "assertion": "trace propagation, task attributes, two exporters, Jaeger, metrics, unchanged global provider"
+    },
+    {
+      "scenario": "observability",
+      "id": "d7b389fae085acdf50d30e8f",
+      "assertion": "traced DAG parallel payment/inventory and ten concurrent child notifications plus second standalone"
+    }
+  ],
+  "sdks/go/examples/panic-handler/main.go::main::panic-handler-task": [
+    {
+      "scenario": "panic-handler",
+      "id": "213cff335aa78b77028bbbb3",
+      "assertion": "panic handler and subsequent successful call"
+    }
+  ],
+  "sdks/go/examples/rate-limiting/main.go::main::task1": [
+    {
+      "scenario": "rate-limiting",
+      "id": "178c4aca48973fb1e94e256c",
+      "assertion": "static/dynamic per-second rate limit"
+    }
+  ],
+  "sdks/go/examples/rate-limiting/main.go::main::task2": [
+    {
+      "scenario": "rate-limiting",
+      "id": "178c4aca48973fb1e94e256c",
+      "assertion": "static/dynamic per-second rate limit"
+    }
+  ],
+  "sdks/go/examples/retries/main.go::Retries::retries-task": [
+    {
+      "scenario": "retries",
+      "id": "5a97655c93e99ecb63345010",
+      "assertion": "always-fails attempts and policy"
+    }
+  ],
+  "sdks/go/examples/retries/main.go::RetriesWithCount::fail-twice-task": [
+    {
+      "scenario": "retries",
+      "id": "2760c3eab8d04f06f1d98aa9",
+      "assertion": "count attempts and policy"
+    }
+  ],
+  "sdks/go/examples/retries/main.go::WithBackoff::with-backoff-task": [
+    {
+      "scenario": "retries",
+      "id": "c6888d73422719f41cc9ba2b",
+      "assertion": "backoff attempts and policy"
+    }
+  ],
+  "sdks/go/examples/retries/main.go::NonRetryableError::non-retryable-task": [
+    {
+      "scenario": "retries",
+      "id": "62dceff45086f74be5f6851a",
+      "assertion": "nonretryable attempts and policy"
+    }
+  ],
+  "sdks/go/examples/runtime-affinity/main.go::main::affinity-example-task": [
+    {
+      "scenario": "runtime-affinity",
+      "id": "4bfc48ad57c66466aac5abd3",
+      "assertion": "required affinity alpha; sticky=false"
+    },
+    {
+      "scenario": "runtime-affinity",
+      "id": "1b348f6eb9fdcf437dbba92d",
+      "assertion": "required affinity beta; sticky=false"
+    }
+  ],
+  "sdks/go/examples/sdk-migration/main.go::main::simple-task": [
+    {
+      "scenario": "sdk-migration",
+      "id": "9a52fc89d46143321504ada5",
+      "assertion": "standard generated unary stub"
+    },
+    {
+      "scenario": "sdk-migration",
+      "id": "9e85cff10ec1571e9e6b184b",
+      "assertion": "RunNoWait and result decoding"
+    },
+    {
+      "scenario": "sdk-migration",
+      "id": "50aae116d2176ce99086c558",
+      "assertion": "RunMany input/result mapping"
+    }
+  ],
+  "sdks/go/examples/sdk-migration/v1.go::V1::simple-workflow": [
+    {
+      "scenario": "sdk-migration-v1",
+      "id": "d3555d14d6b4fdaaefa4a281",
+      "assertion": "event triggers protobuf RPC and result lookup"
+    }
+  ],
+  "sdks/go/examples/simple/main.go::main::process-message": [
+    {
+      "scenario": "simple",
+      "id": "9a52fc89d46143321504ada5",
+      "assertion": "standard generated unary stub"
+    },
+    {
+      "scenario": "simple",
+      "id": "9e85cff10ec1571e9e6b184b",
+      "assertion": "RunNoWait and result decoding"
+    },
+    {
+      "scenario": "simple",
+      "id": "50aae116d2176ce99086c558",
+      "assertion": "RunMany input/result mapping"
+    }
+  ],
+  "sdks/go/examples/slot-cost/main.go::main::omega": [
+    {
+      "scenario": "slot-cost",
+      "id": "d39e3af992ae5e0312705928",
+      "assertion": "slot costs 5 and 1 share capacity 10"
+    }
+  ],
+  "sdks/go/examples/slot-cost/main.go::main::weenie": [
+    {
+      "scenario": "slot-cost",
+      "id": "d39e3af992ae5e0312705928",
+      "assertion": "slot costs 5 and 1 share capacity 10"
+    }
+  ],
+  "sdks/go/examples/sticky-workers/main.go::Child::child-task": [
+    {
+      "scenario": "sticky-workers",
+      "id": "c6e6f95c211a5cf02d3ed74e",
+      "assertion": "required affinity alpha; sticky=true"
+    },
+    {
+      "scenario": "sticky-workers",
+      "id": "1237812b070a109b157b470c",
+      "assertion": "required affinity beta; sticky=true"
+    },
+    {
+      "scenario": "sticky-workers",
+      "id": "c1f41bfe6e88f0a23daf9310",
+      "assertion": "two-worker sticky DAG executes independent tasks on one worker"
+    }
+  ],
+  "sdks/go/examples/sticky-workers/main.go::Sticky::sticky-task": [
+    {
+      "scenario": "sticky-workers",
+      "id": "c6e6f95c211a5cf02d3ed74e",
+      "assertion": "required affinity alpha; sticky=true"
+    },
+    {
+      "scenario": "sticky-workers",
+      "id": "1237812b070a109b157b470c",
+      "assertion": "required affinity beta; sticky=true"
+    },
+    {
+      "scenario": "sticky-workers",
+      "id": "c1f41bfe6e88f0a23daf9310",
+      "assertion": "two-worker sticky DAG executes independent tasks on one worker"
+    }
+  ],
+  "sdks/go/examples/streaming/shared/task.go::StreamingWorkflow::stream-example": [
+    {
+      "scenario": "streaming",
+      "id": "0b8210fdfd345ee4703366cb",
+      "assertion": "protobuf output chunks forwarded to HTTP in order and final result confirmed"
+    }
+  ],
+  "sdks/go/examples/stubs/stub-workflow.go::StubWorkflow::stub-workflow": [
+    {
+      "scenario": "stubs",
+      "id": "caa72aae9ab765f10fecc00d",
+      "assertion": "definition template registered and decoded"
+    }
+  ],
+  "sdks/go/examples/webhooks/main.go::main::handle-stripe-payment": [
+    {
+      "scenario": "webhooks",
+      "id": "c5ef59c36843a56bdad84107",
+      "assertion": "controlled HTTP webhook stripe:payment_intent.succeeded payload and result"
+    }
+  ],
+  "sdks/go/examples/webhooks/main.go::main::handle-github-pr": [
+    {
+      "scenario": "webhooks",
+      "id": "34f15dc5fe06655f28d933ee",
+      "assertion": "controlled HTTP webhook github:pull_request:opened payload and result"
+    }
+  ],
+  "sdks/go/examples/webhooks/main.go::main::handle-slack-mention": [
+    {
+      "scenario": "webhooks",
+      "id": "7f265915ea175e6ac65ba39a",
+      "assertion": "controlled HTTP webhook slack:event:app_mention payload and result"
+    }
+  ],
+  "sdks/go/examples/webhooks/main.go::main::handle-slack-command": [
+    {
+      "scenario": "webhooks",
+      "id": "81328d19df6dc7131635aaed",
+      "assertion": "controlled HTTP webhook slack:command:/deploy payload and result"
+    }
+  ],
+  "sdks/go/examples/webhooks/main.go::main::handle-slack-interaction": [
+    {
+      "scenario": "webhooks",
+      "id": "499dab04a0ac7f667e35621d",
+      "assertion": "controlled HTTP webhook slack:interaction:block_actions payload and result"
+    }
+  ]
+}
