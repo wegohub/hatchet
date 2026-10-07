@@ -4,7 +4,6 @@ package loader
 
 import (
 	"context"
-	stderrors "errors"
 	"fmt"
 	"io"
 	"net"
@@ -47,11 +46,8 @@ import (
 	"github.com/hatchet-dev/hatchet/pkg/integrations/metrics/prometheus"
 	"github.com/hatchet-dev/hatchet/pkg/logger"
 	"github.com/hatchet-dev/hatchet/pkg/repository/cache"
-	ckrepo "github.com/hatchet-dev/hatchet/pkg/repository/clickhouse"
 	"github.com/hatchet-dev/hatchet/pkg/repository/debugger"
-	"github.com/hatchet-dev/hatchet/pkg/repository/observability"
 	"github.com/hatchet-dev/hatchet/pkg/repository/sqlcv1"
-	tidbrepo "github.com/hatchet-dev/hatchet/pkg/repository/tidb"
 	v1 "github.com/hatchet-dev/hatchet/pkg/scheduling/v1"
 	"github.com/hatchet-dev/hatchet/pkg/security"
 	"github.com/hatchet-dev/hatchet/pkg/validator"
@@ -156,10 +152,6 @@ func (c *ConfigLoader) InitDataLayer() (res *database.Layer, err error) {
 
 	cf, err := LoadDatabaseConfigFile(configFileBytes...)
 
-	if err != nil {
-		return nil, err
-	}
-	backend, err := database.NormalizeOLAPBackend(cf.OLAPBackend)
 	if err != nil {
 		return nil, err
 	}
@@ -472,57 +464,11 @@ func (c *ConfigLoader) InitDataLayer() (res *database.Layer, err error) {
 		v1.OLAP().SetReadReplicaPool(readReplicaPool)
 	}
 
-	var cleanupOLAP func() error
-	if backend == "tidb" {
-		olap, logs, err := tidbrepo.New(context.Background(), cf.TiDB, tidbrepo.Options{
-			PayloadStore: v1.Payloads(), Tasks: v1.Tasks(),
-			OLAPRetention: olapPartitionRetention, CoreRetention: corePartitionRetention,
-			StatusUpdateLimits: statusUpdateOpts,
-		})
-		if err != nil {
-			ch.Stop()
-			_ = cleanupV1()
-			pool.Close()
-			ddlPool.Close()
-			if readReplicaPool != nil {
-				readReplicaPool.Close()
-			}
-			return nil, fmt.Errorf("initialize TiDB OLAP: %w", err)
-		}
-		v1.OverwriteOLAPRepository(olap)
-		v1.OverwriteLogsRepository(logs)
-		cleanupOLAP = olap.Close
-	} else if backend == "clickhouse" {
-		olap, logs, err := ckrepo.New(context.Background(), cf.ClickHouse, ckrepo.Options{
-			PayloadStore: v1.Payloads(), Tasks: v1.Tasks(),
-			OLAPRetention: olapPartitionRetention, CoreRetention: corePartitionRetention,
-			StatusUpdateLimits: statusUpdateOpts,
-		})
-		if err != nil {
-			ch.Stop()
-			_ = cleanupV1()
-			pool.Close()
-			ddlPool.Close()
-			if readReplicaPool != nil {
-				readReplicaPool.Close()
-			}
-			return nil, fmt.Errorf("initialize ClickHouse OLAP: %w", err)
-		}
-		v1.OverwriteOLAPRepository(olap)
-		v1.OverwriteLogsRepository(logs)
-		cleanupOLAP = olap.Close
-	}
-	v1.OverwriteOLAPRepository(observability.NewOLAP(v1.OLAP(), backend))
-
 	return &database.Layer{
 		Disconnect: func() error {
 			ch.Stop()
 
-			var olapErr error
-			if cleanupOLAP != nil {
-				olapErr = cleanupOLAP()
-			}
-			return stderrors.Join(olapErr, cleanupV1())
+			return cleanupV1()
 		},
 		Pool:              pool,
 		DirectDatabaseURL: databaseUrl,

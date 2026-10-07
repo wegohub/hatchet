@@ -5,12 +5,9 @@ import (
 	"fmt"
 	"log"
 	"sync"
-	"time"
 
 	"github.com/hatchet-dev/hatchet/pkg/cmdutils"
 	hatchet "github.com/hatchet-dev/hatchet/sdks/go"
-	hatchetotel "github.com/hatchet-dev/hatchet/sdks/go/opentelemetry"
-	"go.opentelemetry.io/otel"
 )
 
 func main() {
@@ -18,13 +15,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to create hatchet client: %v", err)
 	}
-
-	instrumentor, err := hatchetotel.NewInstrumentor()
-	if err != nil {
-		log.Fatalf("failed to create instrumentor: %v", err)
-	}
-
-	tracer := otel.Tracer("otel-simple-example")
 
 	// > Declaring a Task
 	type SimpleInput struct {
@@ -36,24 +26,6 @@ func main() {
 	}
 
 	task := client.NewStandaloneTask("process-message", func(ctx hatchet.Context, input SimpleInput) (SimpleOutput, error) {
-		// log example
-		ctx.Log("simple example start")
-
-		// trace example
-		payCtx, paySpan := tracer.Start(ctx, "payment.process")
-
-		_, tokenSpan := tracer.Start(payCtx, "payment.tokenize-card")
-		time.Sleep(200 * time.Millisecond)
-		tokenSpan.End()
-
-		_, chargeSpan := tracer.Start(payCtx, "payment.charge")
-		time.Sleep(400 * time.Millisecond)
-		chargeSpan.End()
-
-		paySpan.End()
-
-		ctx.Log("simple example end")
-
 		return SimpleOutput{
 			Result: "Processed: " + input.Message,
 		}, nil
@@ -185,17 +157,8 @@ func main() {
 		log.Fatalf("failed to create worker: %v", err)
 	}
 
-	worker.Use(instrumentor.Middleware())
-
 	interruptCtx, cancel := cmdutils.NewInterruptContext()
 	defer cancel()
-
-	go func() {
-		<-interruptCtx.Done()
-		if shutdownErr := instrumentor.Shutdown(context.Background()); shutdownErr != nil {
-			log.Printf("failed to shutdown instrumentor: %v", shutdownErr)
-		}
-	}()
 
 	err = worker.StartBlocking(interruptCtx)
 	if err != nil {

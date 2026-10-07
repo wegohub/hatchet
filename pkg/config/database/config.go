@@ -1,8 +1,6 @@
 package database
 
 import (
-	"fmt"
-	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -11,33 +9,15 @@ import (
 
 	"github.com/hatchet-dev/hatchet/pkg/config/shared"
 	v1 "github.com/hatchet-dev/hatchet/pkg/repository"
-	"github.com/hatchet-dev/hatchet/pkg/repository/clickhouse"
-	"github.com/hatchet-dev/hatchet/pkg/repository/tidb"
 )
 
-func NormalizeOLAPBackend(backend string) (string, error) {
-	switch strings.ToLower(strings.TrimSpace(backend)) {
-	case "", "postgres", "pg":
-		return "postgres", nil
-	case "clickhouse", "ck":
-		return "clickhouse", nil
-	case "tidb":
-		return "tidb", nil
-	default:
-		return "", fmt.Errorf("invalid OLAP backend %q; expected postgres, clickhouse or tidb", backend)
-	}
-}
-
 type ConfigFile struct {
-	OLAPBackend      string            `mapstructure:"olapBackend" json:"olapBackend,omitempty" default:"postgres"`
-	ClickHouse       clickhouse.Config `mapstructure:"clickhouse" json:"clickhouse,omitempty"`
-	TiDB             tidb.Config       `mapstructure:"tidb" json:"tidb,omitempty"`
-	PostgresHost     string            `mapstructure:"host" json:"host,omitempty" default:"127.0.0.1"`
-	PostgresPort     int               `mapstructure:"port" json:"port,omitempty" default:"5431"`
-	PostgresUsername string            `mapstructure:"username" json:"username,omitempty" default:"hatchet"`
-	PostgresPassword string            `mapstructure:"password" json:"password,omitempty" default:"hatchet"`
-	PostgresDbName   string            `mapstructure:"dbName" json:"dbName,omitempty" default:"hatchet"`
-	PostgresSSLMode  string            `mapstructure:"sslMode" json:"sslMode,omitempty" default:"disable"`
+	PostgresHost     string `mapstructure:"host" json:"host,omitempty" default:"127.0.0.1"`
+	PostgresPort     int    `mapstructure:"port" json:"port,omitempty" default:"5431"`
+	PostgresUsername string `mapstructure:"username" json:"username,omitempty" default:"hatchet"`
+	PostgresPassword string `mapstructure:"password" json:"password,omitempty" default:"hatchet"`
+	PostgresDbName   string `mapstructure:"dbName" json:"dbName,omitempty" default:"hatchet"`
+	PostgresSSLMode  string `mapstructure:"sslMode" json:"sslMode,omitempty" default:"disable"`
 
 	ReadReplicaEnabled     bool   `mapstructure:"readReplicaEnabled" json:"readReplicaEnabled,omitempty" default:"false"`
 	ReadReplicaDatabaseURL string `mapstructure:"readReplicaDatabaseUrl" json:"readReplicaDatabaseUrl,omitempty" default:""`
@@ -127,17 +107,6 @@ func (l *Layer) GetLogger() *zerolog.Logger {
 }
 
 func BindAllEnv(v *viper.Viper) {
-	_ = v.BindEnv("olapBackend", "DATABASE_OLAP_BACKEND")
-	for key, env := range map[string]string{"dsn": "DSN", "maxOpenConns": "MAX_OPEN_CONNS", "maxIdleConns": "MAX_IDLE_CONNS", "connMaxLifetime": "CONN_MAX_LIFETIME", "queryTimeout": "QUERY_TIMEOUT", "writeConcurrency": "WRITE_CONCURRENCY", "tiFlashQueryTimeout": "TIFLASH_QUERY_TIMEOUT"} {
-		_ = v.BindEnv("tidb."+key, "DATABASE_TIDB_"+env)
-	}
-	for key, env := range map[string]string{
-		"addresses": "ADDRESSES", "database": "DATABASE", "username": "USERNAME", "password": "PASSWORD", "tls": "TLS",
-		"keeperAddresses": "KEEPER_ADDRESSES", "keeperRoot": "KEEPER_ROOT", "keeperAuth": "KEEPER_AUTH",
-		"dialTimeout": "DIAL_TIMEOUT", "queryTimeout": "QUERY_TIMEOUT", "keeperSessionTimeout": "KEEPER_SESSION_TIMEOUT", "keeperOperationTimeout": "KEEPER_OPERATION_TIMEOUT",
-	} {
-		_ = v.BindEnv("clickhouse."+key, "DATABASE_CLICKHOUSE_"+env)
-	}
 	_ = v.BindEnv("host", "DATABASE_POSTGRES_HOST")
 	_ = v.BindEnv("port", "DATABASE_POSTGRES_PORT")
 	_ = v.BindEnv("username", "DATABASE_POSTGRES_USERNAME")
