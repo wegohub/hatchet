@@ -205,6 +205,7 @@ func (s *Server) prepare() error {
 	if s.config.DisableWorker && s.grpcConfig == nil {
 		return fmt.Errorf("wego: no engine enabled")
 	}
+
 	if s.grpcConfig != nil {
 		if s.grpcConfig.addr == "" {
 			return fmt.Errorf("wego: gRPC address cannot be empty")
@@ -231,12 +232,14 @@ func (s *Server) prepare() error {
 		s.listener, s.network = listener, network
 		s.mu.Unlock()
 	}
+
 	if !s.config.DisableWorker {
 		// err 接收 s.startWorker 的结果；按当前分支校验错误或有效性，确认成功后才继续本逻辑块。
 		if err := s.startWorker(s.startCtx); err != nil {
 			return err
 		}
 	}
+
 	// err 接收 s.startCtx.Err 的结果；按当前分支校验错误或有效性，确认成功后才继续本逻辑块。
 	if err := s.startCtx.Err(); err != nil {
 		return err

@@ -2,144 +2,144 @@ syntax = "proto3";
 package wego.example.v1;
 option go_package = "github.com/hatchet-dev/hatchet/sdks/wego/examples/proto;pb";
 
-// UnaryGreeter 标准 gRPC 业务服务；同一注册可供 Worker 与网络入口执行。
+// UnaryGreeter 标准 gRPC 业务服务；同一注册可供 Worker 与网络入口执行
 service UnaryGreeter {
-  // SayHello 普通 unary 请求/响应，映射为 StandaloneTask。
+  // SayHello 普通 unary 请求/响应，映射为 StandaloneTask
   rpc SayHello(Request) returns (Reply);
-  // WaitHello 可配置 durable 等待的 unary 方法。
+  // WaitHello 可配置 durable 等待的 unary 方法
   rpc WaitHello(Request) returns (Reply);
-  // ChildHello 使用任务上下文提交子调用的 unary 方法。
+  // ChildHello 使用任务上下文提交子调用的 unary 方法
   rpc ChildHello(Request) returns (Reply);
 }
 
-// Greeter 标准 gRPC 业务服务；同一注册可供 Worker 与网络入口执行。
+// Greeter 标准 gRPC 业务服务；同一注册可供 Worker 与网络入口执行
 service Greeter {
-  // SayHello 普通 unary 请求/响应，映射为 StandaloneTask。
+  // SayHello 普通 unary 请求/响应，映射为 StandaloneTask
   rpc SayHello(Request) returns (Reply);
-  // WaitHello 可配置 durable 等待的 unary 方法。
+  // WaitHello 可配置 durable 等待的 unary 方法
   rpc WaitHello(Request) returns (Reply);
-  // ChildHello 使用任务上下文提交子调用的 unary 方法。
+  // ChildHello 使用任务上下文提交子调用的 unary 方法
   rpc ChildHello(Request) returns (Reply);
-  // UploadHellos client stream：逐条接收 Request，输入 EOF 后返回一个 Reply。
+  // UploadHellos client stream：逐条接收 Request，输入 EOF 后返回一个 Reply
   rpc UploadHellos(stream Request) returns (Reply);
-  // WatchHellos server stream：接收一个 Request，发送 count 条 Reply。
+  // WatchHellos server stream：接收一个 Request，发送 count 条 Reply
   rpc WatchHellos(Request) returns (stream Reply);
-  // ChatHellos bidi stream：每收到一个 Request 即回复 Reply，两个方向独立关闭。
+  // ChatHellos bidi stream：每收到一个 Request 即回复 Reply，两个方向独立关闭
   rpc ChatHellos(stream Request) returns (stream Reply);
 }
 
-// Temporal 标准 gRPC 业务服务；同一注册可供 Worker 与网络入口执行。
+// Temporal 标准 gRPC 业务服务；同一注册可供 Worker 与网络入口执行
 service Temporal {
-  // Charge 受控扣款步骤。
+  // Charge 受控扣款步骤
   rpc Charge(Request) returns(Reply);
-  // Validate 受控输入校验步骤。
+  // Validate 受控输入校验步骤
   rpc Validate(Request) returns(Reply);
-  // Fulfill 读取父任务输出后执行受控履约步骤。
+  // Fulfill 读取父任务输出后执行受控履约步骤
   rpc Fulfill(Request) returns(Reply);
-  // Process 父子调用组织步骤。
+  // Process 父子调用组织步骤
   rpc Process(Request) returns(Reply);
-  // Welcome 受控欢迎消息步骤。
+  // Welcome 受控欢迎消息步骤
   rpc Welcome(Request) returns(Reply);
-  // Followup durable 等待后续事件的步骤。
+  // Followup durable 等待后续事件的步骤
   rpc Followup(Request) returns(Reply);
-  // Onboard 组织欢迎与后续处理的父任务。
+  // Onboard 组织欢迎与后续处理的父任务
   rpc Onboard(Request) returns(Reply);
-  // ChargeWithRetries 注入失败并检查重试计数的扣款步骤。
+  // ChargeWithRetries 注入失败并检查重试计数的扣款步骤
   rpc ChargeWithRetries(Request) returns(Reply);
-  // Digest durable 生成汇总的步骤。
+  // Digest durable 生成汇总的步骤
   rpc Digest(Request) returns(Reply);
-  // Approval 等待匹配审批事件的步骤。
+  // Approval 等待匹配审批事件的步骤
   rpc Approval(Request) returns(Reply);
-  // Item 处理一个批量子项的步骤。
+  // Item 处理一个批量子项的步骤
   rpc Item(Request) returns(Reply);
-  // ShipItems 批量提交稳定子任务的父步骤。
+  // ShipItems 批量提交稳定子任务的父步骤
   rpc ShipItems(Request) returns(Reply);
-  // Report 读取可重放时间并返回受控报告。
+  // Report 读取可重放时间并返回受控报告
   rpc Report(Request) returns(Reply);
-  // SyncRecords 同步受控记录集合的步骤。
+  // SyncRecords 同步受控记录集合的步骤
   rpc SyncRecords(Request) returns(Reply);
-  // CallModel 模拟模型调用的受控业务步骤。
+  // CallModel 模拟模型调用的受控业务步骤
   rpc CallModel(Request) returns(Reply);
-  // LoggedCharge 输出并查询任务日志的扣款步骤。
+  // LoggedCharge 输出并查询任务日志的扣款步骤
   rpc LoggedCharge(Request) returns(Reply);
 }
 
-// Request 示例业务请求；只有显式配置投影的字段才进入 input.routing。
+// Request 示例业务请求；只有显式配置投影的字段才进入 input.routing
 message Request {
-  // message 业务文本，例如请求 "hello" 对应处理后的响应文本。
+  // message 业务文本，例如请求 "hello" 对应处理后的响应文本
   string message = 1;
-  // group_key 调度分组字段，例如 group-a 与 group-b 独立限制并发；需显式投影。
+  // group_key 调度分组字段，例如 group-a 与 group-b 独立限制并发；需显式投影
   string group_key = 2;
-  // account 示例限流或迁移分组键，只使用受控 fixture 值。
+  // account 示例限流或迁移分组键，只使用受控 fixture 值
   string account = 3;
-  // tier 动态策略等级，例如 basic 用于选择限流额度。
+  // tier 动态策略等级，例如 basic 用于选择限流额度
   string tier = 4;
-  // user_id 受控业务对象身份，用于子调用或事件匹配。
+  // user_id 受控业务对象身份，用于子调用或事件匹配
   string user_id = 5;
-  // id 示例输入身份，可投影到 routing.id 计算幂等键。
+  // id 示例输入身份，可投影到 routing.id 计算幂等键
   string id = 6;
-  // correlation_id 事件与等待任务的关联键，例如 correlation-1。
+  // correlation_id 事件与等待任务的关联键，例如 correlation-1
   string correlation_id = 7;
-  // count 输入或输出数量，例如请求 3 条 server stream 输出时为 3。
+  // count 输入或输出数量，例如请求 3 条 server stream 输出时为 3
   int32 count = 8;
-  // delay_millis 受控执行延迟，单位毫秒，例如 100 用于制造慢消费者。
+  // delay_millis 受控执行延迟，单位毫秒，例如 100 用于制造慢消费者
   int32 delay_millis = 9;
-  // fail 是否注入业务失败，true 用于重试与状态验收。
+  // fail 是否注入业务失败，true 用于重试与状态验收
   bool fail = 10;
-  // event_key 等待或发布的事件键。
+  // event_key 等待或发布的事件键
   string event_key = 11;
-  // image_url 受控图片 fixture 地址，载荷变换不依赖外部图片服务。
+  // image_url 受控图片 fixture 地址，载荷变换不依赖外部图片服务
   string image_url = 12;
-  // filters 请求的受控图片处理过滤器列表。
+  // filters 请求的受控图片处理过滤器列表
   repeated string filters = 13;
-  // items 待处理项集合，用于验证批量稳定子调用。
+  // items 待处理项集合，用于验证批量稳定子调用
   repeated Item items = 14;
 }
 
-// Reply 示例业务响应，包含用于真实验收的运行身份和业务结果。
+// Reply 示例业务响应，包含用于真实验收的运行身份和业务结果
 message Reply {
-  // message 业务文本，例如请求 "hello" 对应处理后的响应文本。
+  // message 业务文本，例如请求 "hello" 对应处理后的响应文本
   string message = 1;
-  // run_id 当前工作流 RunID，网络入口没有任务身份。
+  // run_id 当前工作流 RunID，网络入口没有任务身份
   string run_id = 2;
-  // worker_id 当前执行所属 Worker 身份，用于亲和性与粘性断言。
+  // worker_id 当前执行所属 Worker 身份，用于亲和性与粘性断言
   string worker_id = 3;
-  // retry_count 真实重试次数，首次执行为 0。
+  // retry_count 真实重试次数，首次执行为 0
   int32 retry_count = 4;
-  // count 输入或输出数量，例如请求 3 条 server stream 输出时为 3。
+  // count 输入或输出数量，例如请求 3 条 server stream 输出时为 3
   int32 count = 5;
-  // child_run_id 子任务运行身份，重放时应复用已有值。
+  // child_run_id 子任务运行身份，重放时应复用已有值
   string child_run_id = 6;
-  // parent_run_id 父任务运行身份，验证子调用的身份关联。
+  // parent_run_id 父任务运行身份，验证子调用的身份关联
   string parent_run_id = 7;
-  // processed_at durable Now 记录的处理时间，重放保持相应记录值。
+  // processed_at durable Now 记录的处理时间，重放保持相应记录值
   string processed_at = 8;
-  // ok 业务处理是否成功，由 handler 而非仅注册结果决定。
+  // ok 业务处理是否成功，由 handler 而非仅注册结果决定
   bool ok = 9;
-  // processed_url 受控处理结果的对象引用。
+  // processed_url 受控处理结果的对象引用
   string processed_url = 10;
-  // image_metadata 受控处理结果的尺寸、格式与已应用过滤器。
+  // image_metadata 受控处理结果的尺寸、格式与已应用过滤器
   ImageMetadata image_metadata = 11;
-  // invocation_count durable handler 调用次数，用于观察驱逐及重放。
+  // invocation_count durable handler 调用次数，用于观察驱逐及重放
   int32 invocation_count = 12;
-  // child_run_ids 批量子任务的稳定运行身份集合。
+  // child_run_ids 批量子任务的稳定运行身份集合
   repeated string child_run_ids = 13;
 }
 
-// ImageMetadata 受控图片处理结果，不访问真实外部业务系统。
+// ImageMetadata 受控图片处理结果，不访问真实外部业务系统
 message ImageMetadata {
-  // size 图片 fixture 的字节数。
+  // size 图片 fixture 的字节数
   int32 size = 1;
-  // format 图片 fixture 格式。
+  // format 图片 fixture 格式
   string format = 2;
-  // applied_filters 实际执行过的过滤器，供结果断言。
+  // applied_filters 实际执行过的过滤器，供结果断言
   repeated string applied_filters = 3;
 }
 
-// Item 批量子调用中的单个商品项，例如 product_id="item-1"、quantity=2。
+// Item 批量子调用中的单个商品项，例如 product_id="item-1"、quantity=2
 message Item {
-  // product_id 受控商品项身份，例如 item-1。
+  // product_id 受控商品项身份，例如 item-1
   string product_id = 1;
-  // quantity 此项数量，例如 2，用于聚合结果核对。
+  // quantity 此项数量，例如 2，用于聚合结果核对
   int32 quantity = 2;
 }

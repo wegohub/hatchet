@@ -129,8 +129,10 @@ func (s *Server) startWorker(ctx context.Context) error {
 	businessConfig.Labels[session.OwnerLabel] = owner
 	// hostname, _ 读取实例主机名，仅用于显示名称，不作为唯一 Worker 身份。
 	hostname, _ := os.Hostname()
+	// workerName 在同一次启动中生成一次，控制 Worker 追加 -control，便于识别所属业务实例。
+	workerName := "wego-" + hostname + "-" + randomID()
 	// w, err 接收 e.Worker 的返回值，同时保存错误供紧接着的分支检查；失败时不继续使用结果。
-	w, err := e.Worker(ctx, "wego-"+hostname+"-"+randomID(), definitions, businessConfig, s.policy.PanicHandler)
+	w, err := e.Worker(ctx, workerName, definitions, businessConfig, s.policy.PanicHandler)
 	if err != nil {
 		return err
 	}
@@ -170,7 +172,7 @@ func (s *Server) startWorker(ctx context.Context) error {
 			}
 		}
 		// control 以独立容量注册会话控制和方法专属 START，业务 slots 满载也必须完成握手。
-		control, err := e.Worker(ctx, "wego-control-"+owner, controlDefinitions, controlConfig, nil)
+		control, err := e.Worker(ctx, workerName+"-control", controlDefinitions, controlConfig, nil)
 		if err != nil {
 			return err
 		}

@@ -1,4 +1,4 @@
-# wego SDK 0.1.11
+# wego SDK 0.1.12
 
 wego 把标准 Go gRPC handler 和 protobuf 客户端桩接入 Hatchet standalone 任务。`client.Conn` 实现 `grpc.ClientConnInterface`，`server.Server` 实现 `grpc.ServiceRegistrar`；公开 API 使用 wego 类型。
 
