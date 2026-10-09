@@ -16,79 +16,79 @@ import (
 
 const (
 	// Verify that this generated code is sufficiently up-to-date.
-	// _ 编译期版本兼容断言，生成代码与 protobuf / gRPC 运行时不匹配时直接构建失败。
+	// _ 编译期版本兼容断言，生成代码与 protobuf / gRPC 运行时不匹配时直接构建失败
 	_ = protoimpl.EnforceVersion(20 - protoimpl.MinVersion)
 	// Verify that runtime/protoimpl is sufficiently up-to-date.
-	// _ 编译期版本兼容断言，生成代码与 protobuf / gRPC 运行时不匹配时直接构建失败。
+	// _ 编译期版本兼容断言，生成代码与 protobuf / gRPC 运行时不匹配时直接构建失败
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Request 示例业务请求；只有显式配置投影的字段才进入 input.routing。
-// Request 生成的消息、调用接口或服务适配类型；业务语义以 .proto 的中文说明为准。
+// Request 示例业务请求；只有显式配置投影的字段才进入 input.routing
+// Request 生成的消息、调用接口或服务适配类型；业务语义以 .proto 的中文说明为准
 type Request struct {
-	// state protobuf 运行时消息状态，关联当前实例的反射描述；业务不直接读写。
+	// state protobuf 运行时消息状态，关联当前实例的反射描述；业务不直接读写
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// message 业务文本，例如请求 "hello" 对应处理后的响应文本。
+	// message 业务文本，例如请求 "hello" 对应处理后的响应文本
 	Message string `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
-	// group_key 调度分组字段，例如 group-a 与 group-b 独立限制并发；需显式投影。
+	// group_key 调度分组字段，例如 group-a 与 group-b 独立限制并发；需显式投影
 	GroupKey string `protobuf:"bytes,2,opt,name=group_key,json=groupKey,proto3" json:"group_key,omitempty"`
-	// account 示例限流或迁移分组键，只使用受控 fixture 值。
+	// account 示例限流或迁移分组键，只使用受控 fixture 值
 	Account string `protobuf:"bytes,3,opt,name=account,proto3" json:"account,omitempty"`
-	// tier 动态策略等级，例如 basic 用于选择限流额度。
+	// tier 动态策略等级，例如 basic 用于选择限流额度
 	Tier string `protobuf:"bytes,4,opt,name=tier,proto3" json:"tier,omitempty"`
-	// user_id 受控业务对象身份，用于子调用或事件匹配。
+	// user_id 受控业务对象身份，用于子调用或事件匹配
 	UserId string `protobuf:"bytes,5,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
-	// id 示例输入身份，可投影到 routing.id 计算幂等键。
+	// id 示例输入身份，可投影到 routing.id 计算幂等键
 	Id string `protobuf:"bytes,6,opt,name=id,proto3" json:"id,omitempty"`
-	// correlation_id 事件与等待任务的关联键，例如 correlation-1。
+	// correlation_id 事件与等待任务的关联键，例如 correlation-1
 	CorrelationId string `protobuf:"bytes,7,opt,name=correlation_id,json=correlationId,proto3" json:"correlation_id,omitempty"`
-	// count 输入或输出数量，例如请求 3 条 server stream 输出时为 3。
+	// count 输入或输出数量，例如请求 3 条 server stream 输出时为 3
 	Count int32 `protobuf:"varint,8,opt,name=count,proto3" json:"count,omitempty"`
-	// delay_millis 受控执行延迟，单位毫秒，例如 100 用于制造慢消费者。
+	// delay_millis 受控执行延迟，单位毫秒，例如 100 用于制造慢消费者
 	DelayMillis int32 `protobuf:"varint,9,opt,name=delay_millis,json=delayMillis,proto3" json:"delay_millis,omitempty"`
-	// fail 是否注入业务失败，true 用于重试与状态验收。
+	// fail 是否注入业务失败，true 用于重试与状态验收
 	Fail bool `protobuf:"varint,10,opt,name=fail,proto3" json:"fail,omitempty"`
-	// event_key 等待或发布的事件键。
+	// event_key 等待或发布的事件键
 	EventKey string `protobuf:"bytes,11,opt,name=event_key,json=eventKey,proto3" json:"event_key,omitempty"`
-	// image_url 受控图片 fixture 地址，载荷变换不依赖外部图片服务。
+	// image_url 受控图片 fixture 地址，载荷变换不依赖外部图片服务
 	ImageUrl string `protobuf:"bytes,12,opt,name=image_url,json=imageUrl,proto3" json:"image_url,omitempty"`
-	// filters 请求的受控图片处理过滤器列表。
+	// filters 请求的受控图片处理过滤器列表
 	Filters []string `protobuf:"bytes,13,rep,name=filters,proto3" json:"filters,omitempty"`
-	// items 待处理项集合，用于验证批量稳定子调用。
+	// items 待处理项集合，用于验证批量稳定子调用
 	Items []*Item `protobuf:"bytes,14,rep,name=items,proto3" json:"items,omitempty"`
-	// unknownFields 保留当前版本不认识的字段，重新编码时保持协议前向兼容。
+	// unknownFields 保留当前版本不认识的字段，重新编码时保持协议前向兼容
 	unknownFields protoimpl.UnknownFields
-	// sizeCache protobuf 编码大小缓存，由运行时维护，不表示业务消息条数。
+	// sizeCache protobuf 编码大小缓存，由运行时维护，不表示业务消息条数
 	sizeCache protoimpl.SizeCache
 }
 
-// Reset 清空消息字段并重新关联运行时描述，已保存业务值不再保留。
+// Reset 清空消息字段并重新关联运行时描述，已保存业务值不再保留
 func (x *Request) Reset() {
 	*x = Request{}
-	// mi 当前消息的运行时类型描述，索引与 .proto 消息顺序对应。
+	// mi 当前消息的运行时类型描述，索引与 .proto 消息顺序对应
 	mi := &file_sdks_wego_examples_proto_demo_proto_msgTypes[0]
-	// ms 当前接收者的消息状态缓存，存入描述后反射读取复用。
+	// ms 当前接收者的消息状态缓存，存入描述后反射读取复用
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-// String 生成 protobuf 文本表示，仅用于诊断，不作为任务传输编码。
+// String 生成 protobuf 文本表示，仅用于诊断，不作为任务传输编码
 func (x *Request) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-// ProtoMessage 实现 protobuf 消息标记接口，方法本身不执行业务逻辑。
+// ProtoMessage 实现 protobuf 消息标记接口，方法本身不执行业务逻辑
 func (*Request) ProtoMessage() {}
 
-// ProtoReflect 返回消息反射视图，首次读取缓存描述后复用；nil 消息返回类型级反射视图。
+// ProtoReflect 返回消息反射视图，首次读取缓存描述后复用；nil 消息返回类型级反射视图
 func (x *Request) ProtoReflect() protoreflect.Message {
-	// mi 当前消息的运行时类型描述，索引与 .proto 消息顺序对应。
+	// mi 当前消息的运行时类型描述，索引与 .proto 消息顺序对应
 	mi := &file_sdks_wego_examples_proto_demo_proto_msgTypes[0]
-	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问。
+	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问
 	if x != nil {
-		// ms 当前接收者的消息状态缓存，存入描述后反射读取复用。
+		// ms 当前接收者的消息状态缓存，存入描述后反射读取复用
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		// 消息状态尚未关联描述时填入当前类型信息，后续反射读取复用此缓存。
+		// 消息状态尚未关联描述时填入当前类型信息，后续反射读取复用此缓存
 		if ms.LoadMessageInfo() == nil {
 			ms.StoreMessageInfo(mi)
 		}
@@ -98,201 +98,201 @@ func (x *Request) ProtoReflect() protoreflect.Message {
 }
 
 // Deprecated: Use Request.ProtoReflect.Descriptor instead.
-// Descriptor 返回压缩文件描述及消息索引；业务新代码使用 ProtoReflect 获取描述。
+// Descriptor 返回压缩文件描述及消息索引；业务新代码使用 ProtoReflect 获取描述
 func (*Request) Descriptor() ([]byte, []int) {
 	return file_sdks_wego_examples_proto_demo_proto_rawDescGZIP(), []int{0}
 }
 
-// GetMessage 读取 Message；nil 接收者返回该字段零值，不创建业务结果。
+// GetMessage 读取 Message；nil 接收者返回该字段零值，不创建业务结果
 func (x *Request) GetMessage() string {
-	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问。
+	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问
 	if x != nil {
 		return x.Message
 	}
 	return ""
 }
 
-// GetGroupKey 读取 GroupKey；nil 接收者返回该字段零值，不创建业务结果。
+// GetGroupKey 读取 GroupKey；nil 接收者返回该字段零值，不创建业务结果
 func (x *Request) GetGroupKey() string {
-	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问。
+	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问
 	if x != nil {
 		return x.GroupKey
 	}
 	return ""
 }
 
-// GetAccount 读取 Account；nil 接收者返回该字段零值，不创建业务结果。
+// GetAccount 读取 Account；nil 接收者返回该字段零值，不创建业务结果
 func (x *Request) GetAccount() string {
-	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问。
+	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问
 	if x != nil {
 		return x.Account
 	}
 	return ""
 }
 
-// GetTier 读取 Tier；nil 接收者返回该字段零值，不创建业务结果。
+// GetTier 读取 Tier；nil 接收者返回该字段零值，不创建业务结果
 func (x *Request) GetTier() string {
-	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问。
+	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问
 	if x != nil {
 		return x.Tier
 	}
 	return ""
 }
 
-// GetUserId 读取 UserId；nil 接收者返回该字段零值，不创建业务结果。
+// GetUserId 读取 UserId；nil 接收者返回该字段零值，不创建业务结果
 func (x *Request) GetUserId() string {
-	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问。
+	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问
 	if x != nil {
 		return x.UserId
 	}
 	return ""
 }
 
-// GetId 读取 Id；nil 接收者返回该字段零值，不创建业务结果。
+// GetId 读取 Id；nil 接收者返回该字段零值，不创建业务结果
 func (x *Request) GetId() string {
-	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问。
+	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问
 	if x != nil {
 		return x.Id
 	}
 	return ""
 }
 
-// GetCorrelationId 读取 CorrelationId；nil 接收者返回该字段零值，不创建业务结果。
+// GetCorrelationId 读取 CorrelationId；nil 接收者返回该字段零值，不创建业务结果
 func (x *Request) GetCorrelationId() string {
-	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问。
+	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问
 	if x != nil {
 		return x.CorrelationId
 	}
 	return ""
 }
 
-// GetCount 读取 Count；nil 接收者返回该字段零值，不创建业务结果。
+// GetCount 读取 Count；nil 接收者返回该字段零值，不创建业务结果
 func (x *Request) GetCount() int32 {
-	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问。
+	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问
 	if x != nil {
 		return x.Count
 	}
 	return 0
 }
 
-// GetDelayMillis 读取 DelayMillis；nil 接收者返回该字段零值，不创建业务结果。
+// GetDelayMillis 读取 DelayMillis；nil 接收者返回该字段零值，不创建业务结果
 func (x *Request) GetDelayMillis() int32 {
-	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问。
+	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问
 	if x != nil {
 		return x.DelayMillis
 	}
 	return 0
 }
 
-// GetFail 读取 Fail；nil 接收者返回该字段零值，不创建业务结果。
+// GetFail 读取 Fail；nil 接收者返回该字段零值，不创建业务结果
 func (x *Request) GetFail() bool {
-	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问。
+	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问
 	if x != nil {
 		return x.Fail
 	}
 	return false
 }
 
-// GetEventKey 读取 EventKey；nil 接收者返回该字段零值，不创建业务结果。
+// GetEventKey 读取 EventKey；nil 接收者返回该字段零值，不创建业务结果
 func (x *Request) GetEventKey() string {
-	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问。
+	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问
 	if x != nil {
 		return x.EventKey
 	}
 	return ""
 }
 
-// GetImageUrl 读取 ImageUrl；nil 接收者返回该字段零值，不创建业务结果。
+// GetImageUrl 读取 ImageUrl；nil 接收者返回该字段零值，不创建业务结果
 func (x *Request) GetImageUrl() string {
-	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问。
+	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问
 	if x != nil {
 		return x.ImageUrl
 	}
 	return ""
 }
 
-// GetFilters 读取 Filters；nil 接收者返回该字段零值，不创建业务结果。
+// GetFilters 读取 Filters；nil 接收者返回该字段零值，不创建业务结果
 func (x *Request) GetFilters() []string {
-	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问。
+	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问
 	if x != nil {
 		return x.Filters
 	}
 	return nil
 }
 
-// GetItems 读取 Items；nil 接收者返回该字段零值，不创建业务结果。
+// GetItems 读取 Items；nil 接收者返回该字段零值，不创建业务结果
 func (x *Request) GetItems() []*Item {
-	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问。
+	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问
 	if x != nil {
 		return x.Items
 	}
 	return nil
 }
 
-// Reply 示例业务响应，包含用于真实验收的运行身份和业务结果。
-// Reply 生成的消息、调用接口或服务适配类型；业务语义以 .proto 的中文说明为准。
+// Reply 示例业务响应，包含用于真实验收的运行身份和业务结果
+// Reply 生成的消息、调用接口或服务适配类型；业务语义以 .proto 的中文说明为准
 type Reply struct {
-	// state protobuf 运行时消息状态，关联当前实例的反射描述；业务不直接读写。
+	// state protobuf 运行时消息状态，关联当前实例的反射描述；业务不直接读写
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// message 业务文本，例如请求 "hello" 对应处理后的响应文本。
+	// message 业务文本，例如请求 "hello" 对应处理后的响应文本
 	Message string `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
-	// run_id 当前工作流 RunID，网络入口没有任务身份。
+	// run_id 当前工作流 RunID，网络入口没有任务身份
 	RunId string `protobuf:"bytes,2,opt,name=run_id,json=runId,proto3" json:"run_id,omitempty"`
-	// worker_id 当前执行所属 Worker 身份，用于亲和性与粘性断言。
+	// worker_id 当前执行所属 Worker 身份，用于亲和性与粘性断言
 	WorkerId string `protobuf:"bytes,3,opt,name=worker_id,json=workerId,proto3" json:"worker_id,omitempty"`
-	// retry_count 真实重试次数，首次执行为 0。
+	// retry_count 真实重试次数，首次执行为 0
 	RetryCount int32 `protobuf:"varint,4,opt,name=retry_count,json=retryCount,proto3" json:"retry_count,omitempty"`
-	// count 输入或输出数量，例如请求 3 条 server stream 输出时为 3。
+	// count 输入或输出数量，例如请求 3 条 server stream 输出时为 3
 	Count int32 `protobuf:"varint,5,opt,name=count,proto3" json:"count,omitempty"`
-	// child_run_id 子任务运行身份，重放时应复用已有值。
+	// child_run_id 子任务运行身份，重放时应复用已有值
 	ChildRunId string `protobuf:"bytes,6,opt,name=child_run_id,json=childRunId,proto3" json:"child_run_id,omitempty"`
-	// parent_run_id 父任务运行身份，验证子调用的身份关联。
+	// parent_run_id 父任务运行身份，验证子调用的身份关联
 	ParentRunId string `protobuf:"bytes,7,opt,name=parent_run_id,json=parentRunId,proto3" json:"parent_run_id,omitempty"`
-	// processed_at durable Now 记录的处理时间，重放保持相应记录值。
+	// processed_at durable Now 记录的处理时间，重放保持相应记录值
 	ProcessedAt string `protobuf:"bytes,8,opt,name=processed_at,json=processedAt,proto3" json:"processed_at,omitempty"`
-	// ok 业务处理是否成功，由 handler 而非仅注册结果决定。
+	// ok 业务处理是否成功，由 handler 而非仅注册结果决定
 	Ok bool `protobuf:"varint,9,opt,name=ok,proto3" json:"ok,omitempty"`
-	// processed_url 受控处理结果的对象引用。
+	// processed_url 受控处理结果的对象引用
 	ProcessedUrl string `protobuf:"bytes,10,opt,name=processed_url,json=processedUrl,proto3" json:"processed_url,omitempty"`
-	// image_metadata 受控处理结果的尺寸、格式与已应用过滤器。
+	// image_metadata 受控处理结果的尺寸、格式与已应用过滤器
 	ImageMetadata *ImageMetadata `protobuf:"bytes,11,opt,name=image_metadata,json=imageMetadata,proto3" json:"image_metadata,omitempty"`
-	// invocation_count durable handler 调用次数，用于观察驱逐及重放。
+	// invocation_count durable handler 调用次数，用于观察驱逐及重放
 	InvocationCount int32 `protobuf:"varint,12,opt,name=invocation_count,json=invocationCount,proto3" json:"invocation_count,omitempty"`
-	// child_run_ids 批量子任务的稳定运行身份集合。
+	// child_run_ids 批量子任务的稳定运行身份集合
 	ChildRunIds []string `protobuf:"bytes,13,rep,name=child_run_ids,json=childRunIds,proto3" json:"child_run_ids,omitempty"`
-	// unknownFields 保留当前版本不认识的字段，重新编码时保持协议前向兼容。
+	// unknownFields 保留当前版本不认识的字段，重新编码时保持协议前向兼容
 	unknownFields protoimpl.UnknownFields
-	// sizeCache protobuf 编码大小缓存，由运行时维护，不表示业务消息条数。
+	// sizeCache protobuf 编码大小缓存，由运行时维护，不表示业务消息条数
 	sizeCache protoimpl.SizeCache
 }
 
-// Reset 清空消息字段并重新关联运行时描述，已保存业务值不再保留。
+// Reset 清空消息字段并重新关联运行时描述，已保存业务值不再保留
 func (x *Reply) Reset() {
 	*x = Reply{}
-	// mi 当前消息的运行时类型描述，索引与 .proto 消息顺序对应。
+	// mi 当前消息的运行时类型描述，索引与 .proto 消息顺序对应
 	mi := &file_sdks_wego_examples_proto_demo_proto_msgTypes[1]
-	// ms 当前接收者的消息状态缓存，存入描述后反射读取复用。
+	// ms 当前接收者的消息状态缓存，存入描述后反射读取复用
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-// String 生成 protobuf 文本表示，仅用于诊断，不作为任务传输编码。
+// String 生成 protobuf 文本表示，仅用于诊断，不作为任务传输编码
 func (x *Reply) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-// ProtoMessage 实现 protobuf 消息标记接口，方法本身不执行业务逻辑。
+// ProtoMessage 实现 protobuf 消息标记接口，方法本身不执行业务逻辑
 func (*Reply) ProtoMessage() {}
 
-// ProtoReflect 返回消息反射视图，首次读取缓存描述后复用；nil 消息返回类型级反射视图。
+// ProtoReflect 返回消息反射视图，首次读取缓存描述后复用；nil 消息返回类型级反射视图
 func (x *Reply) ProtoReflect() protoreflect.Message {
-	// mi 当前消息的运行时类型描述，索引与 .proto 消息顺序对应。
+	// mi 当前消息的运行时类型描述，索引与 .proto 消息顺序对应
 	mi := &file_sdks_wego_examples_proto_demo_proto_msgTypes[1]
-	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问。
+	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问
 	if x != nil {
-		// ms 当前接收者的消息状态缓存，存入描述后反射读取复用。
+		// ms 当前接收者的消息状态缓存，存入描述后反射读取复用
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		// 消息状态尚未关联描述时填入当前类型信息，后续反射读取复用此缓存。
+		// 消息状态尚未关联描述时填入当前类型信息，后续反射读取复用此缓存
 		if ms.LoadMessageInfo() == nil {
 			ms.StoreMessageInfo(mi)
 		}
@@ -302,172 +302,172 @@ func (x *Reply) ProtoReflect() protoreflect.Message {
 }
 
 // Deprecated: Use Reply.ProtoReflect.Descriptor instead.
-// Descriptor 返回压缩文件描述及消息索引；业务新代码使用 ProtoReflect 获取描述。
+// Descriptor 返回压缩文件描述及消息索引；业务新代码使用 ProtoReflect 获取描述
 func (*Reply) Descriptor() ([]byte, []int) {
 	return file_sdks_wego_examples_proto_demo_proto_rawDescGZIP(), []int{1}
 }
 
-// GetMessage 读取 Message；nil 接收者返回该字段零值，不创建业务结果。
+// GetMessage 读取 Message；nil 接收者返回该字段零值，不创建业务结果
 func (x *Reply) GetMessage() string {
-	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问。
+	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问
 	if x != nil {
 		return x.Message
 	}
 	return ""
 }
 
-// GetRunId 读取 RunId；nil 接收者返回该字段零值，不创建业务结果。
+// GetRunId 读取 RunId；nil 接收者返回该字段零值，不创建业务结果
 func (x *Reply) GetRunId() string {
-	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问。
+	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问
 	if x != nil {
 		return x.RunId
 	}
 	return ""
 }
 
-// GetWorkerId 读取 WorkerId；nil 接收者返回该字段零值，不创建业务结果。
+// GetWorkerId 读取 WorkerId；nil 接收者返回该字段零值，不创建业务结果
 func (x *Reply) GetWorkerId() string {
-	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问。
+	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问
 	if x != nil {
 		return x.WorkerId
 	}
 	return ""
 }
 
-// GetRetryCount 读取 RetryCount；nil 接收者返回该字段零值，不创建业务结果。
+// GetRetryCount 读取 RetryCount；nil 接收者返回该字段零值，不创建业务结果
 func (x *Reply) GetRetryCount() int32 {
-	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问。
+	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问
 	if x != nil {
 		return x.RetryCount
 	}
 	return 0
 }
 
-// GetCount 读取 Count；nil 接收者返回该字段零值，不创建业务结果。
+// GetCount 读取 Count；nil 接收者返回该字段零值，不创建业务结果
 func (x *Reply) GetCount() int32 {
-	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问。
+	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问
 	if x != nil {
 		return x.Count
 	}
 	return 0
 }
 
-// GetChildRunId 读取 ChildRunId；nil 接收者返回该字段零值，不创建业务结果。
+// GetChildRunId 读取 ChildRunId；nil 接收者返回该字段零值，不创建业务结果
 func (x *Reply) GetChildRunId() string {
-	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问。
+	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问
 	if x != nil {
 		return x.ChildRunId
 	}
 	return ""
 }
 
-// GetParentRunId 读取 ParentRunId；nil 接收者返回该字段零值，不创建业务结果。
+// GetParentRunId 读取 ParentRunId；nil 接收者返回该字段零值，不创建业务结果
 func (x *Reply) GetParentRunId() string {
-	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问。
+	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问
 	if x != nil {
 		return x.ParentRunId
 	}
 	return ""
 }
 
-// GetProcessedAt 读取 ProcessedAt；nil 接收者返回该字段零值，不创建业务结果。
+// GetProcessedAt 读取 ProcessedAt；nil 接收者返回该字段零值，不创建业务结果
 func (x *Reply) GetProcessedAt() string {
-	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问。
+	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问
 	if x != nil {
 		return x.ProcessedAt
 	}
 	return ""
 }
 
-// GetOk 读取 Ok；nil 接收者返回该字段零值，不创建业务结果。
+// GetOk 读取 Ok；nil 接收者返回该字段零值，不创建业务结果
 func (x *Reply) GetOk() bool {
-	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问。
+	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问
 	if x != nil {
 		return x.Ok
 	}
 	return false
 }
 
-// GetProcessedUrl 读取 ProcessedUrl；nil 接收者返回该字段零值，不创建业务结果。
+// GetProcessedUrl 读取 ProcessedUrl；nil 接收者返回该字段零值，不创建业务结果
 func (x *Reply) GetProcessedUrl() string {
-	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问。
+	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问
 	if x != nil {
 		return x.ProcessedUrl
 	}
 	return ""
 }
 
-// GetImageMetadata 读取 ImageMetadata；nil 接收者返回该字段零值，不创建业务结果。
+// GetImageMetadata 读取 ImageMetadata；nil 接收者返回该字段零值，不创建业务结果
 func (x *Reply) GetImageMetadata() *ImageMetadata {
-	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问。
+	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问
 	if x != nil {
 		return x.ImageMetadata
 	}
 	return nil
 }
 
-// GetInvocationCount 读取 InvocationCount；nil 接收者返回该字段零值，不创建业务结果。
+// GetInvocationCount 读取 InvocationCount；nil 接收者返回该字段零值，不创建业务结果
 func (x *Reply) GetInvocationCount() int32 {
-	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问。
+	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问
 	if x != nil {
 		return x.InvocationCount
 	}
 	return 0
 }
 
-// GetChildRunIds 读取 ChildRunIds；nil 接收者返回该字段零值，不创建业务结果。
+// GetChildRunIds 读取 ChildRunIds；nil 接收者返回该字段零值，不创建业务结果
 func (x *Reply) GetChildRunIds() []string {
-	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问。
+	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问
 	if x != nil {
 		return x.ChildRunIds
 	}
 	return nil
 }
 
-// ImageMetadata 受控图片处理结果，不访问真实外部业务系统。
-// ImageMetadata 生成的消息、调用接口或服务适配类型；业务语义以 .proto 的中文说明为准。
+// ImageMetadata 受控图片处理结果，不访问真实外部业务系统
+// ImageMetadata 生成的消息、调用接口或服务适配类型；业务语义以 .proto 的中文说明为准
 type ImageMetadata struct {
-	// state protobuf 运行时消息状态，关联当前实例的反射描述；业务不直接读写。
+	// state protobuf 运行时消息状态，关联当前实例的反射描述；业务不直接读写
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// size 图片 fixture 的字节数。
+	// size 图片 fixture 的字节数
 	Size int32 `protobuf:"varint,1,opt,name=size,proto3" json:"size,omitempty"`
-	// format 图片 fixture 格式。
+	// format 图片 fixture 格式
 	Format string `protobuf:"bytes,2,opt,name=format,proto3" json:"format,omitempty"`
-	// applied_filters 实际执行过的过滤器，供结果断言。
+	// applied_filters 实际执行过的过滤器，供结果断言
 	AppliedFilters []string `protobuf:"bytes,3,rep,name=applied_filters,json=appliedFilters,proto3" json:"applied_filters,omitempty"`
-	// unknownFields 保留当前版本不认识的字段，重新编码时保持协议前向兼容。
+	// unknownFields 保留当前版本不认识的字段，重新编码时保持协议前向兼容
 	unknownFields protoimpl.UnknownFields
-	// sizeCache protobuf 编码大小缓存，由运行时维护，不表示业务消息条数。
+	// sizeCache protobuf 编码大小缓存，由运行时维护，不表示业务消息条数
 	sizeCache protoimpl.SizeCache
 }
 
-// Reset 清空消息字段并重新关联运行时描述，已保存业务值不再保留。
+// Reset 清空消息字段并重新关联运行时描述，已保存业务值不再保留
 func (x *ImageMetadata) Reset() {
 	*x = ImageMetadata{}
-	// mi 当前消息的运行时类型描述，索引与 .proto 消息顺序对应。
+	// mi 当前消息的运行时类型描述，索引与 .proto 消息顺序对应
 	mi := &file_sdks_wego_examples_proto_demo_proto_msgTypes[2]
-	// ms 当前接收者的消息状态缓存，存入描述后反射读取复用。
+	// ms 当前接收者的消息状态缓存，存入描述后反射读取复用
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-// String 生成 protobuf 文本表示，仅用于诊断，不作为任务传输编码。
+// String 生成 protobuf 文本表示，仅用于诊断，不作为任务传输编码
 func (x *ImageMetadata) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-// ProtoMessage 实现 protobuf 消息标记接口，方法本身不执行业务逻辑。
+// ProtoMessage 实现 protobuf 消息标记接口，方法本身不执行业务逻辑
 func (*ImageMetadata) ProtoMessage() {}
 
-// ProtoReflect 返回消息反射视图，首次读取缓存描述后复用；nil 消息返回类型级反射视图。
+// ProtoReflect 返回消息反射视图，首次读取缓存描述后复用；nil 消息返回类型级反射视图
 func (x *ImageMetadata) ProtoReflect() protoreflect.Message {
-	// mi 当前消息的运行时类型描述，索引与 .proto 消息顺序对应。
+	// mi 当前消息的运行时类型描述，索引与 .proto 消息顺序对应
 	mi := &file_sdks_wego_examples_proto_demo_proto_msgTypes[2]
-	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问。
+	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问
 	if x != nil {
-		// ms 当前接收者的消息状态缓存，存入描述后反射读取复用。
+		// ms 当前接收者的消息状态缓存，存入描述后反射读取复用
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		// 消息状态尚未关联描述时填入当前类型信息，后续反射读取复用此缓存。
+		// 消息状态尚未关联描述时填入当前类型信息，后续反射读取复用此缓存
 		if ms.LoadMessageInfo() == nil {
 			ms.StoreMessageInfo(mi)
 		}
@@ -477,80 +477,80 @@ func (x *ImageMetadata) ProtoReflect() protoreflect.Message {
 }
 
 // Deprecated: Use ImageMetadata.ProtoReflect.Descriptor instead.
-// Descriptor 返回压缩文件描述及消息索引；业务新代码使用 ProtoReflect 获取描述。
+// Descriptor 返回压缩文件描述及消息索引；业务新代码使用 ProtoReflect 获取描述
 func (*ImageMetadata) Descriptor() ([]byte, []int) {
 	return file_sdks_wego_examples_proto_demo_proto_rawDescGZIP(), []int{2}
 }
 
-// GetSize 读取 Size；nil 接收者返回该字段零值，不创建业务结果。
+// GetSize 读取 Size；nil 接收者返回该字段零值，不创建业务结果
 func (x *ImageMetadata) GetSize() int32 {
-	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问。
+	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问
 	if x != nil {
 		return x.Size
 	}
 	return 0
 }
 
-// GetFormat 读取 Format；nil 接收者返回该字段零值，不创建业务结果。
+// GetFormat 读取 Format；nil 接收者返回该字段零值，不创建业务结果
 func (x *ImageMetadata) GetFormat() string {
-	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问。
+	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问
 	if x != nil {
 		return x.Format
 	}
 	return ""
 }
 
-// GetAppliedFilters 读取 AppliedFilters；nil 接收者返回该字段零值，不创建业务结果。
+// GetAppliedFilters 读取 AppliedFilters；nil 接收者返回该字段零值，不创建业务结果
 func (x *ImageMetadata) GetAppliedFilters() []string {
-	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问。
+	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问
 	if x != nil {
 		return x.AppliedFilters
 	}
 	return nil
 }
 
-// Item 批量子调用中的单个商品项，例如 product_id="item-1"、quantity=2。
-// Item 生成的消息、调用接口或服务适配类型；业务语义以 .proto 的中文说明为准。
+// Item 批量子调用中的单个商品项，例如 product_id="item-1"、quantity=2
+// Item 生成的消息、调用接口或服务适配类型；业务语义以 .proto 的中文说明为准
 type Item struct {
-	// state protobuf 运行时消息状态，关联当前实例的反射描述；业务不直接读写。
+	// state protobuf 运行时消息状态，关联当前实例的反射描述；业务不直接读写
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// product_id 受控商品项身份，例如 item-1。
+	// product_id 受控商品项身份，例如 item-1
 	ProductId string `protobuf:"bytes,1,opt,name=product_id,json=productId,proto3" json:"product_id,omitempty"`
-	// quantity 此项数量，例如 2，用于聚合结果核对。
+	// quantity 此项数量，例如 2，用于聚合结果核对
 	Quantity int32 `protobuf:"varint,2,opt,name=quantity,proto3" json:"quantity,omitempty"`
-	// unknownFields 保留当前版本不认识的字段，重新编码时保持协议前向兼容。
+	// unknownFields 保留当前版本不认识的字段，重新编码时保持协议前向兼容
 	unknownFields protoimpl.UnknownFields
-	// sizeCache protobuf 编码大小缓存，由运行时维护，不表示业务消息条数。
+	// sizeCache protobuf 编码大小缓存，由运行时维护，不表示业务消息条数
 	sizeCache protoimpl.SizeCache
 }
 
-// Reset 清空消息字段并重新关联运行时描述，已保存业务值不再保留。
+// Reset 清空消息字段并重新关联运行时描述，已保存业务值不再保留
 func (x *Item) Reset() {
 	*x = Item{}
-	// mi 当前消息的运行时类型描述，索引与 .proto 消息顺序对应。
+	// mi 当前消息的运行时类型描述，索引与 .proto 消息顺序对应
 	mi := &file_sdks_wego_examples_proto_demo_proto_msgTypes[3]
-	// ms 当前接收者的消息状态缓存，存入描述后反射读取复用。
+	// ms 当前接收者的消息状态缓存，存入描述后反射读取复用
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-// String 生成 protobuf 文本表示，仅用于诊断，不作为任务传输编码。
+// String 生成 protobuf 文本表示，仅用于诊断，不作为任务传输编码
 func (x *Item) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-// ProtoMessage 实现 protobuf 消息标记接口，方法本身不执行业务逻辑。
+// ProtoMessage 实现 protobuf 消息标记接口，方法本身不执行业务逻辑
 func (*Item) ProtoMessage() {}
 
-// ProtoReflect 返回消息反射视图，首次读取缓存描述后复用；nil 消息返回类型级反射视图。
+// ProtoReflect 返回消息反射视图，首次读取缓存描述后复用；nil 消息返回类型级反射视图
 func (x *Item) ProtoReflect() protoreflect.Message {
-	// mi 当前消息的运行时类型描述，索引与 .proto 消息顺序对应。
+	// mi 当前消息的运行时类型描述，索引与 .proto 消息顺序对应
 	mi := &file_sdks_wego_examples_proto_demo_proto_msgTypes[3]
-	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问。
+	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问
 	if x != nil {
-		// ms 当前接收者的消息状态缓存，存入描述后反射读取复用。
+		// ms 当前接收者的消息状态缓存，存入描述后反射读取复用
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		// 消息状态尚未关联描述时填入当前类型信息，后续反射读取复用此缓存。
+		// 消息状态尚未关联描述时填入当前类型信息，后续反射读取复用此缓存
 		if ms.LoadMessageInfo() == nil {
 			ms.StoreMessageInfo(mi)
 		}
@@ -560,33 +560,33 @@ func (x *Item) ProtoReflect() protoreflect.Message {
 }
 
 // Deprecated: Use Item.ProtoReflect.Descriptor instead.
-// Descriptor 返回压缩文件描述及消息索引；业务新代码使用 ProtoReflect 获取描述。
+// Descriptor 返回压缩文件描述及消息索引；业务新代码使用 ProtoReflect 获取描述
 func (*Item) Descriptor() ([]byte, []int) {
 	return file_sdks_wego_examples_proto_demo_proto_rawDescGZIP(), []int{3}
 }
 
-// GetProductId 读取 ProductId；nil 接收者返回该字段零值，不创建业务结果。
+// GetProductId 读取 ProductId；nil 接收者返回该字段零值，不创建业务结果
 func (x *Item) GetProductId() string {
-	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问。
+	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问
 	if x != nil {
 		return x.ProductId
 	}
 	return ""
 }
 
-// GetQuantity 读取 Quantity；nil 接收者返回该字段零值，不创建业务结果。
+// GetQuantity 读取 Quantity；nil 接收者返回该字段零值，不创建业务结果
 func (x *Item) GetQuantity() int32 {
-	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问。
+	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问
 	if x != nil {
 		return x.Quantity
 	}
 	return 0
 }
 
-// File_sdks_wego_examples_proto_demo_proto 完成初始化的文件反射描述，服务绑定通过它解析准确消息类型。
+// File_sdks_wego_examples_proto_demo_proto 完成初始化的文件反射描述，服务绑定通过它解析准确消息类型
 var File_sdks_wego_examples_proto_demo_proto protoreflect.FileDescriptor
 
-// file_sdks_wego_examples_proto_demo_proto_rawDesc 原始 protobuf 文件描述字节，包含字段编号和服务定义，不能按业务数据修改。
+// file_sdks_wego_examples_proto_demo_proto_rawDesc 原始 protobuf 文件描述字节，包含字段编号和服务定义，不能按业务数据修改
 const file_sdks_wego_examples_proto_demo_proto_rawDesc = "" +
 	"\n" +
 	"#sdks/wego/examples/proto/demo.proto\x12\x0fwego.example.v1\"\x8c\x03\n" +
@@ -664,25 +664,25 @@ const file_sdks_wego_examples_proto_demo_proto_rawDesc = "" +
 	"\fLoggedCharge\x12\x18.wego.example.v1.Request\x1a\x16.wego.example.v1.ReplyB<Z:github.com/hatchet-dev/hatchet/sdks/wego/examples/proto;pbb\x06proto3"
 
 var (
-	// file_sdks_wego_examples_proto_demo_proto_rawDescOnce 描述符压缩的一次性保护，多个 goroutine 读取时只初始化一次。
+	// file_sdks_wego_examples_proto_demo_proto_rawDescOnce 描述符压缩的一次性保护，多个 goroutine 读取时只初始化一次
 	file_sdks_wego_examples_proto_demo_proto_rawDescOnce sync.Once
-	// file_sdks_wego_examples_proto_demo_proto_rawDescData 按需生成的 gzip 描述符缓存，后续读取复用相同数据。
+	// file_sdks_wego_examples_proto_demo_proto_rawDescData 按需生成的 gzip 描述符缓存，后续读取复用相同数据
 	file_sdks_wego_examples_proto_demo_proto_rawDescData []byte
 )
 
-// file_sdks_wego_examples_proto_demo_proto_rawDescGZIP 在 sync.Once 中压缩并缓存文件描述，重复调用不会重复压缩。
+// file_sdks_wego_examples_proto_demo_proto_rawDescGZIP 在 sync.Once 中压缩并缓存文件描述，重复调用不会重复压缩
 func file_sdks_wego_examples_proto_demo_proto_rawDescGZIP() []byte {
 	file_sdks_wego_examples_proto_demo_proto_rawDescOnce.Do(func() {
-		// file_sdks_wego_examples_proto_demo_proto_rawDescData 按需生成的 gzip 描述符缓存，后续读取复用相同数据。
+		// file_sdks_wego_examples_proto_demo_proto_rawDescData 按需生成的 gzip 描述符缓存，后续读取复用相同数据
 		file_sdks_wego_examples_proto_demo_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_sdks_wego_examples_proto_demo_proto_rawDesc), len(file_sdks_wego_examples_proto_demo_proto_rawDesc)))
 	})
 	return file_sdks_wego_examples_proto_demo_proto_rawDescData
 }
 
-// file_sdks_wego_examples_proto_demo_proto_msgTypes 消息反射类型表，按生成器编号关联 Go 消息与 protobuf 描述。
+// file_sdks_wego_examples_proto_demo_proto_msgTypes 消息反射类型表，按生成器编号关联 Go 消息与 protobuf 描述
 var file_sdks_wego_examples_proto_demo_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 
-// file_sdks_wego_examples_proto_demo_proto_goTypes Go 类型映射表，包含消息和 map entry，占位索引须与依赖表一致。
+// file_sdks_wego_examples_proto_demo_proto_goTypes Go 类型映射表，包含消息和 map entry，占位索引须与依赖表一致
 var file_sdks_wego_examples_proto_demo_proto_goTypes = []any{
 	(*Request)(nil),       // 0: wego.example.v1.Request
 	(*Reply)(nil),         // 1: wego.example.v1.Reply
@@ -690,7 +690,7 @@ var file_sdks_wego_examples_proto_demo_proto_goTypes = []any{
 	(*Item)(nil),          // 3: wego.example.v1.Item
 }
 
-// file_sdks_wego_examples_proto_demo_proto_depIdxs 字段与服务的依赖索引表，初始化时连接输入、输出和嵌套消息类型。
+// file_sdks_wego_examples_proto_demo_proto_depIdxs 字段与服务的依赖索引表，初始化时连接输入、输出和嵌套消息类型
 var file_sdks_wego_examples_proto_demo_proto_depIdxs = []int32{
 	3,  // 0: wego.example.v1.Request.items:type_name -> wego.example.v1.Item
 	2,  // 1: wego.example.v1.Reply.image_metadata:type_name -> wego.example.v1.ImageMetadata
@@ -751,18 +751,18 @@ var file_sdks_wego_examples_proto_demo_proto_depIdxs = []int32{
 	0,  // [0:2] is the sub-list for field type_name
 }
 
-// init 初始化文件类型描述和依赖关联；已初始化时立即返回，构建后释放临时类型索引。
+// init 初始化文件类型描述和依赖关联；已初始化时立即返回，构建后释放临时类型索引
 func init() { file_sdks_wego_examples_proto_demo_proto_init() }
 
-// file_sdks_wego_examples_proto_demo_proto_init 初始化文件类型描述和依赖关联；已初始化时立即返回，构建后释放临时类型索引。
+// file_sdks_wego_examples_proto_demo_proto_init 初始化文件类型描述和依赖关联；已初始化时立即返回，构建后释放临时类型索引
 func file_sdks_wego_examples_proto_demo_proto_init() {
-	// 文件描述已经完成初始化时直接返回，避免重复构建类型关联。
+	// 文件描述已经完成初始化时直接返回，避免重复构建类型关联
 	if File_sdks_wego_examples_proto_demo_proto != nil {
 		return
 	}
-	// x 生成的消息、调用接口或服务适配类型；业务语义以 .proto 的中文说明为准。
+	// x 生成的消息、调用接口或服务适配类型；业务语义以 .proto 的中文说明为准
 	type x struct{}
-	// out 待填充的业务响应或文件描述构建结果，成功后才返回调用方。
+	// out 待填充的业务响应或文件描述构建结果，成功后才返回调用方
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),

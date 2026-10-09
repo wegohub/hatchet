@@ -1,0 +1,205 @@
+{
+  "sdk_version": "0.2.7",
+  "protocol_version": 4,
+  "official_dependency": "v0.110.5",
+  "server_version": "v0.110.5",
+  "mq": "postgresql",
+  "scope": "unified log output, context attributes, explicit synchronous task reporting; Server uses Serve/Stop/GracefulStop; no utils package",
+  "gates": {
+    "unit_race": {
+      "status": "PASSED",
+      "command": "GOWORK=off python3 sdks/wego/scripts/unit.py -race"
+    },
+    "vet": {
+      "status": "PASSED",
+      "command": "GOWORK=off go -C sdks/wego vet ./..."
+    },
+    "engine": {
+      "status": "PASSED",
+      "command": "python3 sdks/wego/scripts/local-test.py go -C sdks/wego test -race -tags=e2e ./tests/e2e -run '^(TestLoggingShutdown|TestExamples)$/^(logs|grpc-streams|dual-entry|shutdown|durable-sleep)$' -count=1 -timeout=8m"
+    },
+    "embedded": {
+      "status": "PASSED",
+      "command": "python3 sdks/wego/scripts/local-test.py go -C sdks/wego test -tags=e2e,wego_embedded ./tests/e2e -run '^TestEmbedded$' -count=1 -timeout=10m"
+    }
+  },
+  "other_gates": [
+    "gofmt",
+    "git diff --check",
+    "generated code and manifest reproducibility",
+    "API and import isolation",
+    "Chinese declaration comments",
+    "SDK source boundary"
+  ],
+  "scenario_results": {
+    "dual-entry": "PASSED",
+    "durable-sleep": "PASSED",
+    "grpc-streams": "PASSED",
+    "logs": "PASSED",
+    "shutdown": "PASSED"
+  },
+  "records": [
+    {
+      "scenario": "dual-entry",
+      "test_scenario": "dual-entry",
+      "namespace": "wego_accept_dual_1791539346870326000_",
+      "assertion": "Worker executes shared handler with RunID; disabled Conn still invokes tasks",
+      "assertion_id": "52b798721b7fb7950dd231a7",
+      "run_id": "fdfc3caa-7c8a-49a8-950a-b1d091c6a606",
+      "worker_id": "0a3ad6e8-a1ed-45d9-8eab-a874df4f6dd0",
+      "at": "2026-10-09T09:49:12.696102Z"
+    },
+    {
+      "scenario": "durable-sleep",
+      "test_scenario": "durable-sleep",
+      "namespace": "wego_accept_durable-sleep_1791539352955573000_",
+      "assertion": "real durable Sleep and memoized Now",
+      "assertion_id": "c22816cdcc65c8c20dd9229e",
+      "run_id": "96477a6f-b356-480e-bde6-3cc344b95876",
+      "worker_id": "7dc40bf4-b576-4389-b859-234285d7862d",
+      "at": "2026-10-09T09:49:18.938901Z"
+    },
+    {
+      "scenario": "grpc-streams",
+      "test_scenario": "grpc-streams",
+      "namespace": "wego_accept_grpc-streams_1791539359096756000_",
+      "assertion": "client stream 0 messages, CloseAndRecv, trailers",
+      "assertion_id": "e31fb0a7a87b99eef67ad9f9",
+      "run_id": "708caa99-d4e1-4843-ba69-bccc87309602",
+      "worker_id": "6ee68392-e339-471e-a957-3f985d01dc81",
+      "at": "2026-10-09T09:49:22.601304Z"
+    },
+    {
+      "scenario": "grpc-streams",
+      "test_scenario": "grpc-streams",
+      "namespace": "wego_accept_grpc-streams_1791539359096756000_",
+      "assertion": "client stream 5 messages, CloseAndRecv, trailers",
+      "assertion_id": "a1c86760fbc045af23f0869a",
+      "run_id": "dd596d73-51c7-4925-9b0e-d4838df8277c",
+      "worker_id": "6ee68392-e339-471e-a957-3f985d01dc81",
+      "at": "2026-10-09T09:49:22.688413Z"
+    },
+    {
+      "scenario": "grpc-streams",
+      "test_scenario": "grpc-streams",
+      "namespace": "wego_accept_grpc-streams_1791539359096756000_",
+      "assertion": "server stream 5 messages, window 2, slow consumer",
+      "assertion_id": "5a722f9e287fcd470fdf26b1",
+      "run_id": "fb4b5eb8-3c4b-4945-b2ad-58945286c1fa",
+      "worker_id": "6ee68392-e339-471e-a957-3f985d01dc81",
+      "at": "2026-10-09T09:49:22.966692Z"
+    },
+    {
+      "scenario": "grpc-streams",
+      "test_scenario": "grpc-streams",
+      "namespace": "wego_accept_grpc-streams_1791539359096756000_",
+      "assertion": "bidi batch input and streaming output with one business slot",
+      "assertion_id": "7e82d9453c996f3f200a1699",
+      "run_id": "52cd7ef7-665e-4143-b9e8-5a3d753a4319",
+      "worker_id": "6ee68392-e339-471e-a957-3f985d01dc81",
+      "at": "2026-10-09T09:49:23.198656Z"
+    },
+    {
+      "scenario": "grpc-streams",
+      "test_scenario": "grpc-streams",
+      "namespace": "wego_accept_grpc-streams_1791539359096756000_",
+      "assertion": "early client-stream handler return",
+      "assertion_id": "48b1172b6d1b100de62f19ad",
+      "run_id": "7d6e02e7-65e3-43f5-b54f-839ba357276a",
+      "worker_id": "6ee68392-e339-471e-a957-3f985d01dc81",
+      "at": "2026-10-09T09:49:23.379797Z"
+    },
+    {
+      "scenario": "logs",
+      "test_scenario": "logs",
+      "namespace": "wego_accept_logs_1791539363590905000_",
+      "assertion": "reported logs and since query",
+      "assertion_id": "3b3d6a7fc7615b8e923d3fcb",
+      "run_id": "3e7fba14-673a-4c46-b630-38d4ae18dc75",
+      "worker_id": "a3a8e559-6bb8-4a14-8978-c99c2383afb5",
+      "at": "2026-10-09T09:49:29.19368Z"
+    },
+    {
+      "scenario": "shutdown",
+      "test_scenario": "shutdown",
+      "namespace": "wego_accept_shutdown_1791539369297599000_",
+      "assertion": "drain mode 1 waits result, rejects new calls, repeated/concurrent close",
+      "assertion_id": "46156d2e04c245c6b43c412c",
+      "run_id": "f6df637f-179c-4917-829a-c240d3bf6c90",
+      "worker_id": "8bef9e9b-5207-4614-9da0-2cf57da18003",
+      "at": "2026-10-09T09:49:32.552933Z"
+    },
+    {
+      "scenario": "shutdown",
+      "test_scenario": "shutdown",
+      "namespace": "wego_accept_shutdown_1791539372639744000_",
+      "assertion": "drain mode 0 waits result, rejects new calls, repeated/concurrent close",
+      "assertion_id": "47df36b796d76d2baa777c2a",
+      "run_id": "4de4dd3d-4c79-4514-b3f6-5267ce7c4f54",
+      "worker_id": "ac16d97b-78cc-419d-9341-c2f4b87877af",
+      "at": "2026-10-09T09:49:37.623448Z"
+    },
+    {
+      "scenario": "shutdown",
+      "test_scenario": "shutdown",
+      "namespace": "wego_accept_shutdown_1791539377710985000_",
+      "assertion": "business worker drained after acknowledged persistent output",
+      "assertion_id": "ff93dbeeae385fe69ce592b3",
+      "run_id": "4f3b6c5d-ded6-4f57-a6f2-ccbaa1f5c4f1",
+      "worker_id": "90d76a7e-8658-4713-9aa1-afa0039a714d",
+      "at": "2026-10-09T09:49:42.422896Z"
+    }
+  ],
+  "explicit_shutdown": {
+    "cleanup": "explicit GracefulStop completed; workflow definitions deleted",
+    "engine": {
+      "Version": "v0.110.5",
+      "TenantID": "707d0855-80ab-4e1f-a156-f1c4546cbf52",
+      "APIURL": "http://localhost:8080",
+      "GRPCAddress": "localhost:7077",
+      "TLS": false,
+      "DurableEviction": true
+    },
+    "history": "run, Worker and topic history retained",
+    "log": {
+      "attempt": 1,
+      "createdAt": "2026-10-09T09:49:47.410181Z",
+      "level": "INFO",
+      "message": "drain completed",
+      "metadata": {
+        "count": 4,
+        "phase": "drain",
+        "retry_count": 0,
+        "rpc_method": "/wego.example.v1.Greeter/WatchHellos",
+        "rpc_transport": "worker",
+        "run_id": "082389b0-aab2-448f-9f49-16ec8997bd9d",
+        "span_id": "b329a397a182bc13",
+        "task_run_id": "082389b0-aab2-448f-9f49-16ec8997bd9d",
+        "trace_id": "c55d6183bf3f19ed3b808b06622dff14",
+        "worker_id": "efe07a96-5c45-41dd-b2da-53de05e095c4",
+        "worker_key": "6b4e3450-b4dc-4bbf-875d-099ee133a03b"
+      },
+      "retryCount": 0,
+      "taskDisplayName": "wego.example.v1.Greeter-WatchHellos-1791539383305",
+      "taskExternalId": "082389b0-aab2-448f-9f49-16ec8997bd9d"
+    },
+    "protocol_version": 4,
+    "run_id": "082389b0-aab2-448f-9f49-16ec8997bd9d",
+    "sdk_version": "0.2.7",
+    "worker_id": "efe07a96-5c45-41dd-b2da-53de05e095c4"
+  },
+  "embedded": {
+    "run_id": "d0c232fa-507a-44ac-bbd0-a1d8894ea260",
+    "worker_id": "89d30415-755d-4ee6-9285-9b9534fbea97",
+    "server_version": "v0.110.5",
+    "database_dropped": true,
+    "cleanup": "workflow definitions deleted; API/gRPC listeners closed; independent PostgreSQL database dropped"
+  },
+  "evidence_files": [
+    ".test-results/wego_log_drain_1791539382558044000_logging.json",
+    ".test-results/acceptance-1791539382548710000.json",
+    ".test-results/wego_embedded_1791539387890166000.json"
+  ],
+  "unit_scope": "excludes manual tests/feature/client requiring an external Worker; real RPC coverage is in e2e",
+  "cleanup": "scenario workflow definitions removed; embedded database dropped; run/Worker/topic history retained under official policy"
+}

@@ -1,0 +1,752 @@
+{
+  "sdk_version": "0.2.4",
+  "protocol_version": 4,
+  "server_version": "v0.110.5",
+  "status": "CONFIRMED_ISSUES_FIXED",
+  "reviews": [
+    "v0.2.0-code-quality-review.md",
+    "v0.2.0-performance-review.md"
+  ],
+  "source_boundary": "only sdks/wego/**; Hatchet source and root dependencies unchanged",
+  "coverage": {
+    "raw": {
+      "statements": 9244,
+      "covered": 2990,
+      "percent": 32.345
+    },
+    "production": {
+      "statements": 5547,
+      "covered": 2855,
+      "percent": 51.469
+    },
+    "packages": {
+      ".": {
+        "statements": 2,
+        "covered": 0,
+        "percent": 0.0
+      },
+      "client": {
+        "statements": 13,
+        "covered": 0,
+        "percent": 0.0
+      },
+      "internal/backend": {
+        "statements": 2328,
+        "covered": 1232,
+        "percent": 52.921
+      },
+      "internal/binding": {
+        "statements": 32,
+        "covered": 11,
+        "percent": 34.375
+      },
+      "internal/callctx": {
+        "statements": 25,
+        "covered": 0,
+        "percent": 0.0
+      },
+      "internal/client": {
+        "statements": 268,
+        "covered": 56,
+        "percent": 20.896
+      },
+      "internal/engine": {
+        "statements": 189,
+        "covered": 123,
+        "percent": 65.079
+      },
+      "internal/features": {
+        "statements": 97,
+        "covered": 0,
+        "percent": 0.0
+      },
+      "internal/ports": {
+        "statements": 0,
+        "covered": 0,
+        "percent": 100.0
+      },
+      "internal/rpc": {
+        "statements": 1131,
+        "covered": 554,
+        "percent": 48.983
+      },
+      "internal/spec": {
+        "statements": 190,
+        "covered": 89,
+        "percent": 46.842
+      },
+      "internal/stream": {
+        "statements": 398,
+        "covered": 333,
+        "percent": 83.668
+      },
+      "internal/telemetry": {
+        "statements": 77,
+        "covered": 47,
+        "percent": 61.039
+      },
+      "internal/wire": {
+        "statements": 292,
+        "covered": 211,
+        "percent": 72.26
+      },
+      "log": {
+        "statements": 21,
+        "covered": 0,
+        "percent": 0.0
+      },
+      "middleware": {
+        "statements": 5,
+        "covered": 0,
+        "percent": 0.0
+      },
+      "model": {
+        "statements": 20,
+        "covered": 0,
+        "percent": 0.0
+      },
+      "option": {
+        "statements": 1,
+        "covered": 0,
+        "percent": 0.0
+      },
+      "runtime": {
+        "statements": 72,
+        "covered": 3,
+        "percent": 4.167
+      },
+      "server": {
+        "statements": 266,
+        "covered": 196,
+        "percent": 73.684
+      },
+      "task": {
+        "statements": 108,
+        "covered": 0,
+        "percent": 0.0
+      },
+      "worker": {
+        "statements": 12,
+        "covered": 0,
+        "percent": 0.0
+      }
+    },
+    "excluded_files": [
+      "examples/batch_assign/main.go",
+      "examples/child-workflows/main.go",
+      "examples/codec/main.go",
+      "examples/codec/payload/s3.go",
+      "examples/codec/payload/transforms.go",
+      "examples/concurrency/main.go",
+      "examples/cron/main.go",
+      "examples/dual-entry/main.go",
+      "examples/durable/event/main.go",
+      "examples/durable/eviction/main.go",
+      "examples/durable/eviction/trigger/main.go",
+      "examples/durable/sleep/main.go",
+      "examples/events/main.go",
+      "examples/grpc-streams/main.go",
+      "examples/idempotency/worker.go",
+      "examples/internal/exampleutil/config.go",
+      "examples/logs_test/main.go",
+      "examples/middleware/main.go",
+      "examples/migration-guides/mergent/main.go",
+      "examples/migration-guides/temporal/main.go",
+      "examples/on-event/main.go",
+      "examples/opentelemetry_instrumentation/main.go",
+      "examples/panic-handler/main.go",
+      "examples/proto/demo.pb.go",
+      "examples/proto/demo_grpc.pb.go",
+      "examples/rate-limiting/main.go",
+      "examples/retries/main.go",
+      "examples/runtime-affinity/main.go",
+      "examples/scenarios/affinity.go",
+      "examples/scenarios/basic.go",
+      "examples/scenarios/batch.go",
+      "examples/scenarios/children.go",
+      "examples/scenarios/dual_entry.go",
+      "examples/scenarios/durable.go",
+      "examples/scenarios/durable_sleep.go",
+      "examples/scenarios/events.go",
+      "examples/scenarios/filters.go",
+      "examples/scenarios/grpc_streams.go",
+      "examples/scenarios/harness.go",
+      "examples/scenarios/idempotency.go",
+      "examples/scenarios/logs.go",
+      "examples/scenarios/mergent.go",
+      "examples/scenarios/middleware.go",
+      "examples/scenarios/minio_codec.go",
+      "examples/scenarios/names.go",
+      "examples/scenarios/observability.go",
+      "examples/scenarios/panic.go",
+      "examples/scenarios/policies.go",
+      "examples/scenarios/retries.go",
+      "examples/scenarios/routing.go",
+      "examples/scenarios/shutdown.go",
+      "examples/scenarios/streaming.go",
+      "examples/scenarios/temporal.go",
+      "examples/scenarios/temporal_handlers.go",
+      "examples/scenarios/triggers.go",
+      "examples/scenarios/webhooks.go",
+      "examples/sdk-migration/main.go",
+      "examples/sdk-migration/v1/main.go",
+      "examples/shutdown/main.go",
+      "examples/simple/main.go",
+      "examples/slot-cost/main.go",
+      "examples/sticky-workers/main.go",
+      "examples/streaming/main.go",
+      "examples/stubs/stub-workflow.go",
+      "examples/support/server.go",
+      "examples/webhooks/main.go",
+      "internal/wire/stream.pb.go",
+      "scripts/manifest/main.go",
+      "tests/e2e/fixtures/durable-worker/main.go",
+      "tests/e2e/fixtures/stream-worker/main.go",
+      "tests/feature/worker/main.go"
+    ]
+  },
+  "complexity": {
+    "internal/rpc:ResumeStream": 57,
+    "internal/rpc:StreamDefinition": 51,
+    "internal/backend:(*Backend).Feature": 45,
+    "internal/backend:(*Backend).callFeature": 45,
+    "internal/backend:(*Backend).Worker": 43,
+    "internal/rpc:(*taskClientStream).RecvMsg": 41,
+    "internal/backend:(*Backend).featureCall": 39,
+    "internal/backend:(*Backend).submit": 33,
+    "internal/client:validateWorkerRuntime": 30,
+    "internal/backend:(*Backend).await": 28,
+    "internal/rpc:newTaskClient": 27,
+    "internal/rpc:(*taskClientStream).submit": 26,
+    "internal/backend:(*workerEvents).accept": 26,
+    "internal/stream:Claim": 25,
+    "internal/rpc:(*taskClientStream).accept": 25,
+    "server:(*Server).RegisterService": 23,
+    "internal/backend:(*nativeWorker).evictEligible": 23,
+    "internal/backend:(*worker).Close": 22,
+    "internal/backend:(*workerEvents).listen": 21,
+    "internal/spec:(StreamOptions).Validate": 20,
+    "internal/rpc:Invoke": 20,
+    "internal/backend:(*Backend).validateRPCBinding": 20,
+    "internal/backend:Normalize": 20,
+    "server:(*Server).startWorker": 19,
+    "internal/stream:(*History).Next": 19,
+    "internal/spec:(Runtime).StreamOptionsFor": 19,
+    "internal/rpc:(*taskClientStream).SendMsg": 19,
+    "internal/spec:Merge": 18,
+    "internal/rpc:streamRequests": 18,
+    "internal/backend:(*gatedRunner).execute": 18,
+    "internal/spec:(Runtime).Validate": 17,
+    "internal/rpc:(*taskServerStream).SendMsg": 17,
+    "internal/rpc:(*taskClientStream).observeOutput": 17,
+    "internal/backend:(*Backend).persistedResult": 17,
+    "internal/stream:(*History).scan": 16,
+    "internal/backend:(*Backend).publishWorkerEvent": 16,
+    "internal/backend:(*actionListener).Actions": 16,
+    "internal/backend:boundedBatchReports": 16,
+    "internal/backend:(*execution).submitChildren": 16,
+    "internal/backend:taskDefinition": 16,
+    "internal/backend:New": 16
+  },
+  "manual_test_packages": [
+    "github.com/hatchet-dev/hatchet/sdks/wego/tests/feature/client"
+  ],
+  "benchmarks": {
+    "before": {
+      "BenchmarkFrameCodec/plain/0/encode": {
+        "ns_per_op_median": 443.1,
+        "bytes_per_op": 208,
+        "allocs_per_op": 3,
+        "samples": 3
+      },
+      "BenchmarkFrameCodec/plain/0/decode": {
+        "ns_per_op_median": 350.5,
+        "bytes_per_op": 469,
+        "allocs_per_op": 8,
+        "samples": 3
+      },
+      "BenchmarkFrameCodec/aes-gcm/0/encode": {
+        "ns_per_op_median": 806.8,
+        "bytes_per_op": 368,
+        "allocs_per_op": 6,
+        "samples": 3
+      },
+      "BenchmarkFrameCodec/aes-gcm/0/decode": {
+        "ns_per_op_median": 538.5,
+        "bytes_per_op": 605,
+        "allocs_per_op": 12,
+        "samples": 3
+      },
+      "BenchmarkFrameCodec/plain/1024/encode": {
+        "ns_per_op_median": 840.7,
+        "bytes_per_op": 2400,
+        "allocs_per_op": 3,
+        "samples": 3
+      },
+      "BenchmarkFrameCodec/plain/1024/decode": {
+        "ns_per_op_median": 671.3,
+        "bytes_per_op": 2597,
+        "allocs_per_op": 9,
+        "samples": 3
+      },
+      "BenchmarkFrameCodec/aes-gcm/1024/encode": {
+        "ns_per_op_median": 1349.0,
+        "bytes_per_op": 3584,
+        "allocs_per_op": 6,
+        "samples": 3
+      },
+      "BenchmarkFrameCodec/aes-gcm/1024/decode": {
+        "ns_per_op_median": 1161.0,
+        "bytes_per_op": 3805,
+        "allocs_per_op": 13,
+        "samples": 3
+      },
+      "BenchmarkFrameCodec/plain/65536/encode": {
+        "ns_per_op_median": 22928.0,
+        "bytes_per_op": 147553,
+        "allocs_per_op": 3,
+        "samples": 3
+      },
+      "BenchmarkFrameCodec/plain/65536/decode": {
+        "ns_per_op_median": 14447.0,
+        "bytes_per_op": 139687,
+        "allocs_per_op": 9,
+        "samples": 3
+      },
+      "BenchmarkFrameCodec/aes-gcm/65536/encode": {
+        "ns_per_op_median": 33456.0,
+        "bytes_per_op": 221313,
+        "allocs_per_op": 6,
+        "samples": 3
+      },
+      "BenchmarkFrameCodec/aes-gcm/65536/decode": {
+        "ns_per_op_median": 29752.0,
+        "bytes_per_op": 213471,
+        "allocs_per_op": 13,
+        "samples": 3
+      },
+      "BenchmarkProtoJSONEnvelope": {
+        "ns_per_op_median": 1362.0,
+        "bytes_per_op": 1336,
+        "allocs_per_op": 5,
+        "samples": 3
+      },
+      "BenchmarkClaimAcquire": {
+        "ns_per_op_median": 2291.0,
+        "bytes_per_op": 2480,
+        "allocs_per_op": 36,
+        "samples": 3
+      },
+      "BenchmarkLogInterpreter/frames_1": {
+        "ns_per_op_median": 28.22,
+        "bytes_per_op": 0,
+        "allocs_per_op": 0,
+        "samples": 3
+      },
+      "BenchmarkLogInterpreter/frames_10000": {
+        "ns_per_op_median": 95094.0,
+        "bytes_per_op": 0,
+        "allocs_per_op": 0,
+        "samples": 3
+      }
+    },
+    "after": {
+      "BenchmarkFrameCodec/plain/0/encode": {
+        "ns_per_op_median": 247.5,
+        "bytes_per_op": 64,
+        "allocs_per_op": 1,
+        "samples": 3
+      },
+      "BenchmarkFrameCodec/plain/0/decode": {
+        "ns_per_op_median": 356.6,
+        "bytes_per_op": 469,
+        "allocs_per_op": 8,
+        "samples": 3
+      },
+      "BenchmarkFrameCodec/aes-gcm/0/encode": {
+        "ns_per_op_median": 687.5,
+        "bytes_per_op": 272,
+        "allocs_per_op": 5,
+        "samples": 3
+      },
+      "BenchmarkFrameCodec/aes-gcm/0/decode": {
+        "ns_per_op_median": 543.5,
+        "bytes_per_op": 605,
+        "allocs_per_op": 12,
+        "samples": 3
+      },
+      "BenchmarkFrameCodec/plain/1024/encode": {
+        "ns_per_op_median": 400.4,
+        "bytes_per_op": 1152,
+        "allocs_per_op": 1,
+        "samples": 3
+      },
+      "BenchmarkFrameCodec/plain/1024/decode": {
+        "ns_per_op_median": 694.8,
+        "bytes_per_op": 2597,
+        "allocs_per_op": 9,
+        "samples": 3
+      },
+      "BenchmarkFrameCodec/aes-gcm/1024/encode": {
+        "ns_per_op_median": 1283.0,
+        "bytes_per_op": 3488,
+        "allocs_per_op": 5,
+        "samples": 3
+      },
+      "BenchmarkFrameCodec/aes-gcm/1024/decode": {
+        "ns_per_op_median": 1142.0,
+        "bytes_per_op": 3805,
+        "allocs_per_op": 13,
+        "samples": 3
+      },
+      "BenchmarkFrameCodec/plain/65536/encode": {
+        "ns_per_op_median": 9767.0,
+        "bytes_per_op": 73729,
+        "allocs_per_op": 1,
+        "samples": 3
+      },
+      "BenchmarkFrameCodec/plain/65536/decode": {
+        "ns_per_op_median": 25837.0,
+        "bytes_per_op": 139688,
+        "allocs_per_op": 9,
+        "samples": 3
+      },
+      "BenchmarkFrameCodec/aes-gcm/65536/encode": {
+        "ns_per_op_median": 65098.0,
+        "bytes_per_op": 221219,
+        "allocs_per_op": 5,
+        "samples": 3
+      },
+      "BenchmarkFrameCodec/aes-gcm/65536/decode": {
+        "ns_per_op_median": 33946.0,
+        "bytes_per_op": 213471,
+        "allocs_per_op": 13,
+        "samples": 3
+      },
+      "BenchmarkProtoJSONEnvelope": {
+        "ns_per_op_median": 1403.0,
+        "bytes_per_op": 1336,
+        "allocs_per_op": 5,
+        "samples": 3
+      },
+      "BenchmarkClaimAcquire": {
+        "ns_per_op_median": 2068.0,
+        "bytes_per_op": 2288,
+        "allocs_per_op": 34,
+        "samples": 3
+      },
+      "BenchmarkLogInterpreter/frames_1": {
+        "ns_per_op_median": 33.3,
+        "bytes_per_op": 0,
+        "allocs_per_op": 0,
+        "samples": 3
+      },
+      "BenchmarkLogInterpreter/frames_10000": {
+        "ns_per_op_median": 113060.0,
+        "bytes_per_op": 0,
+        "allocs_per_op": 0,
+        "samples": 3
+      }
+    }
+  },
+  "engine_performance": {
+    "assertions": [
+      "all independent runs succeeded",
+      "all outputs ordered and complete",
+      "checkpoint advanced only through delivered output",
+      "authority reconciled before EOF"
+    ],
+    "calls": 100,
+    "calls_per_second": 15.42317054429661,
+    "cleanup": "workers/connections stopped; test definitions deleted; run/topic history retained",
+    "command": "env GOWORK=off go -C sdks/wego test -race -tags=e2e ./tests/e2e -run 'Test(ReliableStreamRecovery|MinIOCodec|StreamPerformanceBaseline)$' -count=1 -timeout 5m",
+    "concurrency": 100,
+    "elapsed_seconds": 6.483751166,
+    "latency_seconds": {
+      "p50": 4.4857105,
+      "p95": 5.53735775,
+      "p99": 6.480603292
+    },
+    "messages_per_call": 10,
+    "messages_per_second": 154.2317054429661,
+    "mq": "postgresql",
+    "namespace": "wego_accept_performance_1791529628904303000_",
+    "payload_bytes": 1024,
+    "process_resources": {
+      "allocated_bytes": 176622952,
+      "gc_cycles": 18,
+      "heap_after_bytes": 18127104,
+      "heap_before_bytes": 5751072,
+      "sampled_peak_goroutines": 1000,
+      "sampled_peak_heap_bytes": 27795000
+    },
+    "protocol_version": 4,
+    "run_ids": [
+      "0b4328ce-a083-43f4-8d60-27738fb068f4",
+      "b365d3ec-7b29-4c60-bc45-ab0e52042389",
+      "b5ced94e-1658-452a-b3b8-11ed28cbf713",
+      "7dd5e830-fb21-49e4-b922-8e7a8118d703",
+      "bf7641a4-5c76-4ee7-bfea-8763177079e1",
+      "d7c23c27-8c23-433d-88fd-de18359a2f43",
+      "79d33399-b258-49e0-8621-d29e5e3e09af",
+      "fc2fce80-55db-4952-8aaf-76beccead2b7",
+      "f065fd18-65bf-402c-bc8b-254afd6cdb03",
+      "16646325-dc5c-4a2c-a955-8bb6bcc03408",
+      "33de4ae8-101b-43d3-9024-3d05148d2b5e",
+      "c533cc53-87fa-432a-a6d2-28a343d3760e",
+      "b6b7d605-79e0-4616-88f9-486396032557",
+      "e847888a-d008-4bbc-b8dd-2900ab054fff",
+      "9fcc0617-dc20-4734-bd46-07a07fcc42b6",
+      "594cf55f-c9e5-44e2-baff-19d2b165cfa1",
+      "030baa46-0a81-414a-b20b-fd313590bc8a",
+      "88bae2ea-a02c-4b48-9d60-7d7663137012",
+      "38c1bc5d-745d-49b5-96f6-c991aa1f9e97",
+      "5b64bc84-95a3-4999-b1e8-6275a30a3dc4",
+      "8c247784-3ecb-40f2-b558-49940d8366d8",
+      "24783c14-baee-4e0e-988b-385d76a9b993",
+      "fa04d266-a0cc-4bcc-8865-fe48308cf25a",
+      "9d34a13a-fb8e-40ff-bbe6-307f837b9900",
+      "0b23f014-98c3-4eb3-bab9-52bd56056d3a",
+      "b8402c76-ac2e-4141-acae-aef58385c69d",
+      "7ca66d1f-929c-4344-92cc-be70da249b87",
+      "075e6c94-3d8c-4046-82c8-5d57770c138f",
+      "2ba6ddf7-0b23-43bc-9a46-d2efe86d4510",
+      "9e7d5cd1-2542-4d5c-9bd9-3173953de7c4",
+      "cd5e9f90-311f-4b23-8a10-49b69b3c3209",
+      "758b8ccf-6010-4cdc-93ee-e45a9c37001b",
+      "c1e0c4c4-2e79-42a8-b6f1-a52e536aaa2a",
+      "695995fc-6bd5-4ec3-b78d-605ba0ba1cef",
+      "72574dcd-b794-4bd3-ae0f-bd0beb5d54ad",
+      "69262134-b94c-4b70-96dc-de6acdd98793",
+      "7831a490-9292-4859-a40a-a344e95be810",
+      "50f8f4fc-afde-48fd-ad77-7eba15854be6",
+      "604b4324-6894-424f-9079-d07eed4340f3",
+      "34c0f135-e2d6-46ec-8928-0886582a67bd",
+      "6ac9733b-bb4c-429d-a279-be73e7dfbc59",
+      "d5241f7b-0dc7-41b9-bef5-8d7850ad45fb",
+      "c483272b-4912-4b0a-a46c-261d4d5b0cca",
+      "ff827f73-5b6c-4389-8989-8d1e3fd45220",
+      "d7291636-9aee-4012-ac33-69300e8f04d2",
+      "1c310537-6cef-4a86-9154-abc0ee4fdfa8",
+      "f9d61088-9b53-47af-9d0f-18e1dfd77f20",
+      "949850f3-306f-4eda-a710-39e71b9d109d",
+      "b494e916-9f37-4dec-8087-aa8ab6a88ff1",
+      "8fc7a656-e513-4983-9d44-e5671f871f71",
+      "b7a187c4-d01f-4a4d-b3fc-5e819e91e0f8",
+      "d4d9e6cd-a628-4a4b-8232-fb77f9739140",
+      "0c2f2890-4e25-40e0-bed1-1464e8bab0a6",
+      "afddfdc4-31e3-4cbc-84ce-f7a0b9ed01fc",
+      "293e783f-0852-4212-9478-63f6bec0c4bf",
+      "f354e7ca-1480-454c-80f2-09aa9bc6378e",
+      "36670101-5215-4542-8fe8-91956902f112",
+      "275ef5ad-6928-42f1-9070-e07f42857406",
+      "7d2d41e4-fe52-4330-a3ed-735e98e9c7e7",
+      "eb307e0e-d940-4450-869d-9110e2327bc0",
+      "2deb3663-8120-4db6-ba6d-bf5d321772f0",
+      "4b37f69a-f745-4316-92cf-9bd7973d910d",
+      "86514a4c-013f-4448-9c60-8b0f05afb9e8",
+      "abaf017c-b3a9-4fd8-9c32-e5ed3816ccec",
+      "a90a551e-d42d-4b26-a6c3-864bc9110172",
+      "f3472748-eb3b-4a0d-8edc-32f0a8b10a75",
+      "8b160d27-3930-4adf-aad7-524ad4c8800f",
+      "b95872b7-5462-44bb-bb20-9f31e371653a",
+      "7c3de43a-9d81-41b6-8810-e58f73e26f00",
+      "880b2fe1-13d2-44d2-8276-8c7ad498c646",
+      "8204b0bd-fd95-4741-b79c-0d7e15bcce53",
+      "7c732057-48db-4c5f-818f-3c44a4a882a8",
+      "07aada8d-d892-4eb6-be9f-2ea0884203d4",
+      "edf5631e-6781-484b-b86f-17042a714b50",
+      "cfe1b2c0-27f5-49cf-b6b2-405eb23202e4",
+      "0f4572b9-5b2f-4b53-bf61-56c5c589de38",
+      "7d7a27af-cc79-4d81-82fd-486a941f02f1",
+      "b9ee9726-456f-48ac-b9dc-a2abcf34fa38",
+      "f32e3c01-0f6f-40b5-8e2f-c65e93099b44",
+      "36e7d33b-8d13-459d-be14-1e0cee4ab602",
+      "8d2b1ed9-15ff-4846-abbb-70cf510cc0cd",
+      "079e1c1f-ddc3-44ae-9724-6c9c0ee2f491",
+      "80c6f568-c1ec-46a9-896c-4622e71ecc20",
+      "9f4f2614-6b2c-4624-8117-7b1942932415",
+      "07af968e-01fd-48d4-b61c-7cda5f187fb9",
+      "e4484892-b8c6-48fe-a69f-d42dae9a8ef9",
+      "fe3b25ea-5ae6-4eb2-baa8-cac12fad062d",
+      "3f1a0eca-32dc-406f-a087-8dfa330c78db",
+      "99f92dc5-c6be-4b78-99a5-9f1f01da5058",
+      "f7ec23fd-23f9-4729-8dd0-d9399de14d3a",
+      "14fdf162-155b-47c0-a587-0cfde200ca7d",
+      "e9ab346e-ab81-4bb3-b5a4-8471f0833a0f",
+      "680a440b-45e7-4713-abe7-003511717758",
+      "ca15da94-c7ed-427c-8fa7-99046029b31e",
+      "b920559d-c107-491d-a85d-af69e8214f26",
+      "a645bac0-74a4-44c8-bf8c-d81eebf0abe3",
+      "20f0d2b9-5200-4598-9fbe-15b4707d2126",
+      "07ba86a1-9c59-4475-b3fa-d9bd210047b4",
+      "58b6b5da-cc2a-46a7-80b0-4fc141ef9f4a",
+      "7318aede-16de-4b10-8776-37e182b36b57"
+    ],
+    "sdk_version": "0.2.4",
+    "server_version": "v0.110.5",
+    "status": "PASSED",
+    "worker_slots": 32
+  },
+  "regression": {
+    "unit_entry": "python3 scripts/unit.py",
+    "unit": "PASSED",
+    "race": "PASSED",
+    "vet": "PASSED",
+    "quality_and_generation": "PASSED",
+    "python_tool_tests": 19,
+    "upstream_go_sdk_client_worker": "PASSED",
+    "stream_matrix_with_race": "PASSED",
+    "backend_claim_and_terminal_with_race": "PASSED",
+    "ordinary_example_scenarios": 30,
+    "ordinary_assertion_records": 252,
+    "ordinary_example_results": {
+      "batch": "PASSED",
+      "child-workflows": "PASSED",
+      "concurrency": "PASSED",
+      "cron": "PASSED",
+      "dual-entry": "PASSED",
+      "durable-event": "PASSED",
+      "durable-sleep": "PASSED",
+      "events": "PASSED",
+      "eviction": "PASSED",
+      "grpc-streams": "PASSED",
+      "idempotency": "PASSED",
+      "logs": "PASSED",
+      "mergent": "PASSED",
+      "middleware": "PASSED",
+      "observability": "PASSED",
+      "on-event": "PASSED",
+      "panic-handler": "PASSED",
+      "rate-limiting": "PASSED",
+      "retries": "PASSED",
+      "runtime-affinity": "PASSED",
+      "sdk-migration": "PASSED",
+      "sdk-migration-v1": "PASSED",
+      "shutdown": "PASSED",
+      "simple": "PASSED",
+      "slot-cost": "PASSED",
+      "sticky-workers": "PASSED",
+      "streaming": "PASSED",
+      "stubs": "PASSED",
+      "temporal": "PASSED",
+      "webhooks": "PASSED"
+    },
+    "embedded": "PASSED",
+    "embedded_report": {
+      "assertion_ids": [
+        "87825ad3f77c324e9b69f0b2"
+      ],
+      "assertions": [
+        "independent process and PostgreSQL database",
+        "migrations and registration",
+        "standard protobuf RPC result",
+        "engine and API listeners closed"
+      ],
+      "cleanup": "workflow definitions deleted; API/gRPC listeners closed; independent PostgreSQL database dropped",
+      "command": "",
+      "database_dropped": true,
+      "independent_example": "PASSED: Hello, embed!",
+      "mq": "postgresql",
+      "protocol_version": 4,
+      "run_id": "0a658487-f893-48ee-a194-a18958084783",
+      "scenario": "embedded",
+      "sdk_version": "0.2.4",
+      "server_version": "v0.110.5",
+      "status": "PASSED",
+      "worker_id": "86fabc05-28bc-4e12-80d2-0182a2b77165"
+    },
+    "official_source_files": 28
+  },
+  "cleanup": {
+    "deleted_test_definitions": [
+      {
+        "id": "d3935586-c4ee-4125-9704-1175be55363e",
+        "name": "p0-execution-ff7da69a-aed3-4449-b5ca-170e20755df8terminal-probe"
+      },
+      {
+        "id": "83509d30-9f29-4e8c-9a63-d0e0213501ba",
+        "name": "p0-execution-9f217f50-ac80-4a23-8398-cb29eaa8dc0ereliable-probe"
+      },
+      {
+        "id": "cdeaa482-cb1e-4bb5-a53e-0d448149239e",
+        "name": "p0-execution-47621549-3e89-4b09-81af-e5184d3a5565terminal-probe"
+      },
+      {
+        "id": "492a7a24-4fc9-49b9-ac1d-0f03c0078486",
+        "name": "p0-execution-ca378cf5-d873-41d8-b441-d8922381d1f9terminal-probe"
+      },
+      {
+        "id": "da5a9798-6c21-4889-a037-cd1a9d9735eb",
+        "name": "p0-execution-a509766d-e311-4d29-b275-fcc0481b8200-fixture.Greeter-SayHello"
+      },
+      {
+        "id": "2fdcc2ef-7685-4b21-856b-da41d8064700",
+        "name": "p0-execution-a509766d-e311-4d29-b275-fcc0481b8200-fixture.Greeter-Sayhello"
+      },
+      {
+        "id": "736a8b5d-1e81-406b-8344-4fe3458d29d2",
+        "name": "p0-execution-e572afbf-0dcd-4e36-9f68-73444df72381terminal-probe"
+      },
+      {
+        "id": "ccdb8fb5-29cd-4f3a-adc8-c8429ce55c67",
+        "name": "p0-execution-47d210fe-fcf8-44ad-8ce7-1d9d81bf23f4reliable-probe"
+      },
+      {
+        "id": "3b5d3a8d-dc03-48d7-904d-16ae9d587299",
+        "name": "p0-execution-94dbd687-ef46-4f3c-a49b-14becfb595ccterminal-probe"
+      },
+      {
+        "id": "8a746cd9-ffd1-4fe7-aa4e-42bececaac5a",
+        "name": "p0-execution-516fe045-e243-4c2c-ae3f-05f3d4e2114bterminal-probe"
+      },
+      {
+        "id": "c258da2d-42d8-4882-b3ff-e568c84d4f16",
+        "name": "p0-execution-3bf9aefe-563e-415c-bf77-c84aada4b895terminal-probe"
+      },
+      {
+        "id": "f2ea3560-0285-441b-9924-ae33cda64fe1",
+        "name": "p0-execution-5c2e59b0-5cc7-4da4-8dcd-84f866858eb5terminal-probe"
+      },
+      {
+        "id": "28bda2ff-7353-47d8-9949-730597e96090",
+        "name": "p0-execution-3ab489e3-da19-4cb6-9c9a-9ec3726dca85-fixture.Greeter-SayHello"
+      },
+      {
+        "id": "ac2a7cd3-55f8-4254-be56-c96194d16b14",
+        "name": "p0-execution-3ab489e3-da19-4cb6-9c9a-9ec3726dca85-fixture.Greeter-Sayhello"
+      }
+    ],
+    "count": 14,
+    "scope": "only this review run P0 namespaces",
+    "retained": "unrelated six business definitions and run/topic/object history"
+  },
+  "limitations": [
+    "production unit statement coverage is 51.469%, not a claimed SDK-wide 70%",
+    "41 existing functions over complexity 15 are explicitly ratcheted; no blanket claim of complexity below 15",
+    "engine load measured 100 concurrent calls, not a 10-minute 1000-QPS endurance test",
+    "race confirms data-race checks; resource retention has separate execution-index and cancellation assertions",
+    "CI template updated; hosted CI not run",
+    "plain go test ./... additionally runs the manually managed feature client requiring external Worker/configuration"
+  ],
+  "artifacts": [
+    "quality.cover",
+    "quality-baselines.json",
+    "quality-coverage.log",
+    "quality-complexity.log",
+    "performance-before.log",
+    "performance-final.log",
+    "codec.cpu",
+    "codec.heap",
+    "quality-profile-cpu.log",
+    "quality-profile-heap.log",
+    "quality-review-final-unit-race.log",
+    "quality-review-final-streams.log",
+    "quality-review-backend-e2e.log",
+    "quality-review-examples.log",
+    "quality-review-embedded-engine.log",
+    "quality-review-upstream.log",
+    "quality-review-source-boundary.log",
+    "quality-review-cleanup.json"
+  ]
+}

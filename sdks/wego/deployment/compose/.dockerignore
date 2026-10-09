@@ -1,0 +1,4 @@
+# 源码由固定 Go 模块获取，本机构建上下文不得包含 .env、密钥或数据库备份。
+**
+!minio.Dockerfile
+!.dockerignore

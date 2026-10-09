@@ -1,10 +1,12 @@
-wego SDK 0.1.11 本机验收记录
+wego SDK 0.2.0 本机验收记录
 
-完成时间：2026-10-07T15:49:59.866491+00:00。Hatchet v0.110.5，PostgreSQL MQ，明文 gRPC。
+完成时间：2026-10-09T04:01:44.757006+00:00。Hatchet v0.110.5，PostgreSQL MQ，明文 gRPC。
 
-SDK 发行依赖：未经修改的官方 Hatchet v0.109.0；发行依赖门禁在 GOWORK=off 下执行。仓库源码边界单独检查。
+SDK 发行依赖：未经修改的官方 Hatchet v0.110.5；发行依赖门禁在 GOWORK=off 下执行。仓库源码边界单独检查。
 
-28 个源文件、74 个 standalone 构造片段全部通过；三种流、9 组故障、durable 重启、middleware、排空和 embedded 通过。
+官方镜像：`ghcr.io/hatchet-dev/hatchet/hatchet-engine:v0.110.5`，digest `sha256:185c4311d23fad2faecd5fdd771369a369f33cbfa0e9f4083a952c4fe1c15808`。
+
+28 个源文件、74 个 standalone 构造片段全部通过；三种流、10 组输出故障、流恢复和进程崩溃重启、Worker 事件、durable 重启、middleware、排空和 embedded 通过。
 
 | 官方源文件 | 片段数 | 场景 | 结果 |
 |---|---:|---|---|
@@ -39,24 +41,31 @@ SDK 发行依赖：未经修改的官方 Hatchet v0.109.0；发行依赖门禁�
 
 质量门禁命令：
 
-- `python3 sdks/wego/scripts/check-upstream.py`：PASSED。
-- `python3 sdks/wego/scripts/check-released.py`：PASSED。
+- `/opt/homebrew/opt/python@3.14/bin/python3.14 sdks/wego/scripts/check-upstream.py`：PASSED。
+- `/opt/homebrew/opt/python@3.14/bin/python3.14 sdks/wego/scripts/check-released.py`：PASSED。
 - `gofmt -l sdks/wego`：PASSED。
-- `go test ./sdks/wego/...`：PASSED。
-- `go vet ./sdks/wego/...`：PASSED。
-- `go test -race ./sdks/wego/...`：PASSED。
+- `GOWORK=off go -C sdks/wego test ./...`：PASSED。
+- `GOWORK=off go -C sdks/wego vet ./...`：PASSED。
+- `GOWORK=off go -C sdks/wego test -race ./...`：PASSED。
 - `go test ./sdks/go/... ./pkg/client/... ./pkg/worker/...`：PASSED。
-- `go test ./...`：PASSED。
+- `go test github.com/hatchet-dev/hatchet-embedded/...`：PASSED。
 - `go test -tags=wego_embedded ./...`：PASSED。
-- `go test ./sdks/wego/tests/quality -run ^TestGenerationAndAcceptanceManifestAreReproducible$`：PASSED。
-- `go test ./sdks/wego/internal/wire -run ^$ -fuzz FuzzDecodeFrame -fuzztime=10s`：PASSED。
+- `go test ./tests/quality -run '^TestGenerationAndAcceptanceManifestAreReproducible$'`：PASSED。
+- `go test ./internal/wire -run '^$' -fuzz '^FuzzFrameCodecDecode$' -fuzztime=10s`：PASSED。
+- `GOWORK=off go -C sdks/wego test ./internal/stream -run '^$' -fuzz '^FuzzLogInterpreter$' -fuzztime=10s`：PASSED。
+- `/opt/homebrew/opt/python@3.14/bin/python3.14 -m unittest test_acceptance`：PASSED。
 - `docker compose -f sdks/wego/tests/compose.yml config --quiet`：PASSED。
-- `sdks/wego/scripts/local-test.py go test -json -count=1 -tags=e2e ./sdks/wego/tests/e2e/... -timeout 30m`：PASSED。
-- `sdks/wego/scripts/local-test.py go test -race -json -count=1 -tags=e2e ./sdks/wego/tests/e2e/... -run TestExamples/(batch|grpc-streams|shutdown|dual-entry)$|TestBatchShutdownBudget$|TestReview|TestIndependentReview -timeout 10m`：PASSED。
-- `sdks/wego/scripts/local-test.py go test -json -count=1 -tags=e2e,wego_embedded ./sdks/wego/tests/e2e/... -run ^TestEmbedded$ -timeout 10m`：PASSED。
+- `python3 sdks/wego/scripts/local-test.py env GOWORK=off GOFLAGS=-mod=readonly WEGO_P0_FAULT_FIXTURES=1 go -C sdks/wego test -race -count=1 -tags=e2e ./internal/backend -run 'P0|TestRPCBindingsP1|TestWorkerEventReconnect|TestOversizedResultReport' -timeout 10m`：PASSED。
+- `/opt/homebrew/opt/python@3.14/bin/python3.14 /Users/huaanhuang/workspace/src/github.com/wegohub/hatchet/sdks/wego/scripts/local-test.py env GOWORK=off GOFLAGS=-mod=readonly go -C /Users/huaanhuang/workspace/src/github.com/wegohub/hatchet/sdks/wego test -json -count=1 -tags=e2e ./tests/e2e/... -timeout 30m`：PASSED。
+- `/opt/homebrew/opt/python@3.14/bin/python3.14 /Users/huaanhuang/workspace/src/github.com/wegohub/hatchet/sdks/wego/scripts/local-test.py env GOWORK=off GOFLAGS=-mod=readonly go -C /Users/huaanhuang/workspace/src/github.com/wegohub/hatchet/sdks/wego test -race -json -count=1 -tags=e2e ./tests/e2e/... -run 'TestExamples/(batch|grpc-streams|middleware|shutdown|dual-entry)$|TestBatchShutdownBudget$|TestReview|TestIndependentReview|TestStream|TestReliableStreamRecovery|TestRealtimeStreams|TestResultCancellation|TestWorkerEvents' -timeout 15m`：PASSED。
+- `/opt/homebrew/opt/python@3.14/bin/python3.14 /Users/huaanhuang/workspace/src/github.com/wegohub/hatchet/sdks/wego/scripts/local-test.py env GOWORK=off GOFLAGS=-mod=readonly go -C /Users/huaanhuang/workspace/src/github.com/wegohub/hatchet/sdks/wego test -json -count=1 -tags=e2e,wego_embedded ./tests/e2e/... -run '^TestEmbedded$' -timeout 10m`：PASSED。
 
 逐片段映射、断言、RunID、WorkerID、traceID 和执行命令见 [acceptance-report.json](acceptance-report.json)。
 
-测试使用唯一 namespace，已删除工作流和触发资源；运行历史及引擎 Worker 记录保留。Embedded 测试数据库已删除。报告不包含凭证。
+业务示例使用唯一 namespace，已删除工作流和触发资源；协议探针明确保留的定义、持久 topic、运行历史及引擎 Worker 记录保留。Embedded 测试数据库已删除。报告不包含凭证。
 
 CI 模板与 Compose 配置已在本机检查；仓库 CI 未注册，托管 CI 未执行。
+
+最终源码补验：共享日志解释器统一拒绝缺失响应头的 DATA/结束帧；随后重跑 unit、vet、race、状态机 fuzz、P0，并完成最终真实 engine race 与 embedded。完整命令和日志见 JSON 的 `final_source_checks`。
+
+实现/测试/协议/门禁脚本指纹：`8b8b87e4c4add696dbf86cad037457fec9eefa0bd286fdced36fa73e7a6f3c15`（294 个文件）。

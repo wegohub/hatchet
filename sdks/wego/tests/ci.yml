@@ -11,15 +11,33 @@ jobs:
     env:
       SERVER_SECURITY_CHECK_ENABLED: "false"
       SERVER_MSGQUEUE_KIND: postgres
+      WEGO_S3_ENDPOINT: http://127.0.0.1:9000
+      WEGO_S3_BUCKET: wego-codec
+      AWS_REGION: us-east-1
+      WEGO_ENGINE_CONTAINER: wego-ci-engine-1
+      AWS_ACCESS_KEY_ID: codec-fixture
+      AWS_SECRET_ACCESS_KEY: codec-fixture-secret
+      # 仅为隔离 CI 数据使用固定测试密钥，不用于业务环境。
+      WEGO_CODEC_AES_KEY: "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
         with: {go-version: "1.26.7"}
       - name: Install pinned generators
         run: sdks/wego/scripts/install-tools.sh
+      - name: Review tooling regressions
+        run: python3 -m unittest discover -s sdks/wego/scripts -p 'test_*.py'
+      - name: Coverage, complexity and performance baselines
+        run: python3 sdks/wego/scripts/quality-baselines.py --collect --complexity --benchmarks
       - name: Start PostgreSQL MQ instance
         run: |
           docker compose -f sdks/wego/tests/compose.yml up -d --wait
+          # 隔离测试租户启用持久流；此初始化属于部署，不在业务 SDK 中执行。
+          docker compose -f sdks/wego/tests/compose.yml exec -T postgres psql -U root -d hatchet -v ON_ERROR_STOP=1 <<'SQL'
+          INSERT INTO tenant_entitlement (tenant_id, audit_logs, prometheus_metrics, strict_additional_metadata_filters, dag_operator, durable_streams)
+          SELECT id, false, false, false, false, true FROM "Tenant"
+          ON CONFLICT (tenant_id) DO UPDATE SET durable_streams = true, updated_at = NOW();
+          SQL
           docker compose -f sdks/wego/tests/compose.yml run --rm token > "$RUNNER_TEMP/wego-token"
           chmod 600 "$RUNNER_TEMP/wego-token"
       - name: Quality gates and real engine acceptance
@@ -35,3 +53,7 @@ jobs:
           path: |
             sdks/wego/.test-results/*.json
             sdks/wego/.test-results/*.log
+            sdks/wego/.test-results/*.cover
+            sdks/wego/.test-results/codec.cpu
+            sdks/wego/.test-results/codec.heap
+            sdks/wego/.test-results/wire.test

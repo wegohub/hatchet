@@ -42,5 +42,18 @@ class FragmentEvidenceTest(unittest.TestCase):
             acceptance.fragment_results(self.entry, [], {}, {'status': 'PASSED'})
 
 
+class CurrentEvidenceTest(unittest.TestCase):
+    # test_rejects_other_runs 不同 SDK、协议、镜像、缺失命令或跳过结果均不能作为本轮证据。
+    def test_rejects_other_runs(self):
+        manifest = {'sdk_version': '0.2.0', 'protocol_version': 4}
+        record = dict(manifest, status='PASSED', command='actual test', server_version='v0.110.5')
+        self.assertTrue(acceptance.current_evidence(record, manifest))
+        for key, value in [('sdk_version', 'old'), ('protocol_version', 3), ('status', 'SKIPPED'), ('command', ''), ('server_version', 'v0.109.0')]:
+            with self.subTest(field=key):
+                changed = dict(record, **{key: value})
+                self.assertFalse(acceptance.current_evidence(changed, manifest))
+        self.assertFalse(acceptance.current_evidence(dict(record, records=[{'server_version': 'v0.109.0'}]), manifest))
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -1,2 +1,2 @@
-// Package worker 配置普通任务、durable 任务和 panic 回调的执行策略。
+// Package worker 配置任务入口的方法禁用、普通 / durable 策略和 panic 回调，不裁剪网络 gRPC 服务。
 package worker

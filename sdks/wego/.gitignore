@@ -1,4 +1,13 @@
-deployment/
+# 仅发布可复现模板；凭证、备份及本机部署报告继续忽略。
+deployment/*
+!deployment/compose/
+deployment/compose/*
+!deployment/compose/docker-compose.yml
+!deployment/compose/minio.Dockerfile
+!deployment/compose/.dockerignore
+!deployment/compose/.env.example
+!deployment/compose/.gitignore
+!deployment/compose/README.md
 .tools/
 .test-results/
 __pycache__/

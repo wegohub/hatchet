@@ -1,0 +1,109 @@
+name: wego-hatchet
+
+x-environment: &environment
+  DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in .env}
+  DATABASE_MAX_CONNS: "20"
+  SERVER_MSGQUEUE_KIND: postgres
+  SERVER_OBSERVABILITY_ENABLED: "true"
+  SERVER_SECURITY_CHECK_ENABLED: "false"
+  SERVER_URL: http://localhost:${HATCHET_HTTP_PORT:-8080}
+  SERVER_AUTH_COOKIE_DOMAIN: localhost
+  SERVER_AUTH_COOKIE_INSECURE: "true"
+  SERVER_GRPC_BIND_ADDRESS: 0.0.0.0
+  SERVER_GRPC_PORT: "7070"
+  SERVER_GRPC_INSECURE: "true"
+  SERVER_GRPC_BROADCAST_ADDRESS: localhost:${HATCHET_GRPC_PORT:-7077}
+  SERVER_INTERNAL_CLIENT_INTERNAL_GRPC_BROADCAST_ADDRESS: hatchet-engine:7070
+
+services:
+  minio:
+    # 从官方发布源码构建；社区版的最新正式发布不提供预编译容器。
+    image: wego-minio:RELEASE.2025-10-15T17-29-55Z
+    build:
+      context: .
+      dockerfile: minio.Dockerfile
+    command: ["server", "/data", "--console-address", ":9001"]
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?Set MINIO_ROOT_USER in .env}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD in .env}
+    ports:
+      - "127.0.0.1:${MINIO_API_PORT:-9000}:9000"
+      - "127.0.0.1:${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:9000/minio/health/ready"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 20s
+
+  migration:
+    image: ghcr.io/hatchet-dev/hatchet/hatchet-migrate:v0.110.5
+    command: /hatchet/hatchet-migrate
+    environment: *environment
+
+  setup-config:
+    image: ghcr.io/hatchet-dev/hatchet/hatchet-admin:v0.110.5
+    command: /hatchet/hatchet-admin quickstart --skip certs --generated-config-dir /hatchet/config --overwrite=false
+    environment: *environment
+    volumes:
+      - hatchet_config:/hatchet/config
+    depends_on:
+      migration:
+        condition: service_completed_successfully
+
+  hatchet-engine:
+    image: ghcr.io/hatchet-dev/hatchet/hatchet-engine:v0.110.5
+    command: /hatchet/hatchet-engine --config /hatchet/config
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8733/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    environment:
+      <<: *environment
+      SERVER_OTEL_COLLECTOR_URL: host.docker.internal:4317
+      SERVER_OTEL_SERVICE_NAME: hatchet-engine
+      SERVER_OTEL_INSECURE: "true"
+      SERVER_OTEL_TRACE_ID_RATIO: "1"
+      SERVER_OTEL_METRICS_ENABLED: "false"
+    ports:
+      - "127.0.0.1:${HATCHET_GRPC_PORT:-7077}:7070"
+    volumes:
+      - hatchet_config:/hatchet/config
+    depends_on:
+      setup-config:
+        condition: service_completed_successfully
+
+  hatchet-dashboard:
+    image: ghcr.io/hatchet-dev/hatchet/hatchet-dashboard:v0.110.5
+    command: sh ./entrypoint.sh --config /hatchet/config
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/api/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    environment:
+      <<: *environment
+      SERVER_OTEL_COLLECTOR_URL: host.docker.internal:4317
+      SERVER_OTEL_SERVICE_NAME: hatchet-api
+      SERVER_OTEL_INSECURE: "true"
+      SERVER_OTEL_TRACE_ID_RATIO: "1"
+      SERVER_OTEL_METRICS_ENABLED: "false"
+    ports:
+      - "127.0.0.1:${HATCHET_HTTP_PORT:-8080}:80"
+    volumes:
+      - hatchet_config:/hatchet/config
+    depends_on:
+      setup-config:
+        condition: service_completed_successfully
+
+volumes:
+  hatchet_config:
+  minio_data:

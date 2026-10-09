@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import sys
 
 # SDK 是独立模块根目录；发布验证不加载仓库根模块和开发用 go.work。
 SDK = Path(__file__).resolve().parents[1]
@@ -16,9 +17,9 @@ def main():
     dependency = json.loads(subprocess.check_output(
         ['go', 'list', '-m', '-json', 'github.com/hatchet-dev/hatchet'], cwd=SDK, env=ENV))
     # 例如本地 replace 会绕过发行版 API 检查，必须明确拒绝而不是继续报告通过。
-    if dependency['Version'] != 'v0.109.0' or dependency.get('Replace'):
-        raise RuntimeError('expected unmodified official Hatchet v0.109.0 dependency')
-    subprocess.run(['go', 'test', './...'], cwd=SDK, env=ENV, check=True)
+    if dependency['Version'] != 'v0.110.5' or dependency.get('Replace'):
+        raise RuntimeError('expected unmodified official Hatchet v0.110.5 dependency')
+    subprocess.run([sys.executable, 'scripts/unit.py'], cwd=SDK, env=ENV, check=True)
     subprocess.run(['go', 'test', '-tags=wego_embedded', './internal/backend', '-run', '^$'],
                    cwd=SDK, env=ENV, check=True)
 

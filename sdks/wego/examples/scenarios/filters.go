@@ -14,34 +14,34 @@ import (
 	"github.com/hatchet-dev/hatchet/sdks/wego/worker"
 )
 
-// Filters 验证动态事件过滤器及传入业务的 filter payload。 每次使用唯一 namespace，成功断言写入报告后清理可删除资源。
+// Filters 验证动态事件过滤器及传入业务的 filter payload 每次使用唯一 namespace，成功断言写入报告后清理可删除资源
 func Filters(ctx context.Context, report *Report) (err error) {
-	// observed 创建协调通知通道；等待方通过它确认步骤已经发生，而不靠固定 sleep 猜测时序。
+	// observed 创建协调通知通道；等待方通过它确认步骤已经发生，而不靠固定 sleep 猜测时序
 	observed := make(chan *pb.Reply, 4)
-	// service 注入本场景的业务 handler，实际调用结果用于验证注册策略和任务身份。
+	// service 注入本场景的业务 handler，实际调用结果用于验证注册策略和任务身份
 	service := &Service{
 		Say: func(ctx context.Context, in *pb.Request) (*pb.Reply, error) {
-			// info, _ 读取实际执行身份，例如 RunID 与 WorkerID；普通网络 context 没有任务身份。
+			// info, _ 读取实际执行身份，例如 RunID 与 WorkerID；普通网络 context 没有任务身份
 			info, _ := task.Info(ctx)
 			if info.FilterPayload["marker"] != "fixture" {
 				return nil, fmt.Errorf("filter payload missing: %v", info.FilterPayload)
 			}
 
-			// out 带当前任务身份的 protobuf 响应，业务字段与运行身份一起返回供断言。
+			// out 带当前任务身份的 protobuf 响应，业务字段与运行身份一起返回供断言
 			out := Reply(ctx, in)
 			out.Message = strings.ToLower(in.Message)
 			observed <- out
 			return out, nil
 		},
 	}
-	// h, err 接收 runtime.WithInputProjection 的返回值，同时保存错误供紧接着的分支检查；失败时不继续使用结果。
+	// routing 默认值与触发输入明确提供分组字段，过滤和调度不依赖 protobuf 字段投影
 	h, err := Start(
 		ctx,
 		"filters",
 		report,
 		service,
 		[]runtime.Option{
-			runtime.WithInputProjection(pb.UnaryGreeter_SayHello_FullMethodName, map[string]string{"skip": "fail", "group": "group_key"}),
+			runtime.WithRoutingDefaults(pb.UnaryGreeter_SayHello_FullMethodName, map[string]any{"skip": false, "group": "default"}),
 		},
 		worker.WithTask(
 			pb.UnaryGreeter_SayHello_FullMethodName,
@@ -61,9 +61,9 @@ func Filters(ctx context.Context, report *Report) (err error) {
 		err = errors.Join(err, h.Close())
 	}()
 
-	// scope 当前步骤使用的字符串值 "fixture-scope"，用于路由、请求或断言。
+	// scope 当前步骤使用的字符串值 "fixture-scope"，用于路由、请求或断言
 	scope := "fixture-scope"
-	// push 发送分别满足或不满足过滤条件的事件，以实际运行数量证明过滤生效。
+	// push 发送分别满足或不满足过滤条件的事件，以实际运行数量证明过滤生效
 	push := func(skip bool) error {
 		return h.Conn.Events().Push(
 			ctx,
@@ -71,6 +71,7 @@ func Filters(ctx context.Context, report *Report) (err error) {
 			model.RPCInput{
 				Method:  pb.UnaryGreeter_SayHello_FullMethodName,
 				Message: &pb.Request{Message: "Mixed CASE", Fail: skip},
+				Routing: map[string]any{"skip": skip},
 			},
 			&scope,
 		)
@@ -79,9 +80,9 @@ func Filters(ctx context.Context, report *Report) (err error) {
 		return err
 	}
 
-	// 在业务进展和上下文取消之间等待；deadline 或 Stop 到达时结束阻塞并走清理路径。
+	// 在业务进展和上下文取消之间等待；deadline 或 Stop 到达时结束阻塞并走清理路径
 	select {
-	// out 从当前通知通道接收结果；后续检查内容或错误，关闭通知不等于业务成功。
+	// out 从当前通知通道接收结果；后续检查内容或错误，关闭通知不等于业务成功
 	case out := <-observed:
 		return fmt.Errorf("filtered event executed: %v", out)
 	case <-time.After(500 * time.Millisecond):
@@ -92,9 +93,9 @@ func Filters(ctx context.Context, report *Report) (err error) {
 		return err
 	}
 
-	// 在业务进展和上下文取消之间等待；deadline 或 Stop 到达时结束阻塞并走清理路径。
+	// 在业务进展和上下文取消之间等待；deadline 或 Stop 到达时结束阻塞并走清理路径
 	select {
-	// out 从当前通知通道接收结果；后续检查内容或错误，关闭通知不等于业务成功。
+	// out 从当前通知通道接收结果；后续检查内容或错误，关闭通知不等于业务成功
 	case out := <-observed:
 		if out.Message != "mixed case" {
 			return fmt.Errorf("event transformation")
@@ -103,13 +104,13 @@ func Filters(ctx context.Context, report *Report) (err error) {
 	case <-ctx.Done():
 		return ctx.Err()
 	}
-	// workflow, err 接收 h.Conn.Workflows 的返回值，同时保存错误供紧接着的分支检查；失败时不继续使用结果。
-	workflow, err := h.Conn.Workflows().Get(ctx, TaskName(pb.UnaryGreeter_SayHello_FullMethodName))
+	// workflow, err 接收 h.Conn.Workflows 的返回值，同时保存错误供紧接着的分支检查；失败时不继续使用结果
+	workflow, err := h.Conn.Workflows().Get(ctx, pb.UnaryGreeter_SayHello_FullMethodName)
 	if err != nil {
 		return err
 	}
 
-	// filter, err 接收 h.Conn.Filters 的返回值，同时保存错误供紧接着的分支检查；失败时不继续使用结果。
+	// filter, err 接收 h.Conn.Filters 的返回值，同时保存错误供紧接着的分支检查；失败时不继续使用结果
 	filter, err := h.Conn.Filters().Create(ctx, model.Resource{
 		"workflowId": workflow.ID(),
 		"expression": "true",
@@ -120,7 +121,7 @@ func Filters(ctx context.Context, report *Report) (err error) {
 		return err
 	}
 
-	// id 读取实际资源 ID，后续删除或查询必须使用同一身份。
+	// id 读取实际资源 ID，后续删除或查询必须使用同一身份
 	id := filter.ID()
 	if id == "" {
 		return fmt.Errorf("created filter ID missing: %v", filter)

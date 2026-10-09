@@ -1,0 +1,318 @@
+{
+  "status": "PASSED",
+  "scope": "0.2.1 MinIO codec deployment and focused acceptance; full 0.2.0 acceptance remains historical",
+  "completed_at": "2026-10-09T04:37:24.024347+00:00",
+  "sdk_version": "0.2.1",
+  "protocol_version": 4,
+  "server_version": "v0.110.5",
+  "mq": "postgresql",
+  "source_identity": {
+    "sha256": "a623b11423909c2d07e739f3acd28b2504e5e7a16632e47e01ac02d08f68ce47",
+    "file_count": 301
+  },
+  "minio": {
+    "tag": "wego-minio:RELEASE.2025-10-15T17-29-55Z",
+    "id": "sha256:c875bbc66ec5439458885dc385d3a5bf116607166aeaed575f028017ca3423d3",
+    "health": "healthy",
+    "source_tag": "RELEASE.2025-10-15T17-29-55Z",
+    "source_commit": "9e49d5e7a648f00e26f2246f4dc28e6b07f8c84a",
+    "distribution": "locally built from pinned official release; no source patch",
+    "endpoint": "http://127.0.0.1:9000",
+    "console": "http://127.0.0.1:9001"
+  },
+  "engine": {
+    "tag": "ghcr.io/hatchet-dev/hatchet/hatchet-engine:v0.110.5",
+    "id": "sha256:185c4311d23fad2faecd5fdd771369a369f33cbfa0e9f4083a952c4fe1c15808",
+    "repo_digests": [
+      "ghcr.io/hatchet-dev/hatchet/hatchet-engine@sha256:185c4311d23fad2faecd5fdd771369a369f33cbfa0e9f4083a952c4fe1c15808"
+    ]
+  },
+  "s3_sdk": {
+    "service/s3": "v1.114.2",
+    "credentials": "v1.20.8",
+    "aws-sdk-go-v2": "v1.47.2",
+    "minio_go_client_dependency": false
+  },
+  "codec_profile": [
+    "example.gzip.v1",
+    "example.aes256-gcm.v1",
+    "example.s3-object.sha256.v1"
+  ],
+  "storage": {
+    "bucket": "wego-codec",
+    "prefix": "codec-211e0b91-e889-427d-b582-b7312c2d44aa/",
+    "objects_retained": 86,
+    "initial_codec_successful_uploads": 86,
+    "initial_codec_successful_decodes": 107,
+    "note": "initial shared codec counters exclude the independent recovery client and AWS SDK retry attempts"
+  },
+  "quality_gates": [
+    {
+      "name": "unit",
+      "command": "GOWORK=off go -C sdks/wego test ./...",
+      "status": "PASSED",
+      "log": "sdks/wego/.test-results/minio-codec-unit-final.log"
+    },
+    {
+      "name": "vet",
+      "command": "GOWORK=off go -C sdks/wego vet ./...",
+      "status": "PASSED",
+      "log": "sdks/wego/.test-results/minio-codec-vet-final.log"
+    },
+    {
+      "name": "race",
+      "command": "GOWORK=off go -C sdks/wego test -race ./...",
+      "status": "PASSED",
+      "log": "sdks/wego/.test-results/minio-codec-race-final.log"
+    },
+    {
+      "name": "real-minio-race",
+      "command": "env GOWORK=off go -C sdks/wego test -race -tags=e2e ./tests/e2e -run '^TestMinIOCodec$' -count=1 -v -timeout 5m",
+      "status": "PASSED",
+      "log": "sdks/wego/.test-results/minio-codec-e2e-race.log"
+    },
+    {
+      "name": "standalone-example",
+      "command": "python3 sdks/wego/scripts/local-test.py env GOWORK=off go -C sdks/wego run ./examples/codec",
+      "status": "PASSED",
+      "log": "sdks/wego/.test-results/minio-codec-example-final.log"
+    },
+    {
+      "name": "official-regression-under-sdk-dependency-graph",
+      "command": "GOWORK=off go -C sdks/wego test github.com/hatchet-dev/hatchet/sdks/go/... github.com/hatchet-dev/hatchet/pkg/client/... github.com/hatchet-dev/hatchet/pkg/worker/...",
+      "status": "PASSED",
+      "log": "sdks/wego/.test-results/minio-codec-upstream.log"
+    },
+    {
+      "name": "quality-contract",
+      "command": "GOWORK=off go -C sdks/wego test ./tests/quality -count=1",
+      "status": "PASSED",
+      "covers": [
+        "Chinese declaration comments",
+        "API isolation",
+        "generation and manifest reproducibility",
+        "report contract"
+      ]
+    },
+    {
+      "name": "source-boundary",
+      "command": "python3 sdks/wego/scripts/check-upstream.py",
+      "status": "PASSED"
+    },
+    {
+      "name": "official-release",
+      "command": "python3 sdks/wego/scripts/check-released.py",
+      "status": "PASSED"
+    },
+    {
+      "name": "compose-configuration",
+      "status": "PASSED",
+      "files": [
+        "sdks/wego/deployment/compose/docker-compose.yml",
+        "sdks/wego/tests/compose.yml"
+      ]
+    },
+    {
+      "name": "format",
+      "status": "PASSED",
+      "commands": [
+        "gofmt -l sdks/wego",
+        "git diff --check"
+      ]
+    }
+  ],
+  "records": [
+    {
+      "scenario": "minio-codec",
+      "namespace": "wego_accept_minio-codec_1791520335310207000_",
+      "assertion": "S3 unary roundtrip; per-call routing retained under group concurrency",
+      "assertion_id": "912cbf7b1c02d34fd158f576",
+      "run_id": "9b3f2b20-88ff-46b9-b9e3-7e2401bfd421",
+      "worker_id": "d8e1f692-d8fd-4f4b-bdc7-89d6f8c5cf9d",
+      "at": "2026-10-09T04:32:21.330683Z"
+    },
+    {
+      "scenario": "minio-codec",
+      "namespace": "wego_accept_minio-codec_1791520335310207000_",
+      "assertion": "S3 unary roundtrip; per-call routing retained under group concurrency",
+      "assertion_id": "912cbf7b1c02d34fd158f576",
+      "run_id": "b7f52ac6-cbf7-4555-86ae-a8ec3500df0e",
+      "worker_id": "d8e1f692-d8fd-4f4b-bdc7-89d6f8c5cf9d",
+      "at": "2026-10-09T04:32:23.8046Z"
+    },
+    {
+      "scenario": "minio-codec",
+      "namespace": "wego_accept_minio-codec_1791520335310207000_",
+      "assertion": "S3 unary roundtrip; per-call routing retained under group concurrency",
+      "assertion_id": "912cbf7b1c02d34fd158f576",
+      "run_id": "e5e11126-bf9f-46e8-b33a-a3c8b00c721f",
+      "worker_id": "d8e1f692-d8fd-4f4b-bdc7-89d6f8c5cf9d",
+      "at": "2026-10-09T04:32:27.824781Z"
+    },
+    {
+      "scenario": "minio-codec",
+      "namespace": "wego_accept_minio-codec_1791520335310207000_",
+      "assertion": "S3 client stream batch input and terminal response",
+      "assertion_id": "c65bc99349d9a9441a23301e",
+      "run_id": "d73a7107-f8f1-4955-88ae-9a4346c83068",
+      "worker_id": "d8e1f692-d8fd-4f4b-bdc7-89d6f8c5cf9d",
+      "at": "2026-10-09T04:32:27.937473Z"
+    },
+    {
+      "scenario": "minio-codec",
+      "namespace": "wego_accept_minio-codec_1791520335310207000_",
+      "assertion": "S3 bidi batch input and ordered output",
+      "assertion_id": "c3713ad4e2e9339e1d9c9da8",
+      "run_id": "fc923842-c98f-4d63-9a73-9413210f8631",
+      "worker_id": "d8e1f692-d8fd-4f4b-bdc7-89d6f8c5cf9d",
+      "at": "2026-10-09T04:32:28.034809Z"
+    },
+    {
+      "scenario": "minio-codec",
+      "namespace": "wego_accept_minio-codec_1791520335310207000_",
+      "assertion": "S3 bidi batch input and ordered output",
+      "assertion_id": "c3713ad4e2e9339e1d9c9da8",
+      "run_id": "fc923842-c98f-4d63-9a73-9413210f8631",
+      "worker_id": "d8e1f692-d8fd-4f4b-bdc7-89d6f8c5cf9d",
+      "at": "2026-10-09T04:32:28.040528Z"
+    },
+    {
+      "scenario": "minio-codec",
+      "namespace": "wego_accept_minio-codec_1791520335310207000_",
+      "assertion": "S3 bidi batch input and ordered output",
+      "assertion_id": "c3713ad4e2e9339e1d9c9da8",
+      "run_id": "fc923842-c98f-4d63-9a73-9413210f8631",
+      "worker_id": "d8e1f692-d8fd-4f4b-bdc7-89d6f8c5cf9d",
+      "at": "2026-10-09T04:32:28.047485Z"
+    },
+    {
+      "scenario": "minio-codec",
+      "namespace": "wego_accept_minio-codec_1791520335310207000_",
+      "assertion": "S3 Worker checkpoint restores two historical outputs and completes on second attempt; binary headers/trailers preserved",
+      "assertion_id": "f8085b388ed06fb1140cbe83",
+      "run_id": "eb644155-643e-4c16-a0d6-11a7cb4dcf46",
+      "worker_id": "d8e1f692-d8fd-4f4b-bdc7-89d6f8c5cf9d",
+      "at": "2026-10-09T04:32:33.575548Z"
+    },
+    {
+      "scenario": "minio-codec",
+      "namespace": "wego_accept_minio-codec_1791520335310207000_",
+      "assertion": "S3 independent Conn and codec resume serialized checkpoint without another task or handler execution",
+      "assertion_id": "ce7b5160467dd0b0e86900a0",
+      "run_id": "eb644155-643e-4c16-a0d6-11a7cb4dcf46",
+      "worker_id": "d8e1f692-d8fd-4f4b-bdc7-89d6f8c5cf9d",
+      "at": "2026-10-09T04:32:34.680927Z"
+    },
+    {
+      "scenario": "minio-codec",
+      "namespace": "wego_accept_minio-codec_1791520335310207000_",
+      "assertion": "S3 JOIN and broadcast EVENT frames decoded by Worker",
+      "assertion_id": "d57c61519614828527ec3668",
+      "at": "2026-10-09T04:32:34.739193Z"
+    },
+    {
+      "scenario": "minio-codec",
+      "namespace": "wego_accept_minio-codec_1791520335310207000_",
+      "assertion": "S3 rejects missing history, cross-prefix references and oversized downloads; probe object deleted",
+      "assertion_id": "aa97b3b400dcf523e939381a",
+      "at": "2026-10-09T04:32:34.746131Z"
+    },
+    {
+      "scenario": "grpc-streams",
+      "namespace": "wego_accept_grpc-streams_1791520354746148000_",
+      "assertion": "client stream 0 messages, CloseAndRecv, trailers",
+      "assertion_id": "e31fb0a7a87b99eef67ad9f9",
+      "run_id": "5b01da89-648f-4b62-a29e-25007be617dc",
+      "worker_id": "c5deaf6f-b000-4bbc-ac14-f43328548a7b",
+      "at": "2026-10-09T04:32:41.276031Z"
+    },
+    {
+      "scenario": "grpc-streams",
+      "namespace": "wego_accept_grpc-streams_1791520354746148000_",
+      "assertion": "client stream 5 messages, CloseAndRecv, trailers",
+      "assertion_id": "a1c86760fbc045af23f0869a",
+      "run_id": "6c4fae89-610a-4500-b48a-6eb0717a2971",
+      "worker_id": "c5deaf6f-b000-4bbc-ac14-f43328548a7b",
+      "at": "2026-10-09T04:32:41.398742Z"
+    },
+    {
+      "scenario": "grpc-streams",
+      "namespace": "wego_accept_grpc-streams_1791520354746148000_",
+      "assertion": "server stream 0 messages, window 2, slow consumer",
+      "assertion_id": "a30bdbacde315a0244a146e5",
+      "at": "2026-10-09T04:32:41.514049Z"
+    },
+    {
+      "scenario": "grpc-streams",
+      "namespace": "wego_accept_grpc-streams_1791520354746148000_",
+      "assertion": "server stream 5 messages, window 2, slow consumer",
+      "assertion_id": "5a722f9e287fcd470fdf26b1",
+      "run_id": "c9f0b646-8ec8-4225-9a47-84913b1e428d",
+      "worker_id": "c5deaf6f-b000-4bbc-ac14-f43328548a7b",
+      "at": "2026-10-09T04:32:41.695441Z"
+    },
+    {
+      "scenario": "grpc-streams",
+      "namespace": "wego_accept_grpc-streams_1791520354746148000_",
+      "assertion": "bidi batch input and streaming output with one business slot",
+      "assertion_id": "7e82d9453c996f3f200a1699",
+      "at": "2026-10-09T04:32:42.955129Z"
+    },
+    {
+      "scenario": "grpc-streams",
+      "namespace": "wego_accept_grpc-streams_1791520354746148000_",
+      "assertion": "bidi batch input and streaming output with one business slot",
+      "assertion_id": "7e82d9453c996f3f200a1699",
+      "run_id": "7934ef2c-f952-4503-9160-c3b8158f4fa4",
+      "worker_id": "c5deaf6f-b000-4bbc-ac14-f43328548a7b",
+      "at": "2026-10-09T04:32:43.16384Z"
+    },
+    {
+      "scenario": "grpc-streams",
+      "namespace": "wego_accept_grpc-streams_1791520354746148000_",
+      "assertion": "early client-stream handler return",
+      "assertion_id": "48b1172b6d1b100de62f19ad",
+      "run_id": "18601648-ca75-43c8-9627-6ac296d52bcd",
+      "worker_id": "c5deaf6f-b000-4bbc-ac14-f43328548a7b",
+      "at": "2026-10-09T04:32:43.353149Z"
+    },
+    {
+      "scenario": "grpc-streams",
+      "namespace": "wego_accept_grpc-streams_1791520354746148000_",
+      "assertion": "stream outputs precede business status; cancellation terminates receive",
+      "assertion_id": "291176238a8484c02def9486",
+      "at": "2026-10-09T04:32:43.353364Z"
+    },
+    {
+      "scenario": "grpc-streams",
+      "namespace": "wego_accept_grpc-streams_1791520354746148000_",
+      "assertion": "workflow resources deleted; run history retained",
+      "assertion_id": "bc61cfe35826be28b668b794",
+      "at": "2026-10-09T04:32:43.601318Z"
+    },
+    {
+      "scenario": "minio-codec",
+      "namespace": "wego_accept_minio-codec_1791520335310207000_",
+      "assertion": "workflow resources deleted; run history retained",
+      "assertion_id": "bc61cfe35826be28b668b794",
+      "at": "2026-10-09T04:32:43.669108Z"
+    },
+    {
+      "scenario": "minio-codec",
+      "namespace": "wego_accept_minio-codec_1791520335310207000_",
+      "assertion": "S3 bucket=wego-codec prefix=codec-211e0b91-e889-427d-b582-b7312c2d44aa/ objects=86 PUT=86 GET=107; objects retained with run/topic history",
+      "assertion_id": "385ffa1e8acc30eeb1d922c0",
+      "at": "2026-10-09T04:32:43.686669Z"
+    }
+  ],
+  "evidence_file": "sdks/wego/.test-results/minio-codec-1791520363687593000.json",
+  "cleanup": {
+    "owned_workers_and_connections": "closed",
+    "active_workflow_definitions_remaining": 0,
+    "definition_storage": "official soft deletion; rows and run history retained",
+    "probe_object": "deleted",
+    "retained": "86 S3 objects for this race acceptance namespace, matching run/topic history; independent example and earlier probes have their own retained prefixes"
+  },
+  "credentials": "excluded; deployment .env remains ignored and mode 0600; Docker build context excludes credentials",
+  "limitations": "No full 18-gate/28-source/embedded rerun for 0.2.1; core runtime unchanged; CI template updated and validated but not executed remotely"
+}

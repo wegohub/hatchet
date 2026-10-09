@@ -1,6 +1,6 @@
 {
-  "sdk_version": "0.1.12",
-  "protocol_version": 3,
+  "sdk_version": "0.2.9",
+  "protocol_version": 4,
   "sources": [
     {
       "source": "sdks/go/examples/batch_assign/main.go",
@@ -1513,15 +1513,24 @@
   ],
   "extra_tests": {
     "batch-shutdown": "TestBatchShutdownBudget",
+    "disabled-methods": "TestDisabledWorkerMethods",
     "dual-entry": "TestExamples/dual-entry",
     "durable-memo-recovery": "TestDurablePendingMemoRecovery",
     "durable-restart": "TestDurableRestart",
     "grpc-streams": "TestExamples/grpc-streams",
+    "logging-shutdown": "TestLoggingShutdown",
     "middleware": "TestExamples/middleware",
+    "minio-codec": "TestMinIOCodec",
+    "result-cancel": "TestResultCancellationCancelsSharedRun",
     "shutdown": "TestExamples/shutdown",
     "stream-cost": "TestReviewStreamingCost",
     "stream-cost-concurrent": "TestReviewConcurrentStreamingCost",
-    "stream-faults": "TestStreamFaults"
+    "stream-faults": "TestStreamFaults",
+    "stream-realtime": "TestRealtimeStreams",
+    "stream-recovery": "TestReliableStreamRecovery",
+    "stream-restart": "TestStreamWorkerRestart",
+    "stream-submission": "TestStreamAmbiguousSubmissionCancellation",
+    "worker-events": "TestWorkerEvents"
   },
   "assertions": "Scenario implementations assert execution results, policies, identities and cleanup; evidence is recorded in .test-results/acceptance-*.json.",
   "parameters": {

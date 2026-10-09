@@ -7,11 +7,15 @@ import (
 	"github.com/hatchet-dev/hatchet/sdks/wego/internal/ports"
 )
 
-// Feature 接受封闭的自有命令，在后端内部映射到官方管理能力。
-// 位置参数只用于此包的官方 DTO 适配，不跨越模块边界。
+// Feature 接受封闭的自有命令，在后端内部映射到官方管理能力
+// 位置参数只用于此包的官方 DTO 适配，不跨越模块边界
 func (b *Backend) Feature(ctx context.Context, request ports.FeatureRequest, out any) error {
-	// command 的具体类型决定操作与参数，不通过调用方字符串选择方法。
+	// command 的具体类型决定操作与参数，不通过调用方字符串选择方法
 	switch command := request.(type) {
+	case ports.WorkerSendEvent:
+		return b.publishWorkerEvent(ctx, command)
+	case ports.WorkerCancelNotice:
+		return b.publishWorkerCancel(ctx, command)
 	case ports.CELDebug:
 		return b.callFeature(ctx, "CEL.Debug", []any{command.Expression, command.Input, command.Metadata, command.FilterPayload}, out)
 	case ports.CronsCreate:
