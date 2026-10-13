@@ -1,0 +1,576 @@
+{
+  "date": "2026-10-13",
+  "sdk_version": "0.4.1",
+  "protocol_version": 6,
+  "status": "passed",
+  "scope": "protocol/native-wego/codec/stream-recovery/shutdown review and regression; not full release acceptance",
+  "fixed_issue_groups": 9,
+  "server": "official Hatchet v0.110.5",
+  "mq": "postgres",
+  "storage": "MinIO via S3 SDK",
+  "source_go_sha256": "1072ec0bf8e1f7849d2484c1dc7d63a03ab0cf4b053f8bbe1da748ab788bb5ed",
+  "checks": [
+    {
+      "name": "unit and coverage",
+      "command": "python3 sdks/wego/scripts/quality-baselines.py --collect --complexity",
+      "status": "passed",
+      "log": ".test-results/quality-coverage.log"
+    },
+    {
+      "name": "race",
+      "command": "python3 sdks/wego/scripts/unit.py -race",
+      "status": "passed",
+      "log": ".test-results/v041-review-race.log"
+    },
+    {
+      "name": "vet",
+      "command": "GOWORK=off go -C sdks/wego vet ./...",
+      "status": "passed",
+      "log": ".test-results/v041-review-vet.log"
+    },
+    {
+      "name": "quality gates",
+      "command": "GOWORK=off go -C sdks/wego test ./tests/quality -count=1",
+      "status": "passed",
+      "log": ".test-results/v041-review-gates.log"
+    },
+    {
+      "name": "final deterministic lifecycle tests",
+      "command": "GOWORK=off go -C sdks/wego test -race ./internal/backend ./tests/quality -run 'TestReviewV6|TestDeclarationsHaveChineseComments' -count=3",
+      "status": "passed",
+      "log": ".test-results/v041-review-lifecycle-final.log"
+    },
+    {
+      "name": "fuzz",
+      "command": "GOWORK=off go -C sdks/wego test ./internal/wire -run '^$' -fuzz '^FuzzUnifiedPayload$' -fuzztime=10s",
+      "status": "passed",
+      "executions": 450164,
+      "log": ".test-results/v041-review-fuzz.log"
+    },
+    {
+      "name": "source boundary",
+      "command": "python3 sdks/wego/scripts/check-upstream.py",
+      "status": "passed",
+      "log": ".test-results/v041-review-boundary.log"
+    },
+    {
+      "name": "benchmark",
+      "command": "GOWORK=off go -C sdks/wego test ./internal/wire -run '^$' -bench '^BenchmarkMessageProtocol$' -benchmem -benchtime=100ms -count=2",
+      "status": "passed",
+      "log": ".test-results/v041-review-bench.log"
+    }
+  ],
+  "engine_commands": [
+    "python3 sdks/wego/scripts/local-test.py env GOWORK=off GOFLAGS=-mod=readonly go -C sdks/wego test -race -json -count=1 -tags=e2e ./tests/e2e -run 'TestProtocolV6|TestReliableStreamRecovery|TestStreamWorkerRestart|TestStreamFaults|TestRealtimeStreams|TestStreamAmbiguousSubmissionCancellation|TestBatchShutdownBudget|TestLoggingShutdown' -timeout 15m",
+    "python3 sdks/wego/scripts/local-test.py env GOWORK=off GOFLAGS=-mod=readonly go -C sdks/wego test -race -json -count=1 -tags=e2e ./tests/e2e -run '^TestMinIOCodec$' -timeout 5m"
+  ],
+  "engine_tests": [
+    {
+      "test": "TestBatchShutdownBudget",
+      "status": "passed",
+      "elapsed_seconds": 7.26,
+      "log": ".test-results/v041-review-engine-final.log"
+    },
+    {
+      "test": "TestLoggingShutdown",
+      "status": "passed",
+      "elapsed_seconds": 6.42,
+      "log": ".test-results/v041-review-engine-final.log"
+    },
+    {
+      "test": "TestProtocolV6NativeBusinessPaths",
+      "status": "passed",
+      "elapsed_seconds": 15.85,
+      "log": ".test-results/v041-review-engine-final.log"
+    },
+    {
+      "test": "TestProtocolV6ConsoleUnaryScheduledCron",
+      "status": "passed",
+      "elapsed_seconds": 90.89,
+      "log": ".test-results/v041-review-engine-final.log"
+    },
+    {
+      "test": "TestProtocolV6NativeStreaming//wego.example.v1.Greeter/UploadHellos/json",
+      "status": "passed",
+      "elapsed_seconds": 3.44,
+      "log": ".test-results/v041-review-engine-final.log"
+    },
+    {
+      "test": "TestProtocolV6NativeStreaming//wego.example.v1.Greeter/UploadHellos/gzip",
+      "status": "passed",
+      "elapsed_seconds": 5,
+      "log": ".test-results/v041-review-engine-final.log"
+    },
+    {
+      "test": "TestProtocolV6NativeStreaming//wego.example.v1.Greeter/WatchHellos/json",
+      "status": "passed",
+      "elapsed_seconds": 4.7,
+      "log": ".test-results/v041-review-engine-final.log"
+    },
+    {
+      "test": "TestProtocolV6NativeStreaming//wego.example.v1.Greeter/WatchHellos/gzip",
+      "status": "passed",
+      "elapsed_seconds": 5.16,
+      "log": ".test-results/v041-review-engine-final.log"
+    },
+    {
+      "test": "TestProtocolV6NativeStreaming//wego.example.v1.Greeter/ChatHellos/json",
+      "status": "passed",
+      "elapsed_seconds": 5.91,
+      "log": ".test-results/v041-review-engine-final.log"
+    },
+    {
+      "test": "TestProtocolV6NativeStreaming//wego.example.v1.Greeter/ChatHellos/gzip",
+      "status": "passed",
+      "elapsed_seconds": 4.21,
+      "log": ".test-results/v041-review-engine-final.log"
+    },
+    {
+      "test": "TestProtocolV6NativeStreaming",
+      "status": "passed",
+      "elapsed_seconds": 28.42,
+      "log": ".test-results/v041-review-engine-final.log"
+    },
+    {
+      "test": "TestStreamFaults/delayed_subscription",
+      "status": "passed",
+      "elapsed_seconds": 4.47,
+      "log": ".test-results/v041-review-engine-final.log"
+    },
+    {
+      "test": "TestStreamFaults/duplicate_cursor",
+      "status": "passed",
+      "elapsed_seconds": 5.05,
+      "log": ".test-results/v041-review-engine-final.log"
+    },
+    {
+      "test": "TestStreamFaults/reconnect",
+      "status": "passed",
+      "elapsed_seconds": 5.36,
+      "log": ".test-results/v041-review-engine-final.log"
+    },
+    {
+      "test": "TestStreamFaults/missing_output",
+      "status": "passed",
+      "elapsed_seconds": 5.18,
+      "log": ".test-results/v041-review-engine-final.log"
+    },
+    {
+      "test": "TestStreamFaults/missing_end",
+      "status": "passed",
+      "elapsed_seconds": 5.01,
+      "log": ".test-results/v041-review-engine-final.log"
+    },
+    {
+      "test": "TestStreamFaults/corrupt_frame",
+      "status": "passed",
+      "elapsed_seconds": 4.73,
+      "log": ".test-results/v041-review-engine-final.log"
+    },
+    {
+      "test": "TestStreamFaults/out_of_order",
+      "status": "passed",
+      "elapsed_seconds": 5.12,
+      "log": ".test-results/v041-review-engine-final.log"
+    },
+    {
+      "test": "TestStreamFaults/wrong_identity",
+      "status": "passed",
+      "elapsed_seconds": 4.66,
+      "log": ".test-results/v041-review-engine-final.log"
+    },
+    {
+      "test": "TestStreamFaults/zero_output",
+      "status": "passed",
+      "elapsed_seconds": 4.98,
+      "log": ".test-results/v041-review-engine-final.log"
+    },
+    {
+      "test": "TestStreamFaults/missing_headers",
+      "status": "passed",
+      "elapsed_seconds": 4.92,
+      "log": ".test-results/v041-review-engine-final.log"
+    },
+    {
+      "test": "TestStreamFaults",
+      "status": "passed",
+      "elapsed_seconds": 49.48,
+      "log": ".test-results/v041-review-engine-final.log"
+    },
+    {
+      "test": "TestRealtimeStreams",
+      "status": "passed",
+      "elapsed_seconds": 5.53,
+      "log": ".test-results/v041-review-engine-final.log"
+    },
+    {
+      "test": "TestReliableStreamRecovery",
+      "status": "passed",
+      "elapsed_seconds": 8.03,
+      "log": ".test-results/v041-review-engine-final.log"
+    },
+    {
+      "test": "TestStreamWorkerRestart",
+      "status": "passed",
+      "elapsed_seconds": 23.74,
+      "log": ".test-results/v041-review-engine-final.log"
+    },
+    {
+      "test": "TestStreamAmbiguousSubmissionCancellation",
+      "status": "passed",
+      "elapsed_seconds": 1.14,
+      "log": ".test-results/v041-review-engine-final.log"
+    },
+    {
+      "test": "TestMinIOCodec",
+      "status": "passed",
+      "elapsed_seconds": 17.26,
+      "log": ".test-results/v041-review-codec.log"
+    }
+  ],
+  "engine_evidence": [
+    {
+      "path": ".test-results/wego_log_drain_1791857432393215000_logging.json",
+      "sha256": "8c5631e67406c4a3bb3416e39a72387ecc2aad270b202ef1fb70b11497a734f2",
+      "server_version": null,
+      "cleanup": "explicit GracefulStop completed; workflow definitions deleted"
+    },
+    {
+      "path": ".test-results/v6-native-paths-1791857454661299000.json",
+      "sha256": "29472ecafe1a6e427c56a6998fd8fc86ac9c8b0783a8992ee9e701119e8b7ae2",
+      "server_version": "v0.110.5",
+      "cleanup": "scoped workflows and webhook deleted; worker and connections closed; run history retained"
+    },
+    {
+      "path": ".test-results/v6-console-1791857545487843000.json",
+      "sha256": "8c9cdaaa966ebf4438d242b7375853e705d5e334ac5e0faca4f6b86a9fe20f6f",
+      "server_version": "v0.110.5",
+      "cleanup": "workflow and triggers removed; run history retained"
+    },
+    {
+      "path": ".test-results/v6-native-stream-1791857548840794000.json",
+      "sha256": "43eed87b3c2127c5ca7b1ec71542d0465bdcb038c758b859a38c40c82e44c496",
+      "server_version": "v0.110.5",
+      "cleanup": "isolated workflow deleted; run history retained"
+    },
+    {
+      "path": ".test-results/v6-native-stream-1791857553861381000.json",
+      "sha256": "f3912d3b9d45e512b3f3bd726e4ca2d4bcd759ead52644ad3f635ddccb550db1",
+      "server_version": "v0.110.5",
+      "cleanup": "isolated workflow deleted; run history retained"
+    },
+    {
+      "path": ".test-results/v6-native-stream-1791857558566032000.json",
+      "sha256": "4415414b7f82a0ce6033d77752d07d0e62b6353701c777e3e05c79755b1442db",
+      "server_version": "v0.110.5",
+      "cleanup": "isolated workflow deleted; run history retained"
+    },
+    {
+      "path": ".test-results/v6-native-stream-1791857563767230000.json",
+      "sha256": "ce11fe4f711c5b65ea577867c9b57045807813da9d5e384063a89be341bd76c9",
+      "server_version": "v0.110.5",
+      "cleanup": "isolated workflow deleted; run history retained"
+    },
+    {
+      "path": ".test-results/v6-native-stream-1791857569674337000.json",
+      "sha256": "f69beaf804d312f8d07a61138648fcbcf88941298894e625da3f2c440cac1114",
+      "server_version": "v0.110.5",
+      "cleanup": "isolated workflow deleted; run history retained"
+    },
+    {
+      "path": ".test-results/v6-native-stream-1791857573844245000.json",
+      "sha256": "3d436261146db44e31e3691bce598d57bd16aea28dc515b000eb82e9dc36c901",
+      "server_version": "v0.110.5",
+      "cleanup": "isolated workflow deleted; run history retained"
+    },
+    {
+      "path": ".test-results/stream-faults-1791857623458262000.json",
+      "sha256": "635c1347d55df5a568cf139d241ac390b3bfa764a0c3a9719fca216f5ca51358",
+      "server_version": null,
+      "cleanup": "all scenario workers and connections closed; definitions deleted; run and topic history retained"
+    },
+    {
+      "path": ".test-results/stream-realtime-1791857628992878000.json",
+      "sha256": "2c43af6a037e93da0357165b784a7ea73191c2690ba0011417bd9947783825d6",
+      "server_version": "v0.110.5",
+      "cleanup": "workers and connections stopped; definitions deleted; run history retained"
+    },
+    {
+      "path": ".test-results/stream-recovery-1791857637025546000.json",
+      "sha256": "a37725fb55d5409a3f871c371046630301f35178ebc7b24fb6574054f59fd784",
+      "server_version": "v0.110.5",
+      "cleanup": "workers and connections stopped; definitions deleted; run/topic history retained"
+    },
+    {
+      "path": ".test-results/stream-restart-1791857660721565000.json",
+      "sha256": "125a89266b8d2df240e4321c2a281eb226acddea964eb39f8c798d53ccf24d83",
+      "server_version": "v0.110.5",
+      "cleanup": "processes stopped; definitions deleted; run and topic history retained"
+    },
+    {
+      "path": ".test-results/stream-submission-1791857661904112000.json",
+      "sha256": "93938397ed75103c36ec8f7e270ccc90b5ce025dc0ab55fb749f8e1f61d57f79",
+      "server_version": "v0.110.5",
+      "cleanup": "workers and connections stopped; definitions deleted; run/topic history retained"
+    },
+    {
+      "path": ".test-results/minio-codec-1791857479491543000.json",
+      "sha256": "aa2b38bbee06ee8a72278d39f313143c5b0f04c8bc816ab085c85f5e4dccea4d",
+      "server_version": "v0.110.5",
+      "cleanup": "workers and connections stopped; definitions and standalone probe deleted; referenced S3 objects retained with run/topic history"
+    }
+  ],
+  "quality": {
+    "coverage": {
+      "raw": {
+        "statements": 11230,
+        "covered": 4455,
+        "percent": 39.671
+      },
+      "production": {
+        "statements": 7451,
+        "covered": 4319,
+        "percent": 57.965
+      },
+      "packages": {
+        ".": {
+          "statements": 2,
+          "covered": 0,
+          "percent": 0.0
+        },
+        "client": {
+          "statements": 14,
+          "covered": 0,
+          "percent": 0.0
+        },
+        "internal/backend": {
+          "statements": 2905,
+          "covered": 1710,
+          "percent": 58.864
+        },
+        "internal/binding": {
+          "statements": 35,
+          "covered": 14,
+          "percent": 40.0
+        },
+        "internal/callctx": {
+          "statements": 16,
+          "covered": 0,
+          "percent": 0.0
+        },
+        "internal/client": {
+          "statements": 330,
+          "covered": 153,
+          "percent": 46.364
+        },
+        "internal/engine": {
+          "statements": 187,
+          "covered": 122,
+          "percent": 65.241
+        },
+        "internal/features": {
+          "statements": 171,
+          "covered": 73,
+          "percent": 42.69
+        },
+        "internal/logging": {
+          "statements": 132,
+          "covered": 0,
+          "percent": 0.0
+        },
+        "internal/message": {
+          "statements": 111,
+          "covered": 95,
+          "percent": 85.586
+        },
+        "internal/ports": {
+          "statements": 9,
+          "covered": 0,
+          "percent": 0.0
+        },
+        "internal/rpc": {
+          "statements": 1405,
+          "covered": 772,
+          "percent": 54.947
+        },
+        "internal/spec": {
+          "statements": 339,
+          "covered": 186,
+          "percent": 54.867
+        },
+        "internal/stream": {
+          "statements": 390,
+          "covered": 329,
+          "percent": 84.359
+        },
+        "internal/telemetry": {
+          "statements": 77,
+          "covered": 47,
+          "percent": 61.039
+        },
+        "internal/wire": {
+          "statements": 691,
+          "covered": 516,
+          "percent": 74.674
+        },
+        "log": {
+          "statements": 17,
+          "covered": 13,
+          "percent": 76.471
+        },
+        "middleware": {
+          "statements": 5,
+          "covered": 0,
+          "percent": 0.0
+        },
+        "model": {
+          "statements": 37,
+          "covered": 14,
+          "percent": 37.838
+        },
+        "option": {
+          "statements": 1,
+          "covered": 0,
+          "percent": 0.0
+        },
+        "runtime": {
+          "statements": 92,
+          "covered": 10,
+          "percent": 10.87
+        },
+        "server": {
+          "statements": 345,
+          "covered": 257,
+          "percent": 74.493
+        },
+        "task": {
+          "statements": 120,
+          "covered": 0,
+          "percent": 0.0
+        },
+        "worker": {
+          "statements": 20,
+          "covered": 8,
+          "percent": 40.0
+        }
+      },
+      "excluded_files": [
+        "examples/batch_assign/main.go",
+        "examples/child-workflows/main.go",
+        "examples/codec/main.go",
+        "examples/codec/payload/s3.go",
+        "examples/codec/payload/transforms.go",
+        "examples/concurrency/main.go",
+        "examples/cron/main.go",
+        "examples/dual-entry/main.go",
+        "examples/durable/event/main.go",
+        "examples/durable/eviction/main.go",
+        "examples/durable/eviction/trigger/main.go",
+        "examples/durable/sleep/main.go",
+        "examples/events/main.go",
+        "examples/grpc-streams/main.go",
+        "examples/idempotency/worker.go",
+        "examples/internal/exampleutil/config.go",
+        "examples/logs_test/main.go",
+        "examples/middleware/main.go",
+        "examples/migration-guides/mergent/main.go",
+        "examples/migration-guides/temporal/main.go",
+        "examples/on-event/main.go",
+        "examples/opentelemetry_instrumentation/main.go",
+        "examples/panic-handler/main.go",
+        "examples/proto/demo.pb.go",
+        "examples/proto/demo_grpc.pb.go",
+        "examples/rate-limiting/main.go",
+        "examples/retries/main.go",
+        "examples/runtime-affinity/main.go",
+        "examples/scenarios/affinity.go",
+        "examples/scenarios/basic.go",
+        "examples/scenarios/batch.go",
+        "examples/scenarios/children.go",
+        "examples/scenarios/dual_entry.go",
+        "examples/scenarios/durable.go",
+        "examples/scenarios/durable_sleep.go",
+        "examples/scenarios/events.go",
+        "examples/scenarios/filters.go",
+        "examples/scenarios/grpc_streams.go",
+        "examples/scenarios/harness.go",
+        "examples/scenarios/idempotency.go",
+        "examples/scenarios/logs.go",
+        "examples/scenarios/mergent.go",
+        "examples/scenarios/middleware.go",
+        "examples/scenarios/minio_codec.go",
+        "examples/scenarios/names.go",
+        "examples/scenarios/observability.go",
+        "examples/scenarios/panic.go",
+        "examples/scenarios/policies.go",
+        "examples/scenarios/retries.go",
+        "examples/scenarios/routing.go",
+        "examples/scenarios/shutdown.go",
+        "examples/scenarios/streaming.go",
+        "examples/scenarios/temporal.go",
+        "examples/scenarios/temporal_handlers.go",
+        "examples/scenarios/triggers.go",
+        "examples/scenarios/webhooks.go",
+        "examples/sdk-migration/main.go",
+        "examples/sdk-migration/v1/main.go",
+        "examples/shutdown/main.go",
+        "examples/simple/main.go",
+        "examples/slot-cost/main.go",
+        "examples/sticky-workers/main.go",
+        "examples/streaming/main.go",
+        "examples/stubs/stub-workflow.go",
+        "examples/support/server.go",
+        "examples/webhooks/main.go",
+        "internal/wire/stream.pb.go",
+        "scripts/manifest/main.go",
+        "tests/e2e/fixtures/durable-worker/main.go",
+        "tests/e2e/fixtures/stream-worker/main.go",
+        "tests/feature/worker/main.go"
+      ]
+    },
+    "complexity": {
+      "internal/rpc:ResumeStream": 54,
+      "internal/rpc:StreamDefinition": 47,
+      "internal/backend:(*Backend).Feature": 45,
+      "internal/backend:(*Backend).callFeature": 45,
+      "internal/rpc:(*taskClientStream).RecvMsg": 41,
+      "internal/backend:(*Backend).Worker": 40,
+      "internal/backend:(*Backend).featureCall": 39,
+      "internal/client:validateWorkerRuntime": 30,
+      "internal/backend:(*Backend).submit": 28,
+      "internal/backend:(*Backend).await": 28,
+      "internal/backend:(*workerEvents).accept": 26,
+      "internal/rpc:(*taskClientStream).accept": 24,
+      "server:(*Server).RegisterService": 23,
+      "internal/backend:(*nativeWorker).evictEligible": 23,
+      "internal/backend:(*workerEvents).listen": 21,
+      "internal/backend:(*worker).Close": 21,
+      "internal/spec:(*StreamOptions).Validate": 20,
+      "internal/rpc:Invoke": 20,
+      "internal/backend:Normalize": 20,
+      "internal/stream:(*History).Next": 19,
+      "internal/spec:(*Runtime).StreamOptionsFor": 19,
+      "internal/stream:Claim": 18,
+      "internal/spec:Merge": 18,
+      "internal/rpc:(*taskClientStream).submit": 18,
+      "internal/backend:(*gatedRunner).execute": 18,
+      "internal/spec:(*Runtime).Validate": 17,
+      "internal/rpc:streamRequests": 17,
+      "internal/rpc:(*taskClientStream).observeOutput": 17,
+      "internal/rpc:(*taskClientStream).SendMsg": 17,
+      "internal/backend:(*Backend).persistedResult": 17,
+      "internal/stream:(*History).scan": 16,
+      "internal/backend:(*Backend).publishWorkerEvent": 16,
+      "internal/backend:(*execution).submitChildren": 16,
+      "internal/backend:taskDefinition": 16
+    },
+    "failures": [],
+    "manual_test_packages": [
+      "github.com/hatchet-dev/hatchet/sdks/wego/tests/feature/client"
+    ]
+  },
+  "not_rerun": [
+    "complete 28 official source files / 74 fragments acceptance",
+    "embedded independent-process acceptance"
+  ]
+}

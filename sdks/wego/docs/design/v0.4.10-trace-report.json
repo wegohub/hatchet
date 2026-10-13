@@ -1,0 +1,61 @@
+{
+  "sdk_version": "0.4.10",
+  "protocol_version": 6,
+  "hatchet_version": "v0.110.5",
+  "checks": {
+    "unit": "passed",
+    "vet": "passed",
+    "race_backend_wire_rpc_quality": "passed",
+    "console_trace_e2e": "6 scenarios passed",
+    "upstream_boundary": "passed"
+  },
+  "assertions": [
+    "Console trace API includes handler SERVER span and workflow_run, queued, start_step_run spans with the same TraceID",
+    "handler has a nonempty parent span",
+    "submission writes official traceparent/tracestate; input trace does not replace execution parent"
+  ],
+  "records": [
+    {
+      "scenario": "unary",
+      "run_id": "f94652de-14e5-47a1-8c67-98c8052fcb05",
+      "trace_id": "037a28c3167c6c50b72450f4ff2eaac9",
+      "spans": 5
+    },
+    {
+      "scenario": "reliable",
+      "run_id": "fe3250ad-a1d8-4e1f-8a45-fab896ace396",
+      "trace_id": "31da2863293e1e3e05b0b3394dd35fbc",
+      "spans": 5
+    },
+    {
+      "scenario": "run_no_parent",
+      "run_id": "9c61d91c-6ed1-4964-b8f7-c4787cce1883",
+      "trace_id": "34a7fcbf10431314aae6de7279b6a84b",
+      "spans": 5
+    },
+    {
+      "scenario": "console",
+      "run_id": "bf8d29d1-8c60-4398-8dd8-9dad22336cc2",
+      "trace_id": "15f4aa890c2d565f7066d2385d0d0a1d",
+      "spans": 4
+    },
+    {
+      "scenario": "event",
+      "run_id": "7852ca42-c57e-458e-9857-d691d132db43",
+      "trace_id": "d811c5ea7f2bd371c8785160f47beb3d",
+      "spans": 5
+    },
+    {
+      "scenario": "event_reliable",
+      "run_id": "0ee42723-9994-4ca2-869d-939900735627",
+      "trace_id": "fcdd7cec5db2bb9e178e229293a38a6f",
+      "spans": 5
+    }
+  ],
+  "cleanup": {
+    "isolated_workflows_and_triggers": "removed by Harness.Close",
+    "test_run_history": "retained",
+    "existing_workers": "not restarted"
+  },
+  "e2e_command": "GOWORK=off go test -tags=e2e ./tests/e2e/... -run ^TestConsoleTraceLinkage$ -count=1 -v -timeout 4m"
+}
