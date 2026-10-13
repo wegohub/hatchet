@@ -124,6 +124,7 @@ func build(repo string) (manifest, error) {
 		Protocol: wire.Version,
 		ExtraScenarios: []string{
 			"grpc-streams",
+			"protocol-v6-native",
 			"stream-faults",
 			"shutdown",
 			"middleware",
@@ -143,6 +144,9 @@ func build(repo string) (manifest, error) {
 		},
 	}
 	m.ExtraTests = map[string]string{
+		"protocol-v6-native":     "TestProtocolV6ConsoleUnaryScheduledCron|TestProtocolV6NativeStreaming|TestProtocolV6NativeBusinessPaths",
+		"rpc-realtime-events":    "TestRPCRealtimeEvents",
+		"rpc-events-codec-ids":   "TestRPCEventsCodecIDs",
 		"disabled-methods":       "TestDisabledWorkerMethods",
 		"dual-entry":             "TestExamples/dual-entry",
 		"logging-shutdown":       "TestLoggingShutdown",
@@ -153,7 +157,7 @@ func build(repo string) (manifest, error) {
 		"worker-events":          "TestWorkerEvents",
 		"stream-submission":      "TestStreamAmbiguousSubmissionCancellation",
 		"stream-realtime":        "TestRealtimeStreams",
-		"result-cancel":          "TestResultCancellationCancelsSharedRun",
+		"result-cancel":          "TestResultCancellationIsObservationOnly",
 		"shutdown":               "TestExamples/shutdown",
 		"middleware":             "TestExamples/middleware",
 		"minio-codec":            "TestMinIOCodec",

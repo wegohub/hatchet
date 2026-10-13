@@ -89,6 +89,7 @@ func Cron(ctx context.Context, report *Report) (err error) {
 		model.CreateCronTrigger{
 			Name:       h.Namespace + "minute",
 			Expression: "* * * * *",
+			Priority:   3, // 最高调度优先级，可直接配置 int32 值。
 			Input:      routedInput(&pb.Request{Message: "minute"}),
 		},
 	); err != nil {
@@ -118,9 +119,9 @@ func scheduleOnce(ctx context.Context, h *Harness, called <-chan *pb.Reply) (err
 		pb.UnaryGreeter_SayHello_FullMethodName,
 		model.CreateScheduledRunTrigger{
 			TriggerAt: time.Now().Add(3 * time.Second),
-			Input: model.RPCInput{
-				Method:  pb.UnaryGreeter_SayHello_FullMethodName,
-				Message: &pb.Request{Message: "scheduled"},
+			Priority:  2, // 中等调度优先级；省略或填 0 使用服务端默认值。
+			Input: model.Input{
+				Value: &pb.Request{Message: "scheduled"},
 			},
 			AdditionalMetadata: map[string]any{"acceptance": h.Namespace},
 		},

@@ -13,7 +13,7 @@ import (
 	"github.com/hatchet-dev/hatchet/sdks/wego/worker"
 )
 
-// Events 验证 Event 用 RPCInput 触发 protobuf handler
+// Events 验证 Event 用统一封包触发 protobuf handler
 func Events(ctx context.Context, report *Report) (err error) {
 	// observed 创建协调通知通道；等待方通过它确认步骤已经发生，而不靠固定 sleep 猜测时序
 	observed := make(chan *pb.Reply, 2)
@@ -36,9 +36,8 @@ func Events(ctx context.Context, report *Report) (err error) {
 		err = errors.Join(err, h.Close())
 	}()
 
-	if err = h.Conn.Events().Push(ctx, "event:create", model.RPCInput{
-		Method:  pb.UnaryGreeter_SayHello_FullMethodName,
-		Message: &pb.Request{Message: "event"},
+	if err = h.Conn.Events().Push(ctx, "event:create", model.Input{
+		Value: &pb.Request{Message: "event"},
 	}); err != nil {
 		return err
 	}

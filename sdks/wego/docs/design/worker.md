@@ -9,7 +9,7 @@
 ### Runtime：连接与实例配置
 
 ```go
-// 两端保持 namespace、routing 默认值、流模式和 codec 一致。
+// 两端保持 namespace、routing 默认值及流模式一致，分别注册接收消息需要的 CodecID。
 // 每个 Server / Conn 独立拥有资源，复用配置不代表共享底层连接。
 cfg := []runtime.Option{
 	runtime.WithToken(os.Getenv("HATCHET_CLIENT_TOKEN")), // 租户访问令牌，不写入日志。
@@ -49,6 +49,11 @@ cfg := []runtime.Option{
 		Timeout: 30 * time.Second,         // 默认 30 秒；强制停止仍有独立资源清理预算。
 	}),
 	runtime.WithResultPollInterval(time.Second), // 取消状态辅助查询间隔，默认 1 秒；不是等待超时。
+	runtime.WithPayloadLimits(runtime.PayloadLimits{ // 所有任务共用，下载和解压过程中也检查上限。
+		MaxMessageBytes: 1 << 20, MaxEncodedBytes: 4 << 20,
+		EncodeTimeout: 10*time.Second, DecodeTimeout: 10*time.Second,
+	}),
+	runtime.WithEventRoutingDefaults("greeting:create", map[string]any{"group": "default", "skip": false}), // 多目标事件不采用某个 RPC 的默认值。
 	runtime.WithBackendMessageLimit(4 << 20),    // 完整后端 RPC 预算，默认 4 MiB；不能提高服务端上限。
 
 	runtime.WithRoutingDefaults(pb.Greeter_SayHello_FullMethodName, map[string]any{
@@ -119,23 +124,34 @@ cfg = append(cfg,
 )
 ```
 
-上面流及通知预算为当前默认值；方法级与通知配置的零值字段继承默认值，负值会被拒绝。两端保持模式、提交 TTL 和 codec 一致，各端分别执行资源预算；完整后端请求还受 `WithBackendMessageLimit` 和服务端限制约束。CLAIM、DATA、headers、结束帧及通知控制帧都经过完整帧 codec。
+上面流及通知预算为当前默认值；方法级与通知配置的零值字段继承默认值，负值会被拒绝。两端保持模式、提交 TTL 一致，并分别注册接收消息所需的 codec 组件，各端分别执行资源预算；完整后端请求还受 `WithBackendMessageLimit` 和服务端限制约束。CLAIM、DATA、headers、结束帧及通知控制帧都经过完整帧 codec。
 
 ### Middleware：拦截器与载荷 codec
 
 ```go
 // 四个 interceptor 是业务提供的标准 gRPC 拦截器。
-// payloadCodec 是已初始化的 middleware.FramedPayload，例如 gzip + AES-GCM + S3 卸载。
+// encrypted、objects 是已初始化的 AES-GCM 和 S3 组件，payload 来自示例组件包。
+gzipCodec, err := payload.NewGzip(payload.WithThreshold(256 << 10))
+if err != nil {
+    return err
+}
 cfg = append(cfg, runtime.WithMiddleware(
 	middleware.WithUnaryServer(unaryServer),   // Worker unary handler 拦截器。
 	middleware.WithUnaryClient(unaryClient),   // wego Conn unary 调用拦截器。
 	middleware.WithStreamServer(streamServer), // Worker 流 handler 拦截器。
 	middleware.WithStreamClient(streamClient), // wego Conn 流调用拦截器。
-	middleware.WithPayload(payloadCodec),      // 业务输入及完整协议帧变换，routing 保持 JSON 可读。
+	middleware.WithPayload(objects),          // 注册 S3 下载与上传能力。
+	middleware.WithPayload(gzipCodec),  // 注册压缩与有界解压能力。
+	middleware.WithPayload(encrypted),        // 注册 AES-GCM 加密与认证解密能力。
+), runtime.WithEncodingCodecs( // 可选：显式选择发送顺序；省略时使用组件注册顺序。
+	payload.GzipCodecID,
+	payload.AESGCMCodecID,
+	payload.S3ObjectCodecID,
 ))
+// runtime.WithEncodingCodecs() 表示发送无变换，保留已注册的解码能力。
 ```
 
-编码按注册顺序，解码按反序。流及 Worker 通知要求 codec 实现稳定 `CodecID` 与有界 `DecodeLimit`，支持并发调用，I/O 尊重 context。可运行实现见 [codec 示例](../../examples/codec)。网络入口通过 `server.WithGRPC` 的原生选项配置 interceptor / codec。
+注册顺序只决定默认编码顺序；解码依据消息记录的 CodecID，逆序查找组件。接收端可注册额外组件。所有任务及 Worker 通知要求 codec 实现稳定 `CodecID` 与有界 `DecodeLimit`，支持并发调用，I/O 尊重 context。可运行实现见 [codec 示例](../../examples/codec)。网络入口通过 `server.WithGRPC` 的原生选项配置 interceptor / codec。
 
 ### Server / Worker：注册与任务策略
 
@@ -162,7 +178,7 @@ srv := wego.NewServer(
 			task.WithConcurrency(task.Concurrency{
 				Expression:     "input.routing.group",      // group-a / group-b 各自分组。
 				MaxRuns:        ptr(int32(2)),              // 同组最多两次同时执行。
-				LimitStrategy:  ptr(model.GroupRoundRobin), // 分组轮转，也可选排队 / 取消 / 丢弃。
+				LimitStrategy:  model.GroupRoundRobin,      // 分组轮转；空值使用服务端默认策略。
 				Name:           "group-budget",             // 并发约束名称。
 				IsTenantScoped: false,                      // true 在租户内共享同名约束。
 				// MaxRunsExpression: ptr("input.routing.max_runs"), // 动态上限，替代固定 MaxRuns。
@@ -171,13 +187,12 @@ srv := wego.NewServer(
 				KeyExpr:        ptr("input.routing.group"), // 各 group 使用独立限流键。
 				UnitsExpr:      ptr("input.routing.cost"),  // cost=3 消耗三单位额度。
 				LimitValueExpr: ptr("10"),                  // 每周期最多十单位。
-				Duration:       ptr(model.Minute),          // 也可选 Second / Hour / Day 等周期。
+				Duration:       model.Minute,             // 显式周期；空值不覆盖后端周期配置。
 				// 静态替代：RateLimit{Key: "api-budget", Units: ptr(1)}，先创建同名限流资源。
 			}),
 			task.WithCron("* * * * *"), // 每分钟触发；不需要时省略，避免自动执行。
-			task.WithCronInput(model.RPCInput{
-				Method:  pb.Greeter_SayHello_FullMethodName, // Cron / Schedule / Event 的 RPC 目标。
-				Message: &pb.Request{Message: "scheduled"},  // protobuf 请求。
+			task.WithCronInput(model.Input{
+				Value: &pb.Request{Message: "scheduled"}, // 目标由注册方法确定，普通任务同样使用 Input。
 				Routing: map[string]any{"group": "scheduled", "cost": 1, "skip": false},
 			}),
 			task.WithEvents("greeting:create"), // 事件键触发；流输入由流客户端封包提交。
@@ -229,6 +244,8 @@ dedup := task.WithIdempotencyTTL("input.routing.id", false, 24*time.Hour)
 
 ### Client：连接与单次调用
 
+`WithRunKey`、`WithRunSticky`、`WithRunPriority`、`WithRunMetadata`、`WithDesiredWorkerLabels` 与官方 Go SDK 同名，用于所有 Run 入口；生成客户端通过 WithRunOptions 使用同一组配置。WithRouting 提供普通任务与 RPC 共用的 CEL 数据，WithStreamIdempotencyKey 仅控制流提交。普通任务通过 task.WithIdempotency 配置定义级幂等策略。
+
 ```go
 conn, err := client.New(client.WithRuntime(cfg...)) // 连接只配置 Runtime，先处理初始化错误。
 if err != nil {
@@ -237,15 +254,8 @@ if err != nil {
 defer conn.Close() // 按 WithShutdown 关闭；task.Client 借用连接禁止关闭共享资源。
 rpc := pb.NewGreeterClient(conn)
 
-ctx = client.WithRouting(ctx, map[string]any{
-	"group": "group-a", "cost": 2, // 顶层覆盖默认值；一次输入流只有一份 routing。
-})
-out, err := rpc.SayHello(ctx, &pb.Request{Message: "hello"})
-// 流调用另可设置提交幂等键，业务在提交前保存 operationKey：
-streamCtx := client.WithIdempotencyKey(ctx, operationKey)
-watch, err := rpc.WatchHellos(streamCtx, &pb.Request{Count: 3})
-
 runOpts := []client.RunOption{
+	client.WithRouting(map[string]any{"group": "group-a", "cost": 2}), // 顶层覆盖默认值。
 	client.WithRunPriority(1),                                  // 本次提交优先级，不改变定义策略。
 	client.WithRunMetadata(map[string]string{"source": "api"}), // 运行级 metadata，区别于 gRPC metadata。
 	client.WithDesiredWorkerLabels(map[string]*model.DesiredWorkerLabel{
@@ -253,24 +263,39 @@ runOpts := []client.RunOption{
 			Value:      "local",               // 与 Worker 标签比较。
 			Required:   true,                  // 硬亲和，不回退到不匹配的 Worker。
 			Weight:     1,                     // 软亲和时用于匹配排序。
-			Comparator: ptr(model.LabelEqual), // 可选不等于 / 大于 / 小于等比较。
+			Comparator: model.LabelEqual, // 零值就是相等；可直接填写其他比较常量。
 		},
 	}),
 	// 父任务 / durable 子调用按需使用，顶层提交通常省略：
 	// client.WithRunKey("child-greet"), // 稳定 child key，不是提交幂等键。
 	// client.WithRunSticky(true),       // 请求留在父 Worker，配合定义级 Sticky 策略。
 }
+out, err := rpc.SayHello(ctx, &pb.Request{Message: "hello"}, client.WithRunOptions(runOpts...))
+// 流幂等 key 由业务提前保存；不改变普通任务的定义级幂等策略。
+streamOpts := append(append([]client.RunOption(nil), runOpts...), client.WithStreamIdempotencyKey(operationKey))
+watch, err := rpc.WatchHellos(ctx, &pb.Request{Count: 3}, client.WithRunOptions(streamOpts...))
+
 ref, err := conn.RunNoWait(ctx, pb.Greeter_SayHello_FullMethodName, request, runOpts...)
 if err != nil {
 	return err
 }
-result, err := ref.Result(ctx) // 取消等待也请求取消共享运行，其他观察者会受影响。
+result, err := ref.Result(ctx) // 只取消当前等待；终止运行需调用 ref.Cancel(ctx)。
 if err != nil {
 	return err
 }
 err = result.Into(&pb.Reply{})
 // Run 使用同一组 RunOption；RunMany 每项通过 RunManyInput.Options 配置。
 // 同一 conn 还提供 Crons、Schedules、Events、Filters、Runs 等管理入口。
+
+// 触发器优先级直接使用 int32；0 或省略表示未指定，1–3 为有效值。
+cron, err := conn.Crons().Create(ctx, pb.Greeter_SayHello_FullMethodName, model.CreateCronTrigger{
+	Name: "daily-greet", Expression: "0 9 * * *", Input: request,
+	Priority: 3, // 最高优先级；只影响由此 Cron 触发的运行。
+})
+scheduled, err := conn.Schedules().Create(ctx, pb.Greeter_SayHello_FullMethodName, model.CreateScheduledRunTrigger{
+	TriggerAt: time.Now().Add(5*time.Minute), Input: request,
+	Priority: 0, // 不发送 priority 字段，使用服务端默认优先级。
+})
 ```
 
 ### 原生 JSON / batch Worker 的替代注册
@@ -326,7 +351,9 @@ embeddedCfg := []runtime.Option{
 // 每个实例拥有自己的引擎，不能同时争用上述端口；CI 明确设置 SERVER_SECURITY_CHECK_ENABLED=false。
 ```
 
-客户端和 Worker 同时使用协议 4。业务输入使用 ProtoJSON；routing 独立于 codec，CEL 使用 `input.routing.group`。Cron / Schedule / Event 使用 `model.RPCInput{Method: fullMethod, Message: request, Routing: fields}`。
+客户端和 Worker 同时使用协议 6。SDK 输入为 `_wego/value/routing`；protobuf 使用 ProtoJSON，普通值使用 JSON，无 codec 时默认可读，不安全数字改用 base64。codec 仅变换 value；routing 明文供 CEL 使用，Filter 使用 `payload.routing.*`。Cron / Schedule / Event 使用 `model.Input{Value: request, Routing: fields}`。目标与类型由持久注册绑定确定。
+
+Console／官方 SDK 可以直接提交业务对象；含 `_wego` 时必须提供合法版本和 value，response 缺省 native。原生响应不使用输出 codec，原生 server/bidi 使用 PutStream 发布业务 ProtoJSON，成功结果仅包含 sent_messages；所有流仍要求 `_wego.idempotency_key`。完整示例见 [协议与迁移](v0.4.0.md)。
 
 Worker 默认名称：`<namespace>-<hostname>-<随机 worker_key 前12位>`；空 namespace 省略前段。workflow：`<namespace>-<完整 protobuf 服务名>-<方法名>`。同方法的副本共享定义，停止 Worker 不自动暂停或删除定义。
 
@@ -439,24 +466,24 @@ flowchart LR
     S --> R
 ```
 
-server/bidi 默认 Reliable，需实例启用 Durable Streams。`runtime.WithStreamMode(fullMethod, runtime.Realtime)` 改用 PutStream；实时模式不支持历史恢复。所有输出及控制帧统一经过 codec，自定义流 codec 必须实现 `middleware.FramedPayload`。默认单条业务 1 MiB、输入总量 4 MiB、预取 64 条/4 MiB；`WithStreamOptions` 按方法调整。
+server/bidi 默认 Reliable，需实例启用 Durable Streams。`runtime.WithStreamMode(fullMethod, runtime.Realtime)` 改用 PutStream；实时模式不支持历史恢复。wego 调用的所有输出及控制帧经过 codec，自定义 payload codec 必须实现 `middleware.Payload`。默认单条业务 1 MiB、输入总量 4 MiB、预取 64 条/4 MiB；`WithStreamOptions` 按方法调整。
 
-输入流只有一次提交，不参加 durable eviction/replay。恢复已有运行不重新提交输入；业务在提交前保存幂等键，在成功消费后保存 checkpoint。
+输入流只有一次提交，不参加 durable eviction/replay。恢复已有运行不重新提交输入；业务在提交前保存流幂等键，在成功消费后保存恢复凭证。Client 使用 `StreamResumeToken`，Worker 使用 `task.Checkpoint`；例如已发布 100 条、已消费 60 条时，两端分别恢复到 101 和 61。
 
 ```go
-ctx = client.WithIdempotencyKey(ctx, operationKey)
-watch, err := rpc.WatchHellos(ctx, request)
+watch, err := rpc.WatchHellos(ctx, request,
+    client.WithRunOptions(client.WithStreamIdempotencyKey(operationKey)))
 out, err := watch.Recv()
-checkpoint, err := client.StreamCheckpoint(watch.Context())
-// 业务处理 out 后持久保存 checkpoint，例如 json.Marshal(checkpoint)。
+resumeToken, err := client.StreamResumeToken(watch.Context())
+// 业务处理 out 后持久保存 resumeToken，例如 json.Marshal(resumeToken)。
 
-resumed, err := conn.ResumeStream(ctx, checkpoint)
+resumed, err := conn.ResumeStream(ctx, resumeToken)
 for {
     var out pb.Reply
     err := resumed.RecvMsg(&out)
     if err == io.EOF { break }
     if err != nil { return err }
-    // 处理下一条输出，再保存新的消费 checkpoint。
+    // 处理下一条输出，再读取并保存新的消费恢复凭证。
 }
 ```
 
@@ -538,3 +565,32 @@ logger.Info("请求完成", "id", "r-1")             // 支持标准 slog 方法
 R 系列在普通/网络 context 中返回 ErrTaskContext，任务关闭上报时返回 ErrLogReportDisabled；两者仍按等级打印。被等级过滤时两个出口均不执行。上报默认预算 5 秒，不自动重试；本地打印与上报失败合并返回。共用属性请放在 log.With 或 R 参数中，外部 Handler 的私有属性无法反向读取。
 
 Trace provider 属于实例，不替换全局 provider；metrics 默认关闭。可运行示例与断言：[examples/scenarios](../../examples/scenarios)、[验收清单](../../examples/acceptance.json)、[module.md](module.md)。
+
+### RPC 默认事件
+
+每个启用 RPC 的事件集合为自定义事件加完整方法名，按实际 namespace key 去重。禁用方法和纯网络入口不注册。
+
+```go
+err := conn.Events().Push(ctx, pb.Greeter_SayHello_FullMethodName, model.Input{
+    Value: &pb.Request{Message: "hello"}, // protobuf 由 SDK 使用 ProtoJSON 序列化。
+    Routing: map[string]any{"group": "batch-a"}, // 事件级调度字段。
+})
+// client stream / bidi 的 Value 使用 []*pb.Request；空流使用 []*pb.Request{}。
+// Push 成功仅表示发布成功；输出仍使用配置的 Reliable / Realtime wego 协议。
+```
+
+```mermaid
+flowchart LR
+    A[Events.Push] --> B[事件作用域封包与发送链]
+    B --> C[完整方法名或自定义 key]
+    C --> D[按消息 CodecID 逆序解码]
+    D --> E[注册描述校验请求]
+    E --> F[标准 gRPC handler]
+    F --> G[现有结果与流输出链路]
+```
+
+没有 `_wego` 的 JSON 整体作为业务输入；显式协议 Input 必须包含合法版本和 value。`model.Input` 的 JSON 序列化直接生成协议 6 的明文 Input，默认使用 native 响应；SDK 提交入口另外选择 wego 响应和 Runtime 编码链。
+
+压缩（gzip/zstd）与 S3 默认阈值为 256 KiB，按每一步收到的实际字节数判断，达到阈值才执行。例如原始 300 KiB 经 zstd 压缩后变为 20 KiB，后续 S3 不上传；AES 仍执行。`payload.NewZstd(payload.WithThreshold(128<<10))` 可改为 128 KiB，`payload.NewS3(ctx, config, prefix, payload.WithThreshold(0))` 强制上传。消息只记录实际执行的 CodecID，接收端阈值不影响解码。直接调用组件 Encode 不应用发送链阈值。
+
+任务追踪使用 Hatchet 官方 `traceparent` / `tracestate` 运行 metadata。Worker 接续引擎下发的父链路，输入 `_wego.trace` 只在缺少有效执行 trace 时作为后备。Console 需要服务端开启 `SERVER_OBSERVABILITY_ENABLED=true`，SDK 不修改全局 OTel provider。

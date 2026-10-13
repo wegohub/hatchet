@@ -21,7 +21,12 @@ func (r *Runtime) Clone() Runtime {
 		}
 		out.RoutingDefaults[method] = snapshot
 	}
+	out.EventRoutingDefaults = make(map[string]map[string]any, len(r.EventRoutingDefaults))
+	for key, values := range r.EventRoutingDefaults {
+		out.EventRoutingDefaults[key] = cloneRouting(values)
+	}
 	out.Middleware = slices.Clone(r.Middleware)
+	out.EncodingCodecs = slices.Clone(r.EncodingCodecs)
 	out.Telemetry.Trace.Exporters = slices.Clone(r.Telemetry.Trace.Exporters)
 	if r.TLS != nil {
 		out.TLS = r.TLS.Clone()

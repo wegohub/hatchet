@@ -20,7 +20,8 @@ def main():
     if dependency['Version'] != 'v0.110.5' or dependency.get('Replace'):
         raise RuntimeError('expected unmodified official Hatchet v0.110.5 dependency')
     subprocess.run([sys.executable, 'scripts/unit.py'], cwd=SDK, env=ENV, check=True)
-    subprocess.run(['go', 'test', '-tags=wego_embedded', './internal/backend', '-run', '^$'],
+    # 编译全部条件测试，未执行任何服务；例如 e2e 引用已删除函数时在启动引擎前失败。
+    subprocess.run(['go', 'test', '-tags=e2e,wego_embedded', './internal/backend', './tests/e2e', '-run', '^$'],
                    cwd=SDK, env=ENV, check=True)
 
 

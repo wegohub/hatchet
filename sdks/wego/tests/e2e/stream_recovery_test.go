@@ -89,8 +89,8 @@ func TestReliableStreamRecovery(t *testing.T) {
 			}
 		}
 	}()
-	operation := client.WithIdempotencyKey(ctx, "persisted-operation")
-	watch, err := pb.NewGreeterClient(harness.Conn).WatchHellos(operation, &pb.Request{Count: 4})
+	operation := client.WithRunOptions(client.WithStreamIdempotencyKey("persisted-operation"))
+	watch, err := pb.NewGreeterClient(harness.Conn).WatchHellos(ctx, &pb.Request{Count: 4}, operation)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -98,7 +98,7 @@ func TestReliableStreamRecovery(t *testing.T) {
 	if err != nil || first.Count != 0 {
 		t.Fatal(first, err)
 	}
-	cp, err := client.StreamCheckpoint(watch.Context())
+	cp, err := client.StreamResumeToken(watch.Context())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -111,7 +111,7 @@ func TestReliableStreamRecovery(t *testing.T) {
 		t.Fatal(err)
 	}
 	// saved 是经过持久化往返的自有断点
-	var saved model.StreamCheckpoint
+	var saved model.StreamResumeToken
 	if err := json.Unmarshal(serialized, &saved); err != nil {
 		t.Fatal(err)
 	}
@@ -156,7 +156,7 @@ func TestReliableStreamRecovery(t *testing.T) {
 		t.Fatal(err)
 	}
 	// 相同逻辑键和输入必须通过冲突身份复用历史，而不是产生新的逻辑任务
-	duplicate, err := pb.NewGreeterClient(resumedConn).WatchHellos(operation, &pb.Request{Count: 4})
+	duplicate, err := pb.NewGreeterClient(resumedConn).WatchHellos(ctx, &pb.Request{Count: 4}, operation)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -172,7 +172,7 @@ func TestReliableStreamRecovery(t *testing.T) {
 	if service.executions.Load() != 2 {
 		t.Fatal("resume retriggered handler")
 	}
-	_, err = pb.NewGreeterClient(resumedConn).WatchHellos(operation, &pb.Request{Count: 5})
+	_, err = pb.NewGreeterClient(resumedConn).WatchHellos(ctx, &pb.Request{Count: 5}, operation)
 	if status.Code(err) != codes.FailedPrecondition {
 		t.Fatalf("different input reused existing key: %v", err)
 	}

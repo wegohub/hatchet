@@ -64,11 +64,11 @@ service Temporal {
   rpc LoggedCharge(Request) returns(Reply);
 }
 
-// Request 示例业务请求；只有显式配置投影的字段才进入 input.routing
+// Request 示例业务请求；只有显式配置 WithRouting 的字段才进入 input.routing
 message Request {
   // message 业务文本，例如请求 "hello" 对应处理后的响应文本
   string message = 1;
-  // group_key 调度分组字段，例如 group-a 与 group-b 独立限制并发；需显式投影
+  // group_key 调度分组字段，例如 group-a 与 group-b 独立限制并发；需通过 WithRouting 提供
   string group_key = 2;
   // account 示例限流或迁移分组键，只使用受控 fixture 值
   string account = 3;
@@ -76,7 +76,7 @@ message Request {
   string tier = 4;
   // user_id 受控业务对象身份，用于子调用或事件匹配
   string user_id = 5;
-  // id 示例输入身份，可投影到 routing.id 计算幂等键
+  // id 示例输入身份，可显式放入 routing.id 计算幂等键
   string id = 6;
   // correlation_id 事件与等待任务的关联键，例如 correlation-1
   string correlation_id = 7;

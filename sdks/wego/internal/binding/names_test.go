@@ -24,3 +24,12 @@ func TestRPCNamesAndCaseIsolation(t *testing.T) {
 		t.Fatal("name silently truncated")
 	}
 }
+
+// TestNativeNameKeepsNamespaceCase 原生名称只规范业务部分，重复限定不能复制 namespace。
+func TestNativeNameKeepsNamespaceCase(t *testing.T) {
+	for _, name := range []string{"Echo", "Demo_echo"} {
+		if actual := NativeName("Demo_", name); actual != "Demo_echo" {
+			t.Fatal(actual)
+		}
+	}
+}

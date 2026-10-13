@@ -40,21 +40,21 @@ type probeCipher struct{ aead cipher.AEAD }
 func (c *probeCipher) CodecID() string { return "p0-aes-gcm-v1" }
 
 // Encode 在真实发布前为完整帧生成随机 nonce
-func (c *probeCipher) Encode(_ context.Context, method string, data []byte) ([]byte, error) {
+func (c *probeCipher) Encode(_ context.Context, data []byte) ([]byte, error) {
 	nonce := make([]byte, c.aead.NonceSize())
 	if _, err := rand.Read(nonce); err != nil {
 		return nil, err
 	}
-	return c.aead.Seal(nonce, nonce, data, []byte(method)), nil
+	return c.aead.Seal(nonce, nonce, data, nil), nil
 }
 
 // Decode 是消息 codec 接口，持久日志通过 DecodeLimit 调用
-func (c *probeCipher) Decode(ctx context.Context, method string, data []byte) ([]byte, error) {
-	return c.DecodeLimit(ctx, method, data, 4<<20)
+func (c *probeCipher) Decode(ctx context.Context, data []byte) ([]byte, error) {
+	return c.DecodeLimit(ctx, data, 4<<20)
 }
 
 // DecodeLimit 在明文分配前限制可还原长度
-func (c *probeCipher) DecodeLimit(_ context.Context, method string, data []byte, limit int) ([]byte, error) {
+func (c *probeCipher) DecodeLimit(_ context.Context, data []byte, limit int) ([]byte, error) {
 	n := c.aead.NonceSize()
 	if len(data) < n+c.aead.Overhead() {
 		return nil, errors.New("truncated encrypted frame")
@@ -62,7 +62,7 @@ func (c *probeCipher) DecodeLimit(_ context.Context, method string, data []byte,
 	if len(data)-n-c.aead.Overhead() > limit {
 		return nil, status.Error(codes.ResourceExhausted, "probe plaintext exceeds limit")
 	}
-	return c.aead.Open(nil, data[:n], data[n:], []byte(method))
+	return c.aead.Open(nil, data[:n], data[n:], nil)
 }
 
 // lostPublishResponse 在服务端已成功写入后只丢掉第一次响应，真实存储仍由官方引擎执行
@@ -112,7 +112,7 @@ func TestDurableStreamsP0Probe(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	codec, err := wire.NewFrameCodec([]middleware.Option{middleware.WithPayload(&probeCipher{aead})}, 4<<20, 4<<20)
+	codec, err := wire.NewFrameCodec(spec.Runtime{Middleware: []middleware.Option{middleware.WithPayload(&probeCipher{aead})}}, 4<<20, 4<<20)
 	if err != nil {
 		t.Fatal(err)
 	}

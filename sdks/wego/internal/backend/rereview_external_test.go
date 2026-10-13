@@ -144,7 +144,7 @@ func TestReReviewBulkCancellationRetainsAcceptedRuns(t *testing.T) {
 }
 
 // Encode 等待实际收到的预算取消，不能把测试清理当成 Stop 生效
-func (p *rereviewPayload) Encode(ctx context.Context, _ string, data []byte) ([]byte, error) {
+func (p *rereviewPayload) Encode(ctx context.Context, data []byte) ([]byte, error) {
 	close(p.entered)
 	select {
 	case <-ctx.Done():
@@ -155,7 +155,7 @@ func (p *rereviewPayload) Encode(ctx context.Context, _ string, data []byte) ([]
 }
 
 // Decode 在本次启动期测试中不改变数据
-func (p *rereviewPayload) Decode(_ context.Context, _ string, data []byte) ([]byte, error) {
+func (p *rereviewPayload) Decode(_ context.Context, data []byte) ([]byte, error) {
 	return data, nil
 }
 
@@ -217,4 +217,19 @@ func TestReReviewNormalizeSDKBulkCollision(t *testing.T) {
 	if len(collision.SuccessfulRunIDs) != 1 || collision.SuccessfulRunIDs[0] != "successful-run" || collision.Collisions[0].ExistingRunID != "existing-run" {
 		t.Fatalf("incomplete identities: %+v", collision)
 	}
+}
+
+// CodecID 为测试内存变换提供稳定格式身份。
+func (*rereviewPayload) CodecID() string { return "fixture.rereviewPayload.v1" }
+
+// DecodeLimit 复用测试变换并检查有限字节，不把成功的超限结果交给协议层。
+func (p *rereviewPayload) DecodeLimit(ctx context.Context, data []byte, limit int) ([]byte, error) {
+	out, err := p.Decode(ctx, data)
+	if err != nil {
+		return nil, err
+	}
+	if len(out) > limit {
+		return nil, fmt.Errorf("fixture decoded payload exceeds limit")
+	}
+	return out, nil
 }

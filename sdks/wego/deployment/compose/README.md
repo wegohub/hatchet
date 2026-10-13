@@ -16,7 +16,7 @@ python3 sdks/wego/scripts/setup-minio.py
 docker compose -f sdks/wego/deployment/compose/docker-compose.yml up -d --build --wait minio
 ```
 
-新部署先复制 `.env.example` 为 `.env`，填写 PostgreSQL 的 DATABASE_URL，再执行以上配置步骤。脚本仅补齐缺失/占位的 MinIO 凭证和 codec 密钥，保留已有配置，文件权限为 0600。凭证不提交；端口可通过 MINIO_API_PORT / MINIO_CONSOLE_PORT 调整。控制台登录使用私有 `.env` 中的 MINIO_ROOT_USER / MINIO_ROOT_PASSWORD。
+新部署先复制 `.env.example` 为 `.env`，填写 PostgreSQL 的 DATABASE_URL，再执行以上配置步骤。脚本仅补齐缺失/占位的 MinIO 凭证和 codec 密钥，保留已有配置，文件权限为 0600。凭证不提交；端口可通过 MINIO_API_PORT / MINIO_CONSOLE_PORT 调整。控制台默认登录为 `admin` / `12345678`，可通过私有 `.env` 中的 MINIO_ROOT_USER / MINIO_ROOT_PASSWORD 覆盖。
 
 MinIO 的最新社区发布 [RELEASE.2025-10-15T17-29-55Z](https://github.com/minio/minio/releases/tag/RELEASE.2025-10-15T17-29-55Z) 要求从官方源码构建容器。本模板固定该发布、源提交与构建基础镜像 digest，生成本地镜像 `wego-minio:RELEASE.2025-10-15T17-29-55Z`；它不是 Hatchet 或 MinIO 的第三方修改镜像。构建需要访问 Go 模块代理。
 

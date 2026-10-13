@@ -83,8 +83,12 @@ func codecChain(key []byte, objects *payload.Objects) ([]middleware.Option, erro
 	if err != nil {
 		return nil, err
 	}
+	compressed, err := payload.NewGzip(payload.WithThreshold(0))
+	if err != nil {
+		return nil, err
+	}
 	return []middleware.Option{
-		middleware.WithPayload(&payload.Gzip{}),
+		middleware.WithPayload(compressed),
 		middleware.WithPayload(encrypted),
 		middleware.WithPayload(objects),
 	}, nil
@@ -99,7 +103,7 @@ func MinIOCodec(ctx context.Context, report *Report) (err error) {
 	}
 	config := payload.ConfigFromEnv()
 	prefix := "codec-" + uuid.NewString() + "/"
-	objects, err := payload.NewS3(ctx, config, prefix)
+	objects, err := payload.NewS3(ctx, config, prefix, payload.WithThreshold(0))
 	if err != nil {
 		return err
 	}
@@ -133,7 +137,6 @@ func MinIOCodec(ctx context.Context, report *Report) (err error) {
 	for _, method := range pb.Greeter_ServiceDesc.Streams {
 		names = append(names, "/"+pb.Greeter_ServiceDesc.ServiceName+"/"+method.StreamName)
 	}
-	strategy := model.GroupRoundRobin
 	h, err := StartRegistered(ctx, "minio-codec", report, func(registrar grpc.ServiceRegistrar) {
 		pb.RegisterUnaryGreeterServer(registrar, service)
 		pb.RegisterGreeterServer(registrar, streamService)
@@ -148,7 +151,7 @@ func MinIOCodec(ctx context.Context, report *Report) (err error) {
 			}
 		}),
 	}, worker.WithTask(pb.UnaryGreeter_SayHello_FullMethodName, task.WithConcurrency(model.Concurrency{
-		Expression: "input.routing.group", MaxRuns: pointer(int32(1)), LimitStrategy: &strategy,
+		Expression: "input.routing.group", MaxRuns: pointer(int32(1)), LimitStrategy: model.GroupRoundRobin,
 	})), worker.WithTask(pb.Greeter_WatchHellos_FullMethodName, task.WithRetries(1)))
 	if err != nil {
 		return err
@@ -167,7 +170,7 @@ func MinIOCodec(ctx context.Context, report *Report) (err error) {
 		group.Add(1)
 		go func() {
 			defer group.Done()
-			out, callErr := h.RPC.SayHello(client.WithRouting(ctx, map[string]any{"group": "codec-group"}), &pb.Request{Message: text, Count: int32(i)})
+			out, callErr := h.RPC.SayHello(ctx, &pb.Request{Message: text, Count: int32(i)}, client.WithRunOptions(client.WithRouting(map[string]any{"group": "codec-group"})))
 			if callErr == nil && (out.Message != text || out.Count != int32(i) || out.RunId == "") {
 				callErr = fmt.Errorf("codec: unary payload or execution identity mismatch")
 			}
@@ -266,7 +269,7 @@ func MinIOCodec(ctx context.Context, report *Report) (err error) {
 
 // verifyCodecRecovery 分别验证 Worker 历史恢复与独立客户端断点消费，二者不共享内存输出
 func verifyCodecRecovery(ctx context.Context, h *Harness, config payload.Config, prefix string, key []byte, text string, service *codecRecoveryService) (err error) {
-	watch, err := pb.NewGreeterClient(h.Conn).WatchHellos(client.WithIdempotencyKey(ctx, "codec-recover"), &pb.Request{Count: 4, Message: text})
+	watch, err := pb.NewGreeterClient(h.Conn).WatchHellos(ctx, &pb.Request{Count: 4, Message: text}, client.WithRunOptions(client.WithStreamIdempotencyKey("codec-recover")))
 	if err != nil {
 		return err
 	}
@@ -274,7 +277,7 @@ func verifyCodecRecovery(ctx context.Context, h *Harness, config payload.Config,
 	if err != nil || first.Count != 0 || first.Message != text {
 		return fmt.Errorf("codec: first persisted output %v", err)
 	}
-	checkpoint, err := client.StreamCheckpoint(watch.Context())
+	checkpoint, err := client.StreamResumeToken(watch.Context())
 	if err != nil {
 		return err
 	}
@@ -283,7 +286,7 @@ func verifyCodecRecovery(ctx context.Context, h *Harness, config payload.Config,
 		return err
 	}
 	// saved 模拟写入本地存储并重新读取；不依赖原流的 metadata 指针
-	var saved model.StreamCheckpoint
+	var saved model.StreamResumeToken
 	if err := json.Unmarshal(serialized, &saved); err != nil {
 		return err
 	}
@@ -303,7 +306,7 @@ func verifyCodecRecovery(ctx context.Context, h *Harness, config payload.Config,
 	report := h.Report
 	report.Add(h, "S3 Worker checkpoint restores two historical outputs and completes on second attempt; binary headers/trailers preserved", first)
 	// 新建 S3 客户端和 codec 实例，排除复用原连接或对象缓存造成的假恢复
-	objects, err := payload.NewS3(ctx, config, prefix)
+	objects, err := payload.NewS3(ctx, config, prefix, payload.WithThreshold(0))
 	if err != nil {
 		return err
 	}
@@ -312,7 +315,11 @@ func verifyCodecRecovery(ctx context.Context, h *Harness, config payload.Config,
 	if err != nil {
 		return err
 	}
-	options := append(Runtime(h.Namespace), runtime.WithMiddleware(chain...))
+	// 历史仍按存储 ID 解码：独立 Conn 反转注册顺序，并关闭本实例的发送变换。
+	for i, j := 0, len(chain)-1; i < j; i, j = i+1, j-1 {
+		chain[i], chain[j] = chain[j], chain[i]
+	}
+	options := append(Runtime(h.Namespace), runtime.WithMiddleware(chain...), runtime.WithEncodingCodecs())
 	conn, err := client.New(client.WithRuntime(options...))
 	if err != nil {
 		return err

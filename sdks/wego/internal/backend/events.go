@@ -6,6 +6,7 @@ import (
 	"io"
 
 	dispatcherpb "github.com/hatchet-dev/hatchet/internal/services/dispatcher/contracts"
+	"github.com/hatchet-dev/hatchet/sdks/wego/internal/wire"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -45,4 +46,16 @@ func (b *Backend) Stream(ctx context.Context, id string, fn func(string) error) 
 // Publish 向真实 TaskRunID 的 PutStream 实时出口发布，不提供持久游标回放
 func (b *Backend) Publish(ctx context.Context, id string, data []byte) error {
 	return Normalize(b.raw.Event().PutStreamEvent(ctx, id, data))
+}
+
+// publishNativeStream 在任务执行上下文中编码业务字节，RPC 发布器继续处理自己的协议帧。
+func (b *Backend) publishNativeStream(ctx context.Context, taskID string, payload []byte) error {
+	if !wire.WegoResponse(ctx) {
+		return b.Publish(ctx, taskID, payload)
+	}
+	encoded, err := wire.EncodeNativeStream(ctx, b.config, payload)
+	if err != nil {
+		return err
+	}
+	return b.Publish(ctx, taskID, encoded)
 }

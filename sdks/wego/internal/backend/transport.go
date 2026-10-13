@@ -36,6 +36,8 @@ type transport struct {
 	ids map[string]string
 	// pending 尚未确认终态的任务登记，关闭时先完成结果上报
 	pending map[string]string
+	// nativeBatch 按成员任务记录原生错误契约，与 pending 一起在确认终态后回收。
+	nativeBatch map[string]bool
 	// listenerDone Worker 名称到监听器退出通知的映射
 	listenerDone map[string]chan struct{}
 
@@ -189,18 +191,7 @@ func (l *actionListener) Actions(ctx context.Context) (<-chan *v0.Action, <-chan
 				if l.runner != nil && l.runner.handle(ctx, action) {
 					continue
 				}
-				// 先登记任务，再交给执行器；关闭流程不能漏掉刚收到但尚未开始执行的任务
-				l.owner.mu.Lock()
-				if action.ActionType == v0.ActionTypeStartStepRun {
-					l.owner.pending[attemptKey(action.StepRunId, action.RetryCount)] = action.WorkerId
-				}
-				if action.ActionType == v0.ActionTypeStartBatch {
-					// 逐项处理 action.BatchItems，保留各项的身份和独立结果，避免把一个条目的结果套用到整组
-					for id := range action.BatchItems {
-						l.owner.pending[attemptKey(id, 0)] = action.WorkerId
-					}
-				}
-				l.owner.mu.Unlock()
+				l.owner.trackAction(action)
 				// 在业务进展和上下文取消之间等待；deadline 或 Stop 到达时结束阻塞并走清理路径
 				select {
 				case out <- action:
@@ -211,6 +202,28 @@ func (l *actionListener) Actions(ctx context.Context) (<-chan *v0.Action, <-chan
 		}
 	}()
 	return out, errs, nil
+}
+
+// trackAction 在交给执行器前登记 pending 和成员响应契约；解析消息不持有生命周期锁。
+func (t *transport) trackAction(action *v0.Action) {
+	// 在生命周期锁外解析批成员，错误契约不能由同批的其他成员决定。
+	nativeMembers := nativeBatchMembers(action)
+	// 先登记任务，再交给执行器；关闭流程不能漏掉刚收到但尚未开始执行的任务
+	t.mu.Lock()
+	if action.ActionType == v0.ActionTypeStartStepRun {
+		t.pending[attemptKey(action.StepRunId, action.RetryCount)] = action.WorkerId
+	}
+	if action.ActionType == v0.ActionTypeStartBatch {
+		if t.nativeBatch == nil {
+			t.nativeBatch = make(map[string]bool)
+		}
+		// 逐项处理 action.BatchItems，保留各项的身份和独立结果，避免把一个条目的结果套用到整组
+		for id := range action.BatchItems {
+			t.pending[attemptKey(id, 0)] = action.WorkerId
+			t.nativeBatch[id] = nativeMembers[id]
+		}
+	}
+	t.mu.Unlock()
 }
 
 // SendBatchActionEvent 按批内任务逐条移除已确认的终态，避免批量结果尚未上报就关闭
@@ -226,7 +239,15 @@ func (d *dispatcher) SendBatchActionEvent(ctx context.Context, event *v0.BatchAc
 	if d.owner.backend != nil {
 		limit = d.owner.backend.messageLimit()
 	}
-	chunks, err := boundedBatchReports(event, limit)
+	d.owner.mu.Lock()
+	native := make(map[string]bool, len(event.Items))
+	for _, item := range event.Items {
+		if item != nil {
+			native[item.TaskRunExternalId] = d.owner.nativeBatch[item.TaskRunExternalId]
+		}
+	}
+	d.owner.mu.Unlock()
+	chunks, err := boundedBatchReports(event, limit, native)
 	if err != nil {
 		return nil, err
 	}
@@ -242,6 +263,7 @@ func (d *dispatcher) SendBatchActionEvent(ctx context.Context, event *v0.BatchAc
 			d.owner.mu.Lock()
 			for _, item := range chunk.Items {
 				delete(d.owner.pending, attemptKey(item.TaskRunExternalId, itemRetry(item)))
+				delete(d.owner.nativeBatch, item.TaskRunExternalId)
 			}
 			d.owner.mu.Unlock()
 		}

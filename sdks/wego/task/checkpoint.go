@@ -10,8 +10,9 @@ import (
 	"github.com/hatchet-dev/hatchet/sdks/wego/model"
 )
 
-// Checkpoint 返回可靠 server/bidi stream 在本次 CLAIM 之前的有效输出
-// 业务读取至 EOF 后重建进度，例如历史已有输出 1、2，本次从输出 3 继续
+// Checkpoint 供 Worker handler 恢复执行，返回可靠 server/bidi stream 在本次 CLAIM 之前的有效输出。
+// 业务读取至 EOF 后重建进度，例如历史已有输出 1、2，本次从输出 3 继续。
+// Client 的消费进度由 client.StreamResumeToken 读取，与这里的已发布历史独立。
 func Checkpoint(ctx context.Context) (model.StreamHistory, error) {
 	history := callctx.Checkpoint(ctx)
 	if history == nil {

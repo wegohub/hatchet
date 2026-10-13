@@ -23,14 +23,14 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Request 示例业务请求；只有显式配置投影的字段才进入 input.routing
+// Request 示例业务请求；只有显式配置 WithRouting 的字段才进入 input.routing
 // Request 生成的消息、调用接口或服务适配类型；业务语义以 .proto 的中文说明为准
 type Request struct {
 	// state protobuf 运行时消息状态，关联当前实例的反射描述；业务不直接读写
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// message 业务文本，例如请求 "hello" 对应处理后的响应文本
 	Message string `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
-	// group_key 调度分组字段，例如 group-a 与 group-b 独立限制并发；需显式投影
+	// group_key 调度分组字段，例如 group-a 与 group-b 独立限制并发；需通过 WithRouting 提供
 	GroupKey string `protobuf:"bytes,2,opt,name=group_key,json=groupKey,proto3" json:"group_key,omitempty"`
 	// account 示例限流或迁移分组键，只使用受控 fixture 值
 	Account string `protobuf:"bytes,3,opt,name=account,proto3" json:"account,omitempty"`
@@ -38,7 +38,7 @@ type Request struct {
 	Tier string `protobuf:"bytes,4,opt,name=tier,proto3" json:"tier,omitempty"`
 	// user_id 受控业务对象身份，用于子调用或事件匹配
 	UserId string `protobuf:"bytes,5,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
-	// id 示例输入身份，可投影到 routing.id 计算幂等键
+	// id 示例输入身份，可显式放入 routing.id 计算幂等键
 	Id string `protobuf:"bytes,6,opt,name=id,proto3" json:"id,omitempty"`
 	// correlation_id 事件与等待任务的关联键，例如 correlation-1
 	CorrelationId string `protobuf:"bytes,7,opt,name=correlation_id,json=correlationId,proto3" json:"correlation_id,omitempty"`

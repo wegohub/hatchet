@@ -72,7 +72,7 @@ func (b *Backend) publishWorkerCancel(ctx context.Context, notice ports.WorkerCa
 // publishWorkerFrame 复用实例连接和固定编码字节；每个消息使用作用域内稳定 producer 的 seq=0
 func (b *Backend) publishWorkerFrame(ctx context.Context, key string, frame *wire.LogFrame) error {
 	o := b.config.WorkerEventOptionsFor()
-	codec, err := wire.NewFrameCodec(b.config.Middleware, o.MaxFrameBytes, o.MaxEncodedBytes, b.FrameObserver())
+	codec, err := wire.NewFrameCodec(b.config, o.MaxFrameBytes, o.MaxEncodedBytes, b.FrameObserver())
 	if err != nil {
 		return err
 	}

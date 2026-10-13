@@ -108,3 +108,12 @@ func Methods(description *grpc.ServiceDesc, service any) ([]Method, error) {
 	}
 	return out, nil
 }
+
+// NativeName 保留 namespace 大小写，只将业务任务名小写化；Demo_ + Echo 得到 Demo_echo。
+// 已限定名称只去除一次原样前缀，注册、提交和 codec 作用域必须使用同一规则。
+func NativeName(namespace, name string) string {
+	if namespace != "" {
+		name = strings.TrimPrefix(name, namespace)
+	}
+	return namespace + strings.ToLower(name)
+}

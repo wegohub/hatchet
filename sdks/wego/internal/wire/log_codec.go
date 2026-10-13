@@ -2,10 +2,7 @@ package wire
 
 import (
 	"context"
-	"reflect"
-	"slices"
 	"time"
-	"unicode/utf8"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -13,16 +10,19 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/hatchet-dev/hatchet/sdks/wego/internal/ports"
+	"github.com/hatchet-dev/hatchet/sdks/wego/internal/spec"
 	"github.com/hatchet-dev/hatchet/sdks/wego/middleware"
 )
 
 // LogVersion 是单任务持久日志协议，与客户端和 Worker envelope 一致
-const LogVersion = 4
+const LogVersion = 6
 
 // FrameCodec 统一处理业务和控制帧，不在 DATA 内部再执行第二次变换
 type FrameCodec struct {
+	// registry 包含接收能力；历史消息可使用与当前发送链不同的组件顺序。
+	registry *spec.PayloadCodecs
 	// chain 保存经过有界解码契约校验的 codec，按 Encode 顺序排列
-	chain []middleware.FramedPayload
+	chain []middleware.Payload
 	// ids 是持久格式标识，不记录密钥内容
 	ids []string
 	// maxPlain 限制 codec 前后完整 protobuf 帧的字节数
@@ -34,35 +34,24 @@ type FrameCodec struct {
 }
 
 // NewFrameCodec 在订阅或发布前拒绝缺少有界还原能力的自定义 codec
-func NewFrameCodec(options []middleware.Option, maxPlain, maxEncoded int, observers ...ports.ProtocolObserver) (*FrameCodec, error) {
+func NewFrameCodec(config spec.Runtime, maxPlain, maxEncoded int, observers ...ports.ProtocolObserver) (*FrameCodec, error) {
 	if maxPlain <= 0 || maxEncoded <= 0 {
 		return nil, status.Error(codes.InvalidArgument, "wego: frame limits must be positive")
 	}
-	codec := &FrameCodec{maxPlain: maxPlain, maxEncoded: maxEncoded}
+	registry, err := config.Codecs()
+	if err != nil {
+		return nil, err
+	}
+	codec := &FrameCodec{registry: registry, ids: registry.EncodingIDs(), maxPlain: maxPlain, maxEncoded: maxEncoded}
 	if len(observers) > 1 {
 		return nil, status.Error(codes.InvalidArgument, "wego: frame codec accepts one instance observer")
 	}
 	if len(observers) == 1 {
 		codec.observer = observers[0]
 	}
-	for _, option := range options {
-		if option.Payload == nil {
-			continue
-		}
-		value := reflect.ValueOf(option.Payload)
-		if (value.Kind() == reflect.Pointer || value.Kind() == reflect.Interface) && value.IsNil() {
-			return nil, status.Error(codes.InvalidArgument, "wego: nil stream codec")
-		}
-		bounded, ok := option.Payload.(middleware.FramedPayload)
-		if !ok {
-			return nil, status.Error(codes.FailedPrecondition, "wego: stream codec requires bounded DecodeLimit")
-		}
-		id := bounded.CodecID()
-		if id == "" || !utf8.ValidString(id) {
-			return nil, status.Error(codes.FailedPrecondition, "wego: stream codec requires stable CodecID and bounded DecodeLimit")
-		}
-		codec.chain = append(codec.chain, bounded)
-		codec.ids = append(codec.ids, id)
+	for _, id := range codec.ids {
+		component, _ := registry.Lookup(id)
+		codec.chain = append(codec.chain, component)
 	}
 	return codec, nil
 }
@@ -74,7 +63,7 @@ func (c *FrameCodec) Encode(ctx context.Context, method string, frame *LogFrame)
 		defer func() { c.observe(method, "encode", started, err) }()
 	}
 	if frame == nil || frame.Version != LogVersion {
-		return nil, status.Error(codes.FailedPrecondition, "wego: log frame protocol must be 4")
+		return nil, status.Error(codes.FailedPrecondition, "wego: log frame protocol must be 6")
 	}
 	size := proto.Size(frame)
 	if size > c.maxPlain {
@@ -86,7 +75,7 @@ func (c *FrameCodec) Encode(ctx context.Context, method string, frame *LogFrame)
 	if len(c.chain) == 0 {
 		// 无变换时直接把 protobuf 追加到封装的 payload 字段，一次分配保留独立快照
 		// 字段号与 stream.proto 一致：format_version=1、codec_ids=2、payload=3
-		prefix, err := c.envelopePrefix(size)
+		prefix, err := c.envelopePrefix(size, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -96,11 +85,17 @@ func (c *FrameCodec) Encode(ctx context.Context, method string, frame *LogFrame)
 	if err != nil {
 		return nil, err
 	}
-	for _, codec := range c.chain {
+	// applied 是当前消息实际执行的链，各并发调用独立保存。
+	applied := make([]string, 0, len(c.ids))
+	for index, codec := range c.chain {
+		if !c.registry.ShouldEncode(c.ids[index], len(data)) {
+			continue
+		}
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
-		data, err = codec.Encode(ctx, method, data)
+		data, err = codec.Encode(ctx, data)
+		applied = append(applied, c.ids[index])
 		if err != nil {
 			return nil, err
 		}
@@ -111,7 +106,7 @@ func (c *FrameCodec) Encode(ctx context.Context, method string, frame *LogFrame)
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	prefix, err := c.envelopePrefix(len(data))
+	prefix, err := c.envelopePrefix(len(data), applied)
 	if err != nil {
 		return nil, err
 	}
@@ -120,9 +115,9 @@ func (c *FrameCodec) Encode(ctx context.Context, method string, frame *LogFrame)
 
 // envelopePrefix 一次分配最终封装，codec 仍获得独立输入，返回的结果不引用其缓冲区
 // 不池化逃逸到队列或自定义 codec 的字节，避免后续编码覆盖已经发布的重试快照
-func (c *FrameCodec) envelopePrefix(payloadBytes int) ([]byte, error) {
+func (c *FrameCodec) envelopePrefix(payloadBytes int, ids []string) ([]byte, error) {
 	size := 2 + protowire.SizeBytes(payloadBytes) + 1
-	for _, id := range c.ids {
+	for _, id := range ids {
 		size += 1 + protowire.SizeBytes(len(id))
 	}
 	if size > c.maxEncoded {
@@ -131,7 +126,7 @@ func (c *FrameCodec) envelopePrefix(payloadBytes int) ([]byte, error) {
 	data := make([]byte, 0, size)
 	data = protowire.AppendTag(data, 1, protowire.VarintType)
 	data = protowire.AppendVarint(data, 1)
-	for _, id := range c.ids {
+	for _, id := range ids {
 		data = protowire.AppendTag(data, 2, protowire.BytesType)
 		data = protowire.AppendString(data, id)
 	}
@@ -153,11 +148,14 @@ func (c *FrameCodec) Decode(ctx context.Context, method string, data []byte) (de
 	if err := proto.Unmarshal(data, &envelope); err != nil {
 		return nil, status.Error(codes.DataLoss, "wego: malformed encoded log frame")
 	}
-	if envelope.FormatVersion != 1 || !slices.Equal(envelope.CodecIds, c.ids) {
-		return nil, status.Error(codes.FailedPrecondition, "wego: log codec format/profile mismatch")
+	if envelope.FormatVersion != 1 {
+		return nil, status.Error(codes.FailedPrecondition, "wego: log codec format mismatch")
+	}
+	if err := c.validateDecoders(envelope.CodecIds); err != nil {
+		return nil, err
 	}
 	data = envelope.Payload
-	for i := len(c.chain) - 1; i >= 0; i-- {
+	for i := len(envelope.CodecIds) - 1; i >= 0; i-- {
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
@@ -167,7 +165,8 @@ func (c *FrameCodec) Decode(ctx context.Context, method string, data []byte) (de
 		}
 		// err 保留当前反向变换错误，不能跳过失败层解析协议
 		var err error
-		data, err = c.chain[i].DecodeLimit(ctx, method, data, limit)
+		component, _ := c.registry.Lookup(envelope.CodecIds[i])
+		data, err = component.DecodeLimit(ctx, data, limit)
 		if err != nil {
 			return nil, err
 		}
@@ -199,4 +198,19 @@ func (c *FrameCodec) observe(method, operation string, started time.Time, err er
 	}
 	c.observer.ObserveProtocol(ports.ProtocolMetric{Name: "wego_frame_" + operation + "_total", Method: method, Mode: "codec", Outcome: outcome, Value: 1})
 	c.observer.ObserveProtocol(ports.ProtocolMetric{Name: "wego_frame_" + operation + "_duration_seconds", Method: method, Mode: "codec", Outcome: outcome, Value: time.Since(started).Seconds()})
+}
+
+// validateDecoders 先核验全链；不能下载外层对象后才发现内层组件缺失。
+func (c *FrameCodec) validateDecoders(ids []string) error {
+	// 先检查整条解码链，再执行任何 I/O；例如缺少 gzip 时不先下载外层 S3 对象。
+	for _, id := range ids {
+		if _, ok := c.registry.Lookup(id); !ok {
+			return status.Errorf(codes.FailedPrecondition, "wego: decoding CodecID %q is not registered", id)
+		}
+	}
+	if len(ids) > 16 {
+		return status.Error(codes.ResourceExhausted, "wego: codec chain exceeds 16 steps")
+	}
+
+	return nil
 }

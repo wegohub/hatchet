@@ -2,6 +2,7 @@ package backend
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -12,6 +13,54 @@ import (
 	"github.com/hatchet-dev/hatchet/sdks/wego/internal/spec"
 	"github.com/hatchet-dev/hatchet/sdks/wego/internal/wire"
 )
+
+// TestReviewV6MixedBatchFailureContracts 同一批失败中原生成员不暴露 wego 错误载体，确认后回收模式记录。
+func TestReviewV6MixedBatchFailureContracts(t *testing.T) {
+	action := &v0.Action{ActionType: v0.ActionTypeStartBatch, BatchItems: map[string]v0.BatchItemData{
+		"native": {Payload: v0.BatchItemPayload{Input: map[string]any{"message": "plain"}}},
+		"wego": {Payload: v0.BatchItemPayload{Input: map[string]any{
+			"_wego": map[string]any{"version": wire.Version, "response": "wego"}, "value": map[string]any{},
+		}}},
+	}}
+	reporter := &boundedReporter{}
+	owner := &transport{pending: map[string]string{attemptKey("native", 0): "worker", attemptKey("wego", 0): "worker"}, nativeBatch: nativeBatchMembers(action)}
+	dispatcher := &dispatcher{DispatcherClient: reporter, owner: owner}
+	encoded := wire.EncodeError(status.Error(codes.Aborted, "batch rejected"))
+	event := &v0.BatchActionEvent{WorkerId: "worker", EventType: v0.ActionEventTypeFailed, Items: []*v0.BatchActionEventItem{
+		{TaskRunExternalId: "native", EventPayload: encoded}, {TaskRunExternalId: "wego", EventPayload: encoded},
+	}}
+	if _, err := dispatcher.SendBatchActionEvent(context.Background(), event); err != nil {
+		t.Fatal(err)
+	}
+	for _, item := range reporter.batches[0].Items {
+		text := item.EventPayload.(string)
+		if strings.Contains(text, wire.ErrorPrefix) != (item.TaskRunExternalId == "wego") || !strings.Contains(nativeFailurePayload(text).(string), "batch rejected") {
+			t.Fatalf("wrong member error contract: %s %s", item.TaskRunExternalId, text)
+		}
+	}
+	if len(owner.pending) != 0 || len(owner.nativeBatch) != 0 || event.Items[0].EventPayload != encoded {
+		t.Fatal("report did not release confirmed members or mutated caller input")
+	}
+}
+
+// TestReviewV6NativeOversizedReport 单条或批量输出超限时仍使用原生错误契约，并保留不可重试标记。
+func TestReviewV6NativeOversizedReport(t *testing.T) {
+	action := &v0.Action{ActionType: v0.ActionTypeStartStepRun, StepRunId: "native", ActionPayload: json.RawMessage(`{"input":{"message":"plain"}}`)}
+	event := &v0.ActionEvent{Action: action, EventType: v0.ActionEventTypeCompleted, EventPayload: strings.Repeat("x", 4096)}
+	bounded, err := boundedStepReport(event, 1024)
+	if err != nil || bounded.EventType != v0.ActionEventTypeFailed || strings.Contains(bounded.EventPayload.(string), wire.ErrorPrefix) {
+		t.Fatal("native single failure contract", bounded, err)
+	}
+	batch := &v0.BatchActionEvent{EventType: v0.ActionEventTypeCompleted, Items: []*v0.BatchActionEventItem{{TaskRunExternalId: "native", EventPayload: event.EventPayload}}}
+	chunks, err := boundedBatchReports(batch, 1024, map[string]bool{"native": true})
+	if err != nil || len(chunks) != 1 || chunks[0].EventType != v0.ActionEventTypeFailed {
+		t.Fatal(chunks, err)
+	}
+	item := chunks[0].Items[0]
+	if strings.Contains(item.EventPayload.(string), wire.ErrorPrefix) || item.ShouldNotRetry == nil || !*item.ShouldNotRetry {
+		t.Fatal("native batch failure contract", item)
+	}
+}
 
 // boundedReporter 模拟第二个分块确认丢失，不能清空还未确认的运行登记
 type boundedReporter struct {
@@ -62,7 +111,7 @@ func TestBatchReportPartialACK(t *testing.T) {
 	owner := &transport{backend: &Backend{config: spec.Runtime{BackendMessageLimit: 1024}}, pending: map[string]string{attemptKey("one", 0): "worker", attemptKey("two", 0): "worker", attemptKey("large", 0): "worker"}, reports: map[string]context.Context{}}
 	d := &dispatcher{DispatcherClient: reporter, owner: owner}
 	event := &v0.BatchActionEvent{WorkerId: "worker", EventType: v0.ActionEventTypeCompleted, Items: []*v0.BatchActionEventItem{{TaskRunExternalId: "one", EventPayload: strings.Repeat("x", 700)}, {TaskRunExternalId: "two", EventPayload: strings.Repeat("x", 700)}, {TaskRunExternalId: "large", EventPayload: strings.Repeat("x", 4096)}}}
-	chunks, err := boundedBatchReports(event, 1024)
+	chunks, err := boundedBatchReports(event, 1024, nil)
 	if err != nil || len(chunks) != 3 || chunks[2].EventType != v0.ActionEventTypeFailed {
 		t.Fatal(chunks, err)
 	}

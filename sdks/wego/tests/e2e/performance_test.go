@@ -133,7 +133,7 @@ func TestStreamPerformanceBaseline(t *testing.T) {
 						runIDs[index] = reply.RunId
 					}
 					if err == nil {
-						checkpoint, checkpointErr := client.StreamCheckpoint(output.Context())
+						checkpoint, checkpointErr := client.StreamResumeToken(output.Context())
 						if checkpointErr != nil {
 							err = checkpointErr
 						} else if checkpoint.OutputSeq != uint64(messages) {

@@ -193,7 +193,8 @@ func (s *Server) Serve() error {
 }
 
 // prepare 先检查配置并绑定网络端口，再初始化 Worker，启动失败必须释放已经创建的资源
-func (s *Server) prepare() error {
+// validateEntrances 在监听端口和初始化任务连接前拒绝关闭策略或入口组合错误。
+func (s *Server) validateEntrances() error {
 	if s.config.Logger == nil {
 		return fmt.Errorf("wego: logger cannot be nil")
 	}
@@ -205,6 +206,15 @@ func (s *Server) prepare() error {
 	}
 	if s.config.DisableWorker && s.grpcConfig == nil {
 		return fmt.Errorf("wego: no engine enabled")
+	}
+
+	return nil
+}
+
+// prepare 按固定顺序绑定网络端口、注册任务并启动入口，失败交由共同关闭流程回收。
+func (s *Server) prepare() error {
+	if err := s.validateEntrances(); err != nil {
+		return err
 	}
 
 	if s.grpcConfig != nil {

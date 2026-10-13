@@ -4,17 +4,20 @@ import (
 	"context"
 
 	"github.com/hatchet-dev/hatchet/sdks/wego/internal/ports"
+	"github.com/hatchet-dev/hatchet/sdks/wego/internal/spec"
 	"github.com/hatchet-dev/hatchet/sdks/wego/model"
 )
 
-// encodeInput 将 RPCInput 转成任务名和 envelope、保留原生 JSON 输入的转换函数
+// encodeInput 按显式目标绑定准备统一 envelope，普通 JSON 和 protobuf 使用相同 codec。
 type encodeInput func(context.Context, string, any) (string, any, error)
 
 // base 管理客户端共享的后端和输入编码能力
 type base struct {
+	// config 只读实例配置，事件使用其自己的 routing 默认值。
+	config spec.Runtime
 	// backend 内部后端接口；业务层不能取出其具体实现
 	backend ports.Backend
-	// encode 把 RPC 输入转换成可提交的任务名称与 protobuf envelope
+	// encode 准备普通任务及 RPC 的封包，事件使用独立事件作用域。
 	encode encodeInput
 }
 
@@ -58,9 +61,9 @@ type Clients struct {
 }
 
 // New 为同一个后端创建全部管理入口，RPC 输入通过共享编码函数转换
-func New(backend ports.Backend, encode encodeInput) *Clients {
+func New(backend ports.Backend, config spec.Runtime, encode encodeInput) *Clients {
 	// b 构造当前步骤的数据对象，字段在提交、编码或断言之前一次性初始化
-	b := base{backend: backend, encode: encode}
+	b := base{backend: backend, config: config.Clone(), encode: encode}
 	return &Clients{
 		Runs:       &RunsClient{b},
 		Crons:      &CronsClient{b},

@@ -25,18 +25,18 @@ import (
 	"github.com/hatchet-dev/hatchet/sdks/wego/model"
 )
 
-// checkpoint 复制已交付位置，不将当前预取解释器的高代次或尾部写入恢复位置
-func (s *taskClientStream) checkpoint() (model.StreamCheckpoint, error) {
+// resumeToken 复制已交付位置，不将当前预取解释器的高代次或尾部写入恢复位置
+func (s *taskClientStream) resumeToken() (model.StreamResumeToken, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if !s.desc.ServerStreams || s.options.Mode != spec.Reliable {
-		return model.StreamCheckpoint{}, status.Error(codes.FailedPrecondition, "wego: realtime or client-input stream cannot resume outputs")
+		return model.StreamResumeToken{}, status.Error(codes.FailedPrecondition, "wego: realtime or client-input stream cannot resume outputs")
 	}
 	if s.runID == "" || s.state.TaskID == "" {
-		return model.StreamCheckpoint{}, status.Error(codes.FailedPrecondition, "wego: stream run identity is not yet available")
+		return model.StreamResumeToken{}, status.Error(codes.FailedPrecondition, "wego: stream run identity is not yet available")
 	}
 	state := s.deliveredState
-	cp := model.StreamCheckpoint{Version: wire.LogVersion, Namespace: s.engine.Config.Namespace, TenantID: s.engine.Config.TenantID, RunID: s.runID, TaskID: s.state.TaskID, Method: s.method, Mode: "reliable", InputDigest: s.state.InputDigest, Cursor: s.deliveredCursor, OutputSeq: s.delivered, Epoch: state.Epoch, Writer: state.Writer, WorkerKey: state.WorkerKey, HeadersSeen: s.headersDelivered}
+	cp := model.StreamResumeToken{Version: wire.LogVersion, Namespace: s.engine.Config.Namespace, TenantID: s.engine.Config.TenantID, RunID: s.runID, TaskID: s.state.TaskID, Method: s.method, Mode: "reliable", InputDigest: s.state.InputDigest, Cursor: s.deliveredCursor, OutputSeq: s.delivered, Epoch: state.Epoch, Writer: state.Writer, WorkerKey: state.WorkerKey, HeadersSeen: s.headersDelivered}
 	if cp.HeadersSeen {
 		cp.Headers = checkpointMetadata(wire.Metadata(s.headers))
 	}
@@ -76,7 +76,18 @@ func checkpointHeaders(md map[string][][]byte) map[string]*wire.Values {
 }
 
 // ResumeStream 只恢复已有可靠运行的消费，输入方向已经关闭，不能追加请求
-func ResumeStream(ctx context.Context, e *engine.Engine, cp model.StreamCheckpoint) (grpc.ClientStream, error) {
+func ResumeStream(ctx context.Context, e *engine.Engine, cp model.StreamResumeToken, options ...grpc.CallOption) (output grpc.ClientStream, err error) {
+	// created 将回调责任移交给真实传输，构造失败由本次调用通知一次。
+	created := false
+	parsed, err := ParseCallOptions(options, true)
+	defer func() {
+		if !created {
+			parsed.Finish(&err)
+		}
+	}()
+	if err != nil {
+		return nil, err
+	}
 	if cp.Version != wire.LogVersion || cp.Mode != "reliable" || cp.RunID == "" || cp.TaskID == "" || cp.InputDigest == "" || cp.Namespace != e.Config.Namespace || cp.TenantID != e.Config.TenantID || cp.Epoch < 0 || cp.Cursor == "" && (cp.OutputSeq != 0 || cp.Epoch != 0 || cp.Writer != "" || cp.WorkerKey != "") || cp.Cursor != "" && (cp.OutputSeq == 0 || !cp.HeadersSeen || cp.Writer == "" || cp.WorkerKey == "") {
 		return nil, status.Error(codes.FailedPrecondition, "wego: incompatible stream checkpoint identity")
 	}
@@ -138,19 +149,7 @@ func ResumeStream(ctx context.Context, e *engine.Engine, cp model.StreamCheckpoi
 	// once 对启动失败和正常资源释放使用同一个回调
 	var once sync.Once
 	completed := func(err error) { once.Do(func() { finish(err); done() }) }
-	input, err := reader.RunInput(ctx, cp.RunID)
-	if err != nil {
-		completed(err)
-		return nil, err
-	}
-	if err := stream.VerifyRunIdentity(input, cp.Method, cp.InputDigest); err != nil {
-		completed(err)
-		return nil, err
-	}
-	// envelope 另外核对输出模式，避免用同方法名称恢复错误的调用种类
-	var envelope wire.Envelope
-	if err := json.Unmarshal(input, &envelope); err != nil || envelope.StreamMode != "reliable" || envelope.Stream == "client" || envelope.Stream == "" {
-		err := status.Error(codes.FailedPrecondition, "wego: persisted run is not a reliable output stream")
+	if err := verifyResumeInput(ctx, e, reader, cp, method); err != nil {
 		completed(err)
 		return nil, err
 	}
@@ -165,11 +164,13 @@ func ResumeStream(ctx context.Context, e *engine.Engine, cp model.StreamCheckpoi
 		return nil, err
 	}
 	desc := &grpc.StreamDesc{ClientStreams: method.IsStreamingClient(), ServerStreams: true}
-	raw, err := newTaskClient(ctx, e, desc, cp.Method, completed)
+	// 解析后的恢复选项只包含接收能力。
+	raw, err := buildTaskClient(ctx, e, desc, cp.Method, completed, true, options...)
 	if err != nil {
 		completed(err)
 		return nil, err
 	}
+	created = true
 	s := raw.(*taskClientStream)
 	// 在与取消同步的提交锁内安装观察者，禁止等待资源释放时新增 goroutine
 	s.sendMu.Lock()
@@ -178,6 +179,8 @@ func ResumeStream(ctx context.Context, e *engine.Engine, cp model.StreamCheckpoi
 		return nil, status.FromContextError(err).Err()
 	}
 	s.submitted = true
+	s.ownsRun = false
+	s.maxRecv = parsed.MaxRecv
 	s.mu.Lock()
 	s.runID = cp.RunID
 	s.state = stream.State{TaskID: cp.TaskID, RunID: cp.RunID, Method: cp.Method, InputDigest: cp.InputDigest, Claimed: cp.Cursor != "", Epoch: cp.Epoch, Writer: cp.Writer, WorkerKey: cp.WorkerKey, LastOutput: cp.OutputSeq, HeadersSeen: cp.HeadersSeen, Headers: checkpointHeaders(cp.Headers)}
@@ -196,4 +199,27 @@ func ResumeStream(ctx context.Context, e *engine.Engine, cp model.StreamCheckpoi
 	s.sendMu.Unlock()
 	// newTaskClient 已安装 Context 读取能力，恢复流继续使用相同生成桩的接收接口
 	return s, nil
+}
+
+// verifyResumeInput 校验实际运行的注册版本和持久输入，恢复不读取名称当前版本替代运行证据。
+func verifyResumeInput(ctx context.Context, e *engine.Engine, reader ports.RunInputReader, cp model.StreamResumeToken, method protoreflect.MethodDescriptor) error {
+	if validator, ok := e.Backend.(ports.RunTargetValidator); ok {
+		if err := validator.ValidateRunTarget(ctx, cp.RunID, cp.Method, ports.RPCContract{Shape: streamKind(&grpc.StreamDesc{ClientStreams: method.IsStreamingClient(), ServerStreams: true}), Mode: "reliable", InputType: string(method.Input().FullName()), OutputType: string(method.Output().FullName())}); err != nil {
+			return err
+		}
+	}
+	input, err := reader.RunInput(ctx, cp.RunID)
+	if err != nil {
+		return err
+	}
+	if err := verifyStoredStream(ctx, e, input, cp.Method, cp.InputDigest); err != nil {
+		return err
+	}
+	// envelope 另外核对输出模式，避免用同方法名称恢复错误的调用种类
+	var envelope wire.Envelope
+	if err := json.Unmarshal(input, &envelope); err != nil || (envelope.StreamMode != "" && envelope.StreamMode != "reliable") || envelope.Response != "wego" {
+		err := status.Error(codes.FailedPrecondition, "wego: persisted run is not a reliable output stream")
+		return err
+	}
+	return nil
 }

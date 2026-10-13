@@ -47,9 +47,9 @@ func Filters(ctx context.Context, report *Report) (err error) {
 			pb.UnaryGreeter_SayHello_FullMethodName,
 			task.WithEvents("filtered:create"),
 			task.WithDefaultFilters(model.DefaultFilter{
-				Expression: "!input.routing.skip",
+				Expression: "!input.routing.skip && payload.routing.channel == 'fixture'",
 				Scope:      "fixture-scope",
-				Payload:    map[string]any{"marker": "fixture"},
+				Payload:    model.Input{Value: map[string]any{"marker": "fixture"}, Routing: map[string]any{"channel": "fixture"}},
 			}),
 		),
 	)
@@ -68,12 +68,11 @@ func Filters(ctx context.Context, report *Report) (err error) {
 		return h.Conn.Events().Push(
 			ctx,
 			"filtered:create",
-			model.RPCInput{
-				Method:  pb.UnaryGreeter_SayHello_FullMethodName,
-				Message: &pb.Request{Message: "Mixed CASE", Fail: skip},
+			model.Input{
+				Value:   &pb.Request{Message: "Mixed CASE", Fail: skip},
 				Routing: map[string]any{"skip": skip},
 			},
-			&scope,
+			scope,
 		)
 	}
 	if err = push(true); err != nil {

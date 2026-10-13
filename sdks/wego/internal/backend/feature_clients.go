@@ -28,8 +28,11 @@ func (c *featureClients) Runs() *f.RunsClient {
 }
 
 // Crons 返回 Cron 触发管理客户端，不拥有连接
-func (c *featureClients) Crons() *f.CronsClient {
-	return f.NewCronsClient(c.raw.API(), c.raw.TenantId())
+func (c *featureClients) Crons() *cronClient {
+	return &cronClient{
+		CronsClient: f.NewCronsClient(c.raw.API(), c.raw.TenantId()),
+		api:         c.raw.API(), tenant: uuid.MustParse(c.raw.TenantId()),
+	}
 }
 
 // Schedules 返回同一 namespace 的计划管理客户端
@@ -73,6 +76,48 @@ func (c *featureClients) Workflows() *workflowClient {
 // Metrics 返回无缓存 Metrics 视图，避免创建无法通过公开 API 关闭的官方缓存
 func (c *featureClients) Metrics() *metricsClient { return &metricsClient{workflows: c.Workflows()} }
 
+// cronClient 复用官方查询与删除能力；创建请求显式传递可选调度优先级。
+type cronClient struct {
+	// CronsClient 提供 Get、List、Delete，不拥有连接或后台资源。
+	*f.CronsClient
+	// api 借用实例已认证的 REST 连接。
+	api *rest.ClientWithResponses
+	// tenant 限制创建操作的授权范围。
+	tenant uuid.UUID
+}
+
+// Create 通过官方 REST 协议创建 Cron；如 Priority=3 必须实际进入请求，nil 保留服务端默认。
+func (c *cronClient) Create(ctx context.Context, name string, trigger f.CreateCronTrigger) (*rest.CronWorkflows, error) {
+	if !f.IsValidCronExpression(trigger.Expression) {
+		return nil, &f.InvalidCronExpressionError{Expression: trigger.Expression}
+	}
+	// 输入已经在 features 层完成 codec；此处只转换管理 DTO，不重复封包。
+	request := rest.CronWorkflowTriggerCreateJSONRequestBody{
+		CronName:           trigger.Name,
+		CronExpression:     trigger.Expression,
+		Input:              trigger.Input,
+		AdditionalMetadata: trigger.AdditionalMetadata,
+	}
+	if request.Input == nil {
+		request.Input = map[string]any{}
+	}
+	if request.AdditionalMetadata == nil {
+		request.AdditionalMetadata = map[string]any{}
+	}
+	if trigger.Priority != nil {
+		priority := int32(*trigger.Priority)
+		request.Priority = &priority
+	}
+	response, err := c.api.CronWorkflowTriggerCreateWithResponse(ctx, c.tenant, name, request)
+	if err != nil {
+		return nil, err
+	}
+	if err := responseStatus(response.StatusCode(), response.JSON200 != nil); err != nil {
+		return nil, err
+	}
+	return response.JSON200, nil
+}
+
 // workflowClient 每次查询真实 REST 数据，不拥有缓存计时器
 type workflowClient struct {
 	// api 为借用的 REST 客户端
@@ -96,20 +141,25 @@ func (w *workflowClient) List(ctx context.Context, p *rest.WorkflowListParams) (
 
 // Get 按名称查找精确工作流；删除后再次查询不读取旧缓存
 func (w *workflowClient) Get(ctx context.Context, name string) (*rest.Workflow, error) {
-	// r, err 取得 w.List 的结果，确认成功后才进入下一处理阶段
-	r, err := w.List(ctx, &rest.WorkflowListParams{Name: &name})
-	if err != nil {
-		return nil, err
-	}
-	if r.Rows != nil {
-		// 逐项处理本组定义、成员或协议详情，保留每项身份；例如 run-1 的结果不能交给 run-2
-		for _, row := range *r.Rows {
+	offset, limit := 0, 100
+	for {
+		rows, err := w.List(ctx, &rest.WorkflowListParams{Name: &name, Offset: &offset, Limit: &limit})
+		if err != nil {
+			return nil, err
+		}
+		if rows.Rows == nil {
+			return nil, status.Error(codes.DataLoss, "wego: missing workflow list")
+		}
+		for _, row := range *rows.Rows {
 			if row.Name == name {
 				return &row, nil
 			}
 		}
+		if len(*rows.Rows) < limit {
+			return nil, status.Errorf(codes.NotFound, "wego: workflow %s not found", name)
+		}
+		offset += len(*rows.Rows)
 	}
-	return nil, fmt.Errorf("wego: workflow %s not found", name)
 }
 
 // Delete 接受所有成功的 2xx 删除响应，例如无响应体的 204

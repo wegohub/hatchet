@@ -12,6 +12,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/hatchet-dev/hatchet/sdks/wego/internal/ports"
+	"github.com/hatchet-dev/hatchet/sdks/wego/internal/spec"
 	"github.com/hatchet-dev/hatchet/sdks/wego/middleware"
 )
 
@@ -31,17 +32,17 @@ type profileCodec struct {
 func (c *profileCodec) CodecID() string { return c.id }
 
 // Encode 保留输入，最终封装仍必须拥有独立结果
-func (c *profileCodec) Encode(_ context.Context, _ string, data []byte) ([]byte, error) {
+func (c *profileCodec) Encode(_ context.Context, data []byte) ([]byte, error) {
 	return data, nil
 }
 
 // Decode 对业务入口提供相同的零变换语义
-func (c *profileCodec) Decode(_ context.Context, _ string, data []byte) ([]byte, error) {
+func (c *profileCodec) Decode(_ context.Context, data []byte) ([]byte, error) {
 	return data, nil
 }
 
 // DecodeLimit 在有界还原入口拒绝超出预算的字节
-func (c *profileCodec) DecodeLimit(_ context.Context, _ string, data []byte, limit int) ([]byte, error) {
+func (c *profileCodec) DecodeLimit(_ context.Context, data []byte, limit int) ([]byte, error) {
 	if len(data) > limit {
 		return nil, status.Error(codes.ResourceExhausted, "fixture payload exceeds limit")
 	}
@@ -51,7 +52,7 @@ func (c *profileCodec) DecodeLimit(_ context.Context, _ string, data []byte, lim
 // TestFrameCodecRejectsInvalidUTF8Profile 在发布前发现非法标识，不把错误延迟到订阅解码
 func TestFrameCodecRejectsInvalidUTF8Profile(t *testing.T) {
 	for _, id := range []string{"", string([]byte{0xff})} {
-		if _, err := NewFrameCodec([]middleware.Option{middleware.WithPayload(&profileCodec{id: id})}, 4096, 8192); status.Code(err) != codes.FailedPrecondition {
+		if _, err := NewFrameCodec(spec.Runtime{Middleware: []middleware.Option{middleware.WithPayload(&profileCodec{id: id})}}, 4096, 8192); status.Code(err) != codes.FailedPrecondition {
 			t.Fatal("invalid profile accepted", err)
 		}
 	}
@@ -68,7 +69,7 @@ func (m *frameMetrics) ObserveProtocol(metric ports.ProtocolMetric) {
 // TestFrameEncodingSnapshotAndCompatibility 验证直接封装与生成的 protobuf 外层格式一致
 // 127/128、16383/16384 覆盖长度 varint 边界，后续编码及消息修改不能覆盖先前结果
 func TestFrameEncodingSnapshotAndCompatibility(t *testing.T) {
-	codec, err := NewFrameCodec(nil, 1<<20, 2<<20)
+	codec, err := NewFrameCodec(spec.Runtime{}, 1<<20, 2<<20)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -100,7 +101,7 @@ func TestFrameEncodingSnapshotAndCompatibility(t *testing.T) {
 	}
 	// 最终封装的字段 tag 和长度必须包含在预算中，不能仅检查内层帧
 	frame := &LogFrame{Version: LogVersion}
-	limited, err := NewFrameCodec(nil, 128, proto.Size(frame))
+	limited, err := NewFrameCodec(spec.Runtime{}, 128, proto.Size(frame))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -112,7 +113,7 @@ func TestFrameEncodingSnapshotAndCompatibility(t *testing.T) {
 // TestFrameMetricsFailures 验证非法版本、损坏帧也能诊断，关闭观测时不需要 observer
 func TestFrameMetricsFailures(t *testing.T) {
 	metrics := &frameMetrics{values: map[string]float64{}}
-	codec, err := NewFrameCodec(nil, 4096, 8192, metrics)
+	codec, err := NewFrameCodec(spec.Runtime{}, 4096, 8192, metrics)
 	if err != nil {
 		t.Fatal(err)
 	}

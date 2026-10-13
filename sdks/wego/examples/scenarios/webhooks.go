@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"time"
 
 	"github.com/hatchet-dev/hatchet/sdks/wego/client"
@@ -208,9 +209,28 @@ func Webhooks(ctx context.Context, report *Report) (err error) {
 			"user":    map[string]any{"username": "fixture-user"},
 		},
 	}
+	// 应用端负责认证并通过统一 Events 编码入口发布；官方 Webhook 管理 fixture 使用独立事件键。
+	adapter := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("X-Api-Key") != key {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		// input 通过受控 HTTP 验签进入业务协议，再由 SDK 封包。
+		var input webhookInput
+		if e := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20)).Decode(&input); e != nil {
+			http.Error(w, "invalid input", 400)
+			return
+		}
+		if e := h.Conn.Events().Push(r.Context(), input.EventKey, input); e != nil {
+			http.Error(w, e.Error(), 502)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer adapter.Close()
 	// 逐项处理 fixtures，保留各项的身份和独立结果，避免把一个条目的结果套用到整组
 	for i, fixture := range fixtures {
-		fixture["event_key"] = h.Namespace + keys[i]
+		fixture["event_key"] = h.Namespace + "management:" + keys[i]
 		// data, _ 接收编码后的传输数据与错误，编码成功后才提交或发布，避免发送半成品载荷
 		data, _ := json.Marshal(fixture)
 		// req, e 将请求绑定到调用预算，取消后 HTTP I/O 必须结束
@@ -238,6 +258,26 @@ func Webhooks(ctx context.Context, report *Report) (err error) {
 		}
 		if !bytes.Contains(body, []byte(keys[i])) {
 			return fmt.Errorf("webhook did not return its event")
+		}
+
+		// 管理接口确认后，业务消息从受控应用 HTTP 入口进入 wego，不能把裸 JSON 直接交给 Worker。
+		fixture["event_key"] = keys[i]
+		data, e = json.Marshal(fixture)
+		if e != nil {
+			return e
+		}
+		applicationRequest, e := http.NewRequestWithContext(ctx, http.MethodPost, adapter.URL, bytes.NewReader(data))
+		if e != nil {
+			return e
+		}
+		applicationRequest.Header.Set("X-Api-Key", key)
+		applicationResponse, e := http.DefaultClient.Do(applicationRequest)
+		if e != nil {
+			return e
+		}
+		applicationResponse.Body.Close()
+		if applicationResponse.StatusCode != http.StatusOK {
+			return fmt.Errorf("application webhook HTTP %d", applicationResponse.StatusCode)
 		}
 
 		// 在业务进展和上下文取消之间等待；deadline 或 Stop 到达时结束阻塞并走清理路径

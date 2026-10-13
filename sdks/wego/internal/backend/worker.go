@@ -2,22 +2,26 @@ package backend
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"maps"
+	"reflect"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/google/uuid"
 	v1 "github.com/hatchet-dev/hatchet/internal/services/shared/proto/v1"
-	clientconfig "github.com/hatchet-dev/hatchet/pkg/config/client"
 	oldworker "github.com/hatchet-dev/hatchet/pkg/worker"
 	sdk "github.com/hatchet-dev/hatchet/sdks/go"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/hatchet-dev/hatchet/sdks/wego/internal/binding"
 	"github.com/hatchet-dev/hatchet/sdks/wego/internal/ports"
 	"github.com/hatchet-dev/hatchet/sdks/wego/internal/spec"
+	"github.com/hatchet-dev/hatchet/sdks/wego/internal/wire"
+	"github.com/hatchet-dev/hatchet/sdks/wego/model"
 )
 
 // worker 封装后端 Worker 的私有生命周期，跟踪注册身份、结果确认和监听器退出
@@ -56,6 +60,59 @@ type worker struct {
 	mu sync.Mutex
 }
 
+// rpcDefinitionNames 生成稳定映射并拒绝名称冲突；实例 UUID 不进入 workflow 定义。
+func rpcDefinitionNames(namespace string, definitions []ports.Definition) (map[string]string, error) {
+	rpcNames := map[string]string{}
+	for _, definition := range definitions {
+		if definition.RPCMethod != "" {
+			if err := binding.ValidateName(namespace, definition.RPCMethod); err != nil {
+				return nil, err
+			}
+			if definition.Workflow != "" || definition.Name != binding.Name(definition.RPCMethod) {
+				return nil, fmt.Errorf("wego: inconsistent standalone RPC binding")
+			}
+			rpcNames[definition.Name] = binding.WorkflowName(namespace, definition.RPCMethod)
+			rpcNames[rpcNames[definition.Name]] = rpcNames[definition.Name]
+		}
+	}
+	for _, definition := range definitions {
+		if definition.RPCMethod == "" && strings.HasPrefix(definition.Name, "/") {
+			return nil, fmt.Errorf("wego: native task name cannot use RPC address syntax")
+		}
+		if definition.RPCMethod == "" && rpcNames[definition.Name] != "" {
+			return nil, fmt.Errorf("wego: native task conflicts with RPC workflow %s", definition.Name)
+		}
+	}
+	return rpcNames, nil
+}
+
+// nativeActionHandler 从官方上下文读取本次输入；durable 路径保留同一执行视图的等待和驱逐状态。
+func nativeActionHandler(policy spec.Task, lifecycle *nativeWorker, wrapped func(oldworker.HatchetContext, any) (any, error)) func(oldworker.HatchetContext) (any, error) {
+	return func(ctx oldworker.HatchetContext) (any, error) {
+		// input 从执行上下文读取的业务输入，转换失败时禁止调用 handler
+		var input any
+		if policy.Batch != nil {
+			// err 当前操作错误，失败时不继续使用对应结果
+			if err := ctx.BatchInputInto(&input); err != nil {
+				return nil, err
+			}
+			// } else if err 取得 ctx.WorkflowInput 的结果，确认成功后才进入下一处理阶段
+		} else if err := ctx.WorkflowInput(&input); err != nil {
+			return nil, err
+		}
+		if policy.Durable {
+			return lifecycle.invokeDurable(ctx, policy, func(ctx oldworker.HatchetContext) (any, error) { return wrapped(ctx, input) })
+		}
+		// output, err 取得 wrapped 的结果，确认成功后才进入下一处理阶段
+		output, err := wrapped(ctx, input)
+		if err != nil {
+			return nil, err
+		}
+
+		return output, nil
+	}
+}
+
 // Worker 在后端边界将 wego 定义转换为官方任务，并在注册前校验 handler 和策略
 func (b *Backend) Worker(
 	ctx context.Context,
@@ -83,24 +140,10 @@ func (b *Backend) Worker(
 	config.Labels["worker_name"] = name
 	// ready 取得 make 的结果，确认成功后才进入下一处理阶段
 	ready := make(chan struct{})
-	// rpcNames 只由已验证绑定生成，随机 Worker 身份不进入定义
-	rpcNames := map[string]string{}
-	for _, definition := range definitions {
-		if definition.RPCMethod != "" {
-			if err := binding.ValidateName(b.config.Namespace, definition.RPCMethod); err != nil {
-				return nil, err
-			}
-			if definition.Workflow != "" || definition.Name != binding.Name(definition.RPCMethod) {
-				return nil, fmt.Errorf("wego: inconsistent standalone RPC binding")
-			}
-			rpcNames[definition.Name] = binding.WorkflowName(b.config.Namespace, definition.RPCMethod)
-			rpcNames[rpcNames[definition.Name]] = rpcNames[definition.Name]
-		}
-	}
-	for _, definition := range definitions {
-		if definition.RPCMethod == "" && rpcNames[definition.Name] != "" {
-			return nil, fmt.Errorf("wego: native task conflicts with RPC workflow %s", definition.Name)
-		}
+	// 注册表先验证地址空间，确保普通任务不能占用 RPC 的展示名称。
+	rpcNames, err := rpcDefinitionNames(b.config.Namespace, definitions)
+	if err != nil {
+		return nil, err
 	}
 	// view 取得 &workerTransport{Client: b.observer, dispatcher: &dispatcher{DispatcherClient: b.raw.Dispatcher 的结果，确认成功后才进入下一处理阶段
 	view := &workerTransport{Client: b.observer, dispatcher: &dispatcher{DispatcherClient: b.raw.Dispatcher(), owner: b.observer, key: key, ready: ready}, admin: &registrationAdmin{AdminClient: b.raw.Admin(), backend: b, ctx: ctx, rpcNames: rpcNames}}
@@ -147,6 +190,10 @@ func (b *Backend) Worker(
 		// req 当前协议请求，编码完整后才发送，不能使用未初始化的调度字段
 		req := groups[workflowName]
 		if req == nil {
+			policy, err = prepareStaticPolicy(ctx, config, workflowName, definition.RPCMethod, policy)
+			if err != nil {
+				return nil, err
+			}
 			req, err = workflowDefinition(workflowName, policy, b.config.Namespace)
 			if err != nil {
 				return nil, err
@@ -159,9 +206,29 @@ func (b *Backend) Worker(
 					return nil, err
 				}
 			}
+			if definition.RPCMethod == "" {
+				kind := "task"
+				if definition.Policy.Durable {
+					kind = "durable"
+				}
+				if definition.Policy.Batch != nil {
+					kind = "batch"
+				}
+				if definition.Workflow != "" {
+					kind = "workflow"
+				}
+				req.InputJsonSchema, err = nativeSchema(b.config.Namespace, workflowName, kind)
+				if err != nil {
+					return nil, err
+				}
+			}
 			groups[workflowName] = req
 			order = append(order, workflowName)
 		}
+		if err := appendPayloadBinding(req, definition); err != nil {
+			return nil, err
+		}
+
 		// task 协议任务定义，action 与 readable_id 各自保持调度和结果语义
 		task, err := taskDefinition(req.Name, definition)
 		if err != nil {
@@ -182,34 +249,14 @@ func (b *Backend) Worker(
 			view.dispatcher.runner.definitions[task.Action] = definition
 		}
 		// wrapped 注入 wego 上下文和错误协议的业务入口，不向业务暴露后端对象
-		wrapped := b.wrap(definition.Function, config, task.Action, definition.RPCMethod)
-		// handler 注册给官方执行器的适配入口，按普通、durable、batch 恢复输入
-		handler := func(ctx oldworker.HatchetContext) (any, error) {
-			// input 从执行上下文读取的业务输入，转换失败时禁止调用 handler
-			var input any
-			if definition.Policy.Batch != nil {
-				// err 当前操作错误，失败时不继续使用对应结果
-				if err := ctx.BatchInputInto(&input); err != nil {
-					return nil, err
-				}
-				// } else if err 取得 ctx.WorkflowInput 的结果，确认成功后才进入下一处理阶段
-			} else if err := ctx.WorkflowInput(&input); err != nil {
-				return nil, err
-			}
-			if definition.Policy.Durable {
-				return lifecycle.invokeDurable(ctx, definition.Policy, func(ctx oldworker.HatchetContext) (any, error) { return wrapped(ctx, input) })
-			}
-			// output, err 取得 wrapped 的结果，确认成功后才进入下一处理阶段
-			output, err := wrapped(ctx, input)
-			if err != nil {
-				return nil, err
-			}
-			// batch 取得 definition.Policy.Batch 的结果，确认成功后才进入下一处理阶段
-			if batch := definition.Policy.Batch; batch != nil {
-				return batchResults(input, output, batch.BroadcastOutput)
-			}
-			return output, nil
+		// DAG 的事件属于 workflow，所有节点共享输入作用域；任务私有配置不被修改。
+		executionPolicy := definition.Policy
+		if definition.Workflow != "" {
+			executionPolicy.Events = append(append([]string(nil), definition.Policy.Events...), definition.WorkflowPolicy.Events...)
 		}
+		wrapped := b.wrap(definition.Function, config, task.Action, definition.RPCMethod, executionPolicy, req.Name)
+		// handler 注册给官方执行器的适配入口，按普通、durable、batch 恢复输入
+		handler := nativeActionHandler(definition.Policy, lifecycle, wrapped)
 		// err 当前操作错误，失败时不继续使用对应结果
 		if err := native.RegisterAction(task.Action, handler); err != nil {
 			return nil, Normalize(err)
@@ -221,9 +268,16 @@ func (b *Backend) Worker(
 		req := groups[group]
 		qualified := rpcNames[group]
 		if qualified == "" {
-			qualified = clientconfig.ApplyNamespace(strings.ToLower(group), &b.config.Namespace)
+			qualified = nativeWorkflowName(b.config.Namespace, group)
 		}
 		req.Name = qualified
+		if err := b.reuseStaticInputs(ctx, req); err != nil {
+			return nil, err
+		}
+		// 完整注册请求包含 schema 的静态载体副本，同样受后端消息限制。
+		if proto.Size(req) > b.messageLimit() {
+			return nil, fmt.Errorf("wego: complete registration exceeds backend limit")
+		}
 		// err 当前操作错误，失败时不继续使用对应结果
 		if err := native.RegisterWorkflowV1(req); err != nil {
 			return nil, Normalize(err)
@@ -390,7 +444,7 @@ func (w *worker) Close(ctx context.Context) error {
 			select {
 			case <-startDone:
 			case <-ctx.Done():
-				w.err = ctx.Err()
+				w.err = errors.Join(w.err, ctx.Err())
 				return
 			}
 		}
@@ -423,7 +477,7 @@ func (w *worker) Close(ctx context.Context) error {
 			// 在业务进展和上下文取消之间等待；deadline 或 Stop 到达时结束阻塞并走清理路径
 			select {
 			case <-ctx.Done():
-				w.err = ctx.Err()
+				w.err = errors.Join(w.err, ctx.Err())
 				w.backend.observer.mu.Lock()
 				// 预算耗尽只取消此注册 ID 的业务；另一同名实例的 handler 继续执行
 				for _, execution := range w.backend.observer.cancels {
@@ -461,10 +515,8 @@ func (w *worker) Close(ctx context.Context) error {
 		}
 		w.backend.observer.mu.Unlock()
 		if cleanup != nil {
-			// e 是注销结果；已有排空错误优先保留，不能被成功清理覆盖
-			if e := cleanup(cleanupCtx); w.err == nil {
-				w.err = Normalize(e)
-			}
+			// 排空取消与注销失败分别保留，调用方过滤预期取消后仍能看到真实故障。
+			w.err = errors.Join(w.err, Normalize(cleanup(cleanupCtx)))
 			w.backend.observer.mu.Lock()
 			// done 操作完成通知；关闭 channel 后所有等待者同时被唤醒
 			done := w.backend.observer.listenerDone[w.key]
@@ -474,10 +526,103 @@ func (w *worker) Close(ctx context.Context) error {
 				select {
 				case <-done:
 				case <-cleanupCtx.Done():
-					w.err = cleanupCtx.Err()
+					w.err = errors.Join(w.err, cleanupCtx.Err())
 				}
 			}
 		}
 	})
 	return w.err
+}
+
+// protobufType 读取 handler 声明的指针消息类型；map/struct/any 保持普通 JSON 定义身份。
+func protobufType(typ reflect.Type) string {
+	if typ.Kind() == reflect.Pointer && typ.Implements(reflect.TypeOf((*proto.Message)(nil)).Elem()) {
+		return string(reflect.New(typ.Elem()).Interface().(proto.Message).ProtoReflect().Descriptor().FullName())
+	}
+	return ""
+}
+
+// prepareStaticPolicy 在注册前一次编码 Cron/Filter，随机密文由静态输入复用机制保持稳定。
+func prepareStaticPolicy(ctx context.Context, config spec.Runtime, workflowName, rpcMethod string, policy spec.Task) (spec.Task, error) {
+	// err 保存编解码失败，失败时不提交部分定义。
+	var err error
+	if rpcMethod == "" && len(policy.Cron) > 0 {
+		value, routing, inputErr := wire.InputValue(policy.CronInput)
+		if inputErr != nil {
+			return policy, inputErr
+		}
+		routing, err = config.Routing(workflowName, routing)
+		if err != nil {
+			return policy, err
+		}
+		plain, typeName, err := wire.MarshalValue(value, config.PayloadLimits.MaxMessageBytes)
+		if err != nil {
+			return policy, err
+		}
+		envelope := wire.NewEnvelope(wire.ForTrigger(ctx), "", typeName, plain, routing)
+
+		budget, cancel := context.WithTimeout(ctx, config.PayloadLimits.EncodeTimeout)
+		policy.CronInput, err = wire.Seal(budget, envelope, config, config.PayloadLimits.MaxMessageBytes, config.PayloadLimits.MaxMessageBytes+(64<<10), config.PayloadLimits.MaxEncodedBytes)
+		cancel()
+		if err != nil {
+			return policy, err
+		}
+	}
+	if len(policy.Filters) > 0 {
+		prepared := append([]model.DefaultFilter(nil), policy.Filters...)
+		for i, filter := range prepared {
+			value := filter.Payload
+			if value == nil {
+				value = map[string]any{}
+			}
+			prepared[i].Payload, err = wire.EncodeFilter(ctx, config, workflowName, value)
+			if err != nil {
+				return policy, err
+			}
+		}
+		policy.Filters = prepared
+	}
+
+	return policy, nil
+}
+
+// appendPayloadBinding 保存真实 handler 类型；输入 proto 类型不会改变任务种类。
+func appendPayloadBinding(req *v1.CreateWorkflowVersionRequest, definition ports.Definition) error {
+	// schema 保存当前 workflow 的全部节点类型，后续注册使用同一快照。
+	var schema map[string]any
+	if err := json.Unmarshal(req.InputJsonSchema, &schema); err != nil {
+		return err
+	}
+	encodedBinding, _ := json.Marshal(schema["x-wego-binding"])
+	// contract 与引擎版本一起持久化，不包含进程身份。
+	var contract rpcBinding
+	if err := json.Unmarshal(encodedBinding, &contract); err != nil {
+		return err
+	}
+	if contract.Tasks == nil {
+		contract.Tasks = map[string]payloadBinding{}
+	}
+	inputType, outputType := reflect.TypeOf(definition.Function).In(1), reflect.TypeOf(definition.Function).Out(0)
+	if definition.Policy.Batch != nil && inputType.Kind() == reflect.Map {
+		inputType = inputType.Elem()
+	}
+	if definition.Policy.Batch != nil && !definition.Policy.Batch.BroadcastOutput && outputType.Kind() == reflect.Map {
+		outputType = outputType.Elem()
+	}
+	types := payloadBinding{Input: protobufType(inputType), Output: protobufType(outputType), GoInput: inputType.String(), GoOutput: outputType.String()}
+	if definition.RPCMethod != "" {
+		types.Input, types.Output = definition.InputType, definition.OutputType
+	}
+	contract.Tasks[definition.Name] = types
+	if definition.Workflow == "" {
+		contract.InputType, contract.OutputType = types.Input, types.Output
+	}
+	schema["x-wego-binding"] = contract
+	encodedSchema, err := json.Marshal(schema)
+	req.InputJsonSchema = encodedSchema
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

@@ -16,6 +16,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/dynamicpb"
 
 	"github.com/hatchet-dev/hatchet/sdks/wego/internal/binding"
@@ -24,69 +25,78 @@ import (
 	"github.com/hatchet-dev/hatchet/sdks/wego/internal/logging"
 	"github.com/hatchet-dev/hatchet/sdks/wego/internal/ports"
 	"github.com/hatchet-dev/hatchet/sdks/wego/internal/spec"
-	"github.com/hatchet-dev/hatchet/sdks/wego/internal/stream"
 	"github.com/hatchet-dev/hatchet/sdks/wego/internal/wire"
 	"github.com/hatchet-dev/hatchet/sdks/wego/model"
 )
 
-// Input 保留原生 JSON 输入语义，protobuf 或 RPCInput 则转换为 RPC envelope
-func Input(ctx context.Context, config spec.Runtime, name string, input any) (string, any, error) {
-	// method 本次调用用于 trace、投影及任务路由的方法名；RPCInput 提供完整方法时覆盖普通任务名
-	method := name
-	// rpcInput 显式提供方法与消息，优先于原生 JSON 任务名
-	if rpcInput, ok := input.(model.RPCInput); ok {
-		if rpcInput.Routing != nil {
-			ctx = callctx.WithRouting(ctx, rpcInput.Routing)
-		}
-		if rpcInput.Method != "" {
-			method = rpcInput.Method
-		}
-		if !strings.HasPrefix(method, "/") {
-			return "", nil, status.Error(codes.InvalidArgument, "wego: RPCInput requires a full RPC method")
-		}
-		input = rpcInput.Message
+// Input 为所有任务准备统一封包；地址语法决定绑定，消息类型只决定序列化。
+func Input(ctx context.Context, config spec.Runtime, name string, input any, options ...model.RunOptions) (string, any, error) {
+	opts := model.RunOptions{}
+	if len(options) > 0 {
+		opts = options[0]
 	}
-	// 检查 strings.HasPrefix(method, "/")；不满足协议或配置约束时返回 InvalidArgument（wego: RPC input must be protobuf）
-	if strings.HasPrefix(method, "/") {
-		// message, ok 读取可选值及存在标记，必须在 ok 为 true 时使用该值
-		message, ok := input.(proto.Message)
-		// 检查 !ok；不满足协议或配置约束时返回 InvalidArgument（wego: RPC input must be protobuf）
-		if !ok {
+	if opts.ValidationError != nil {
+		return "", nil, opts.ValidationError
+	}
+	input, defaults, err := wire.InputValue(input)
+	if err != nil {
+		return "", nil, err
+	}
+	override := map[string]any{}
+	for key, value := range defaults {
+		override[key] = value
+	}
+	for key, value := range opts.Routing {
+		override[key] = value
+	}
+	method := ""
+	if strings.HasPrefix(name, "/") {
+		if err := binding.ValidateName(config.Namespace, name); err != nil {
+			return "", nil, err
+		}
+		if _, ok := input.(proto.Message); !ok {
 			return "", nil, status.Error(codes.InvalidArgument, "wego: RPC input must be protobuf")
 		}
-
-		// envelope, err 接收编码后的传输数据与错误，编码成功后才提交或发布，避免发送半成品载荷
-		if err := binding.ValidateName(config.Namespace, method); err != nil {
-			return "", nil, err
-		}
-		override, err := callctx.Routing(ctx)
-		if err != nil {
-			return "", nil, status.Errorf(codes.InvalidArgument, "wego: routing: %v", err)
-		}
-		routing, err := config.Routing(method, override)
-		if err != nil {
-			return "", nil, status.Errorf(codes.InvalidArgument, "wego: routing: %v", err)
-		}
-		plain, err := wire.MarshalMessage(message, config.Stream.MaxMessageBytes)
-		if err != nil {
-			return "", nil, err
-		}
-		digest, err := stream.InputDigest(method, []json.RawMessage{plain}, routing)
-		if err != nil {
-			return "", nil, err
-		}
-		envelope, err := wire.EncodeSnapshot(ctx, method, string(message.ProtoReflect().Descriptor().FullName()), plain, routing, config.Middleware, config.Stream.MaxMessageBytes)
-		envelope.InputDigest = digest
-		return method, envelope, err
+		method = name
 	}
+	if opts.StreamIdempotencyKey != "" {
+		return "", nil, status.Error(codes.InvalidArgument, "wego: stream idempotency key requires a streaming RPC")
+	}
+	routing, err := config.Routing(name, override)
+	if err != nil {
+		return "", nil, status.Errorf(codes.InvalidArgument, "wego: routing: %v", err)
+	}
+	limits := config.PayloadLimits
+	plain, typeName, err := wire.MarshalValue(input, limits.MaxMessageBytes)
+	if err != nil {
+		return "", nil, err
+	}
+	envelope := wire.NewEnvelope(ctx, method, typeName, plain, routing)
+	budget, cancel := context.WithTimeout(ctx, limits.EncodeTimeout)
+	defer cancel()
+	envelope, err = wire.Seal(budget, envelope, config, limits.MaxMessageBytes, limits.MaxMessageBytes+(64<<10), limits.MaxEncodedBytes)
+	return name, envelope, err
+}
 
-	return name, input, nil
+// validMessage 排除 nil 与 typed nil protobuf，避免访问无效反射实例。
+func validMessage(value proto.Message) bool { return value != nil && value.ProtoReflect().IsValid() }
+
+// matchesMessage 校验具体消息类型，拦截器返回值也必须符合注册描述。
+func matchesMessage(value any, name protoreflect.FullName) bool {
+	message, ok := value.(proto.Message)
+	return ok && validMessage(message) && message.ProtoReflect().Descriptor().FullName() == name
 }
 
 // Invoke 实现 grpc.ClientConnInterface 的 unary 调用，将 protobuf 请求提交为任务并把结果解码到 reply；调用上下文控制等待预算
-func Invoke(ctx context.Context, e *engine.Engine, method string, args, reply any, opts ...grpc.CallOption) error {
+func Invoke(ctx context.Context, e *engine.Engine, method string, args, reply any, opts ...grpc.CallOption) (err error) {
+	// 初始选项也覆盖拦截器短路；完成回调在实例登记释放之后执行。
+	completion, err := ParseCallOptions(opts, false)
+	defer func() { completion.Finish(&err) }()
+	if err != nil {
+		return err
+	}
 	// ctx, done, err 登记本次调用并取得结束回调，返回前释放登记以允许实例排空
-	ctx, done, err := e.Begin(ctx)
+	ctx, done, err := e.BeginIO(ctx, "rpc.unary")
 	if err != nil {
 		return err
 	}
@@ -96,14 +106,14 @@ func Invoke(ctx context.Context, e *engine.Engine, method string, args, reply an
 	// message, ok 读取可选值及存在标记，必须在 ok 为 true 时使用该值
 	message, ok := args.(proto.Message)
 	// 检查 !ok；不满足协议或配置约束时返回 InvalidArgument（wego: request must be protobuf）
-	if !ok {
+	if !ok || !validMessage(message) {
 		return status.Error(codes.InvalidArgument, "wego: request must be protobuf")
 	}
 
 	// response, ok 读取可选值及存在标记，必须在 ok 为 true 时使用该值
 	response, ok := reply.(proto.Message)
 	// 检查 !ok；不满足协议或配置约束时返回 InvalidArgument（wego: response must be protobuf）
-	if !ok {
+	if !ok || !validMessage(response) {
 		return status.Error(codes.InvalidArgument, "wego: response must be protobuf")
 	}
 
@@ -116,13 +126,35 @@ func Invoke(ctx context.Context, e *engine.Engine, method string, args, reply an
 		}()
 
 		// name, input, err 保存此步骤的并行结果或状态快照，后续逻辑分别使用对应值
-		name, input, err := Input(ctx, e.Config, method, req)
+		parsed, err := ParseCallOptions(callOptions, false)
+		if err != nil {
+			return err
+		}
+		completion = parsed
+		request, ok := req.(proto.Message)
+		if !ok || !validMessage(request) {
+			return status.Error(codes.InvalidArgument, "wego: request must be protobuf")
+		}
+		// 拦截器可替换 invoker 的参数；替换后的响应仍须符合 protobuf 契约，不能触发类型断言 panic。
+		response, _ := reply.(proto.Message)
+		if !validMessage(response) {
+			return status.Error(codes.InvalidArgument, "wego: response must be protobuf")
+		}
+		if parsed.MaxSend >= 0 && proto.Size(request) > parsed.MaxSend {
+			return status.Error(codes.ResourceExhausted, "wego: request exceeds call send limit")
+		}
+		ctx = ports.WithExpectedOutput(ctx, wire.ValueType(reply))
+		ctx, err = ports.PrepareTarget(ctx, e.Backend, method, "unary", "", wire.ValueType(req))
+		if err != nil {
+			return err
+		}
+		name, input, err := Input(ctx, e.Config, method, req, parsed.Run)
 		if err != nil {
 			return err
 		}
 
 		// ref, err 接收 e.Backend.Run 的返回值，同时保存错误供紧接着的分支检查；失败时不继续使用结果
-		ref, err := e.Backend.Run(ctx, name, input, model.RunOptions{})
+		ref, err := e.Backend.Run(ctx, name, input, parsed.Run)
 		if err != nil {
 			if ctx.Err() != nil {
 				return status.FromContextError(ctx.Err()).Err()
@@ -130,53 +162,11 @@ func Invoke(ctx context.Context, e *engine.Engine, method string, args, reply an
 			return err
 		}
 
-		// result, err 等待此运行的业务结果；等待失败不能作为正常完成，返回的 RunID 可用于关联证据
 		result, err := ref.Wait(ctx)
 		if err != nil {
-			// transport 携带响应 metadata 的 wego RPCError 目标，headers / trailers 不混入业务 details
-			var transport *model.RPCError
-			if errors.As(err, &transport) {
-				applyMetadata(callOptions, transport.Headers, transport.Trailers)
-			}
-			// state, _ 获取任务上下文能力与存在标记；普通网络入口没有任务身份，必须检查后再使用
-			state, _ := callctx.Get(ctx)
-			// durableChild 表示当前调用有可重放父身份；等待预算结束不应取消已记录的 durable 子运行
-			durableChild := state != nil && state.Execution != nil && state.Execution.Info().Durable
-			if ctx.Err() != nil && !durableChild {
-				// cleanup, cancel 创建当前步骤的派生上下文及取消函数，退出时必须释放取消资源，避免后台等待泄漏
-				cleanup, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Second)
-				if cancelErr := e.Backend.Feature(cleanup, ports.RunsCancel{Request: map[string]any{"externalIds": []string{ref.ID}}}, nil); cancelErr != nil {
-					e.Config.Logger.Warn("RPC cancellation request failed", "run_id", ref.ID, "error", cancelErr)
-				}
-				cancel()
-			}
-			// 调用方预算已耗尽，剩余业务取消后资源清理使用独立预算，避免上报直接继承过期 context
-			if ctx.Err() != nil {
-				return status.FromContextError(ctx.Err()).Err()
-			}
-
-			return err
+			return unaryWaitError(ctx, e, ref.ID, callOptions, err)
 		}
-
-		// out, err 保存此步骤的并行结果或状态快照，后续逻辑分别使用对应值
-		out, err := SingleOutput(result.Outputs)
-		if err != nil {
-			return err
-		}
-
-		// envelope, err 接收 wire.AsEnvelope 的返回值，同时保存错误供紧接着的分支检查；失败时不继续使用结果
-		envelope, err := wire.AsEnvelope(out)
-		if err != nil {
-			return err
-		}
-
-		applyMetadata(callOptions, envelope.Headers, envelope.Trailers)
-		// response 必须使用拦截器传给 invoker 的目标，不能捕获外层 reply
-		response, ok := reply.(proto.Message)
-		if !ok {
-			return status.Error(codes.InvalidArgument, "wego: response must be protobuf")
-		}
-		return wire.Decode(ctx, method, envelope, response, e.Config.Middleware, e.Config.Stream.MaxMessageBytes)
+		return decodeUnaryResult(ctx, e, method, reply, parsed, callOptions, result)
 	}
 	// 遍历本组明确的条目，逐项验证结果或登记资源；迭代结束后才汇总这一组断言
 	for i := len(e.Config.Middleware) - 1; i >= 0; i-- {
@@ -191,6 +181,60 @@ func Invoke(ctx context.Context, e *engine.Engine, method string, args, reply an
 		}
 	}
 	return invoke(ctx, method, message, response, nil, opts...)
+}
+
+// unaryWaitError 保留响应 metadata，并仅取消当前调用拥有的运行；durable 子运行必须可重放。
+func unaryWaitError(ctx context.Context, e *engine.Engine, runID string, options []grpc.CallOption, err error) error {
+	// transport 保存带响应 metadata 的失败，字段与业务 details 分离。
+	var transport *model.RPCError
+	if errors.As(err, &transport) {
+		applyMetadata(options, transport.Headers, transport.Trailers)
+	}
+	state, _ := callctx.Get(ctx)
+	durableChild := state != nil && state.Execution != nil && state.Execution.Info().Durable
+	if ctx.Err() == nil {
+		return err
+	}
+	if !durableChild {
+		cleanup, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Second)
+		defer cancel()
+		if cancelErr := e.Backend.Feature(cleanup, ports.RunsCancel{Request: map[string]any{"externalIds": []string{runID}}}, nil); cancelErr != nil {
+			e.Config.Logger.Warn("RPC cancellation request failed", "run_id", runID, "error", cancelErr)
+		}
+	}
+	return status.FromContextError(ctx.Err()).Err()
+}
+
+// decodeUnaryResult 先完整验证和解码，再提交 reply；超限或损坏响应不留下半更新消息。
+func decodeUnaryResult(ctx context.Context, e *engine.Engine, method string, reply any, parsed CallOptions, options []grpc.CallOption, result ports.Result) error {
+	out, err := SingleOutput(result.Outputs)
+	if err != nil {
+		return err
+	}
+	envelope, err := wire.AsEnvelope(out)
+	if err != nil {
+		return err
+	}
+	if envelope.Native || envelope.Response != "wego" {
+		return status.Error(codes.DataLoss, "wego: unexpected RPC response contract")
+	}
+	response, ok := reply.(proto.Message)
+	if !ok || !validMessage(response) {
+		return status.Error(codes.InvalidArgument, "wego: response must be protobuf")
+	}
+	budget, cancel := context.WithTimeout(ctx, e.Config.PayloadLimits.DecodeTimeout)
+	defer cancel()
+	decoded := response.ProtoReflect().New().Interface()
+	if err := wire.DecodeValue(budget, method, envelope, decoded, e.Config, e.Config.PayloadLimits.MaxMessageBytes, e.Config.PayloadLimits.MaxEncodedBytes); err != nil {
+		return err
+	}
+	applyMetadata(options, envelope.Headers, envelope.Trailers)
+	if parsed.MaxRecv >= 0 && proto.Size(decoded) > parsed.MaxRecv {
+		return status.Error(codes.ResourceExhausted, "wego: response exceeds call receive limit")
+	}
+	proto.Reset(response)
+	proto.Merge(response, decoded)
+	return nil
 }
 
 // SingleOutput 读取独立任务唯一输出，多输出或缺失输出返回明确错误
@@ -209,6 +253,8 @@ func SingleOutput(outputs map[string]any) (any, error) {
 
 // UnaryDefinition 将 gRPC unary 描述绑定成独立任务定义，恢复标准 handler 的上下文和响应
 func UnaryDefinition(ctx context.Context, e *engine.Engine, method binding.Method, policy spec.Task) (ports.Definition, error) {
+	// 默认事件不能被方法覆盖清除；复制切片避免改变其他方法共享的策略。
+	policy.Events = append(append([]string(nil), policy.Events...), method.FullName)
 	if len(policy.Cron) > 0 && policy.CronInput == nil {
 		policy.CronInput = dynamicpb.NewMessage(method.Descriptor.Input())
 	}
@@ -222,9 +268,11 @@ func UnaryDefinition(ctx context.Context, e *engine.Engine, method binding.Metho
 		policy.CronInput = input
 	}
 	return ports.Definition{
-		Name:      binding.Name(method.FullName),
-		RPCMethod: method.FullName,
-		Policy:    policy,
+		Name:       binding.Name(method.FullName),
+		RPCMethod:  method.FullName,
+		InputType:  string(method.Descriptor.Input().FullName()),
+		OutputType: string(method.Descriptor.Output().FullName()),
+		Policy:     policy,
 		Function: func(ctx context.Context, input any) (output any, err error) {
 			// envelope, err 接收 wire.AsEnvelope 的返回值，同时保存错误供紧接着的分支检查；失败时不继续使用结果
 			envelope, err := wire.AsEnvelope(input)
@@ -232,9 +280,18 @@ func UnaryDefinition(ctx context.Context, e *engine.Engine, method binding.Metho
 				return nil, err
 			}
 
-			// ctx, cancel 恢复请求 metadata、trace 与绝对 deadline，排队时间同样计入预算
+			if err := wire.ValidateRPCBinding(envelope, method.FullName); err != nil {
+				return nil, err
+			}
+			// 执行预算包含排队和解码；历史读取不继承原请求的 deadline。
 			ctx, cancel := wire.Incoming(ctx, envelope)
 			defer cancel()
+			decodeBudget, stopDecode := context.WithTimeout(ctx, e.Config.PayloadLimits.DecodeTimeout)
+			envelope, err = wire.Open(decodeBudget, method.FullName, envelope, e.Config, e.Config.PayloadLimits.MaxMessageBytes, e.Config.PayloadLimits.MaxEncodedBytes)
+			stopDecode()
+			if err != nil {
+				return nil, err
+			}
 
 			ctx = e.Context(ctx)
 			// 请求字段绑定到 context，普通日志和显式上报共享同一方法身份。
@@ -283,25 +340,29 @@ func UnaryDefinition(ctx context.Context, e *engine.Engine, method binding.Metho
 					return fmt.Errorf("wego: generated decoder must use protobuf")
 				}
 
-				return wire.Decode(ctx, method.FullName, envelope, message, e.Config.Middleware, e.Config.Stream.MaxMessageBytes)
+				return wire.DecodeValue(ctx, method.FullName, envelope, message, e.Config, e.Config.PayloadLimits.MaxMessageBytes, e.Config.PayloadLimits.MaxEncodedBytes)
 			}, interceptor)
 			if err != nil {
 				return nil, err
 			}
 
-			// message, ok 读取可选值及存在标记，必须在 ok 为 true 时使用该值
-			message, ok := response.(proto.Message)
-			// 检查 !ok；不满足协议或配置约束时返回 Internal（wego: handler returned non-protobuf response）
-			if !ok {
-				return nil, status.Error(codes.Internal, "wego: handler returned non-protobuf response")
+			// 响应类型由注册描述决定，拦截器不能返回恰好具有相同 JSON 字段的其他消息。
+			if !matchesMessage(response, method.Descriptor.Output().FullName()) {
+				return nil, status.Error(codes.Internal, "wego: handler response does not match registered protobuf type")
 			}
 
 			// out, err 接收编码后的传输数据与错误，编码成功后才提交或发布，避免发送半成品载荷
-			out, err := wire.Encode(ctx, method.FullName, message, nil, e.Config.Middleware, e.Config.Stream.MaxMessageBytes)
+			plain, typeName, err := wire.MarshalValue(response, e.Config.PayloadLimits.MaxMessageBytes)
+			if err != nil {
+				return nil, err
+			}
+			out := wire.NewEnvelope(ctx, method.FullName, typeName, plain, nil)
 			transport.mu.Lock()
-			out.Headers = transport.headers.Copy()
-			out.Trailers = transport.trailers.Copy()
+			out.Headers, out.Trailers = transport.headers.Copy(), transport.trailers.Copy()
 			transport.mu.Unlock()
+			budget, cancel := context.WithTimeout(ctx, e.Config.PayloadLimits.EncodeTimeout)
+			defer cancel()
+			out, err = wire.Output(budget, out, e.Config, e.Config.PayloadLimits.MaxMessageBytes, e.Config.PayloadLimits.MaxMessageBytes+(64<<10), e.Config.PayloadLimits.MaxEncodedBytes)
 			return out, err
 		},
 	}, nil

@@ -142,7 +142,7 @@ func ParentOutput(ctx context.Context, name string, out any) error {
 		return err
 	}
 
-	return e.ParentOutput(name, out)
+	return e.ParentOutput(ctx, name, out)
 }
 
 // WithRefreshTimeout 执行 fn 的同时定期续期任务预算；fn 结束或续期失败后取消后台续期并合并错误
@@ -192,4 +192,27 @@ func WithRefreshTimeout[T any](ctx context.Context, interval time.Duration, fn f
 	result, err := fn(derived)
 	cancel()
 	return result, errors.Join(err, <-done)
+}
+
+// WaitForEventInto 用单次 durable 等待还原任意业务目标；例如事件中的 protobuf bytes 保持原值。
+func WaitForEventInto(ctx context.Context, key, expression string, target any, opts ...model.EventWait) error {
+	execution, err := execution(ctx)
+	if err != nil {
+		return err
+	}
+	capability, ok := execution.(interface {
+		// WaitEventInto 使用现有持久等待并在本次预算内解码。
+		WaitEventInto(context.Context, string, string, any, model.EventWait) error
+	})
+	if !ok {
+		return model.ErrDurableContext
+	}
+	option := model.EventWait{}
+	if len(opts) > 1 {
+		return fmt.Errorf("wego: event wait accepts one options value")
+	}
+	if len(opts) == 1 {
+		option = opts[0]
+	}
+	return capability.WaitEventInto(ctx, key, expression, target, option)
 }

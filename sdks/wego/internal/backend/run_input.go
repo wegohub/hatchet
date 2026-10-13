@@ -13,6 +13,7 @@ import (
 	"github.com/hatchet-dev/hatchet/sdks/wego/internal/binding"
 	"github.com/hatchet-dev/hatchet/sdks/wego/internal/ports"
 	"github.com/hatchet-dev/hatchet/sdks/wego/internal/stream"
+	"github.com/hatchet-dev/hatchet/sdks/wego/internal/wire"
 )
 
 // RunInput 读取现有运行的持久输入；用于冲突恢复身份核验，不重新提交任务
@@ -82,12 +83,68 @@ func (b *Backend) FindSubmission(ctx context.Context, submission, method, digest
 		return ports.Run{}, status.Error(codes.DataLoss, "wego: submission workflow identity mismatch")
 	}
 	id := row.WorkflowRunExternalId.String()
+	if err := b.ValidateRunTarget(ctx, id, method); err != nil {
+		return ports.Run{}, err
+	}
 	input, err := b.RunInput(ctx, id)
 	if err != nil {
 		return ports.Run{}, err
 	}
-	if err := stream.VerifyRunIdentity(input, method, digest); err != nil {
+	if err := stream.VerifyRunIdentity(input, digest); err != nil {
 		return ports.Run{}, err
 	}
 	return b.runRef(id), nil
 }
+
+// ValidateRunTarget 读取运行所用的具体版本；升级后的同名 workflow 不能替旧运行作证。
+func (b *Backend) ValidateRunTarget(ctx context.Context, runID, method string, contracts ...ports.RPCContract) error {
+	budget, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	run, err := b.features.Runs().Get(budget, runID)
+	if err != nil {
+		return Normalize(err)
+	}
+	if run == nil || run.Run.WorkflowVersionId == nil {
+		return status.Error(codes.DataLoss, "wego: run workflow version unavailable")
+	}
+	response, err := b.raw.API().WorkflowVersionGetWithResponse(budget, run.Run.WorkflowId, &rest.WorkflowVersionGetParams{Version: run.Run.WorkflowVersionId})
+	if err != nil {
+		return Normalize(err)
+	}
+	if err := responseStatus(response.StatusCode(), response.JSON200 != nil); err != nil {
+		return err
+	}
+	if response.JSON200.InputJsonSchema == nil {
+		return status.Error(codes.FailedPrecondition, "wego: run has no registered binding")
+	}
+	data, err := json.Marshal((*response.JSON200.InputJsonSchema)["x-wego-binding"])
+	if err != nil {
+		return status.Error(codes.DataLoss, "wego: malformed run binding")
+	}
+	// registered 来自该运行的具体版本，不使用当前最新版本替代。
+	var registered rpcBinding
+	if err := json.Unmarshal(data, &registered); err != nil {
+		return status.Error(codes.DataLoss, "wego: malformed run binding")
+	}
+	return registered.validateRunTarget(b.config.Namespace, method, contracts)
+}
+
+// validateRunTarget 同时核对实际版本的地址、流方向、模式和类型；当前版本不能替历史版本作证。
+func (registered *rpcBinding) validateRunTarget(namespace, method string, contracts []ports.RPCContract) error {
+	if registered.Version != wire.Version || registered.Kind != "rpc" || registered.Namespace != namespace || registered.Method != method || registered.Workflow != binding.WorkflowName(namespace, method) || registered.Action != binding.Action(namespace, method) {
+		return status.Error(codes.FailedPrecondition, "wego: stored run target differs from requested RPC")
+	}
+	if len(contracts) > 1 {
+		return status.Error(codes.InvalidArgument, "wego: multiple recovery contracts")
+	}
+	if len(contracts) == 1 {
+		contract := contracts[0]
+		if registered.Shape != contract.Shape || registered.Mode != contract.Mode || registered.InputType != contract.InputType || registered.OutputType != contract.OutputType {
+			return status.Error(codes.FailedPrecondition, "wego: stored run stream contract differs from generated descriptor")
+		}
+	}
+	return nil
+}
+
+// 编译断言保证恢复核验不通过公开接口暴露官方运行资源。
+var _ ports.RunTargetValidator = (*Backend)(nil)

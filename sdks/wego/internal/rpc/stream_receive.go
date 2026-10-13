@@ -53,10 +53,7 @@ func (s *taskClientStream) Header() (metadata.MD, error) {
 			return md, nil
 		}
 		if s.resultDone && s.resultErr != nil || s.streamErr != nil {
-			err := s.resultErr
-			if err == nil {
-				err = s.streamErr
-			}
+			err := s.failureLocked()
 			md := s.headers.Copy()
 			s.mu.Unlock()
 			return md, err
@@ -73,7 +70,7 @@ func (s *taskClientStream) Header() (metadata.MD, error) {
 		}
 		select {
 		case <-s.ctx.Done():
-			return nil, status.FromContextError(s.ctx.Err()).Err()
+			return nil, s.headerContextError()
 		case <-changed:
 		case <-timeout:
 			// 没有读到帧可能是传输不可达，不能仅凭等待超时断言持久历史损坏
@@ -82,6 +79,27 @@ func (s *taskClientStream) Header() (metadata.MD, error) {
 			return nil, err
 		}
 	}
+}
+
+// failureLocked 调用方持有状态锁；协议损坏优先于内部清理产生的 context 取消。
+func (s *taskClientStream) failureLocked() error {
+	if s.streamErr != nil {
+		return s.streamErr
+	}
+	if s.terminalErr != nil {
+		return s.terminalErr
+	}
+	return s.resultErr
+}
+
+// headerContextError 取消只负责唤醒等待；若终态已确定，仍返回导致关闭的真实错误。
+func (s *taskClientStream) headerContextError() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := s.failureLocked(); err != nil {
+		return err
+	}
+	return status.FromContextError(s.ctx.Err()).Err()
 }
 
 // Trailer 返回独立多值副本，在最终 Recv 之后读取能得到权威 attempt 的尾部
@@ -132,17 +150,21 @@ func (s *taskClientStream) RecvMsg(value any) error {
 		}
 		if len(s.queue) > 0 {
 			item := s.queue[0]
-			if err := protojson.Unmarshal(item.data, message); err != nil {
+			decoded := message.ProtoReflect().New().Interface()
+			if err := protojson.Unmarshal(item.data, decoded); err != nil {
 				s.mu.Unlock()
 				s.fail(status.Error(codes.DataLoss, "wego: output protobuf decode failed"))
 				return status.Error(codes.DataLoss, "wego: output protobuf decode failed")
 			}
-			if s.maxRecv > 0 && proto.Size(message) > s.maxRecv {
+			if s.maxRecv >= 0 && proto.Size(decoded) > s.maxRecv {
 				s.mu.Unlock()
 				err := status.Error(codes.ResourceExhausted, "wego: protobuf response exceeds call receive limit")
 				s.finish(err)
 				return err
 			}
+			// 只有解码和接收限制均通过才修改业务目标、推进消费 token。
+			proto.Reset(message)
+			proto.Merge(message, decoded)
 			s.queue[0] = bufferedOutput{}
 			s.queue = s.queue[1:]
 			s.queueBytes -= len(item.data)
@@ -248,6 +270,7 @@ func (s *taskClientStream) applyOptionsLocked() { applyMetadata(s.opts, s.header
 // receiveResponse 还原 client stream 的唯一响应，远程 codec 不持有状态锁
 // recvMu 保证只有一个接收者；例如对象下载期间 Stop 可以先取消订阅和释放登记
 func (s *taskClientStream) receiveResponse(result ports.Result, message proto.Message) error {
+	decoded := message.ProtoReflect().New().Interface()
 	out, err := SingleOutput(result.Outputs)
 	envelope := wire.Envelope{}
 	if err == nil {
@@ -255,13 +278,13 @@ func (s *taskClientStream) receiveResponse(result ports.Result, message proto.Me
 	}
 	if err == nil {
 		budget, cancel := context.WithTimeout(s.ctx, s.options.DecodeTimeout)
-		err = wire.DecodeWithLimits(budget, s.method, envelope, message, s.engine.Config.Middleware, s.options.MaxMessageBytes, s.options.MaxEncodedMessageBytes)
+		err = wire.DecodeWithLimits(budget, s.method, envelope, decoded, s.engine.Config, s.options.MaxMessageBytes, s.options.MaxEncodedMessageBytes)
 		if budget.Err() != nil {
 			err = status.FromContextError(budget.Err()).Err()
 		}
 		cancel()
 	}
-	if err == nil && s.maxRecv > 0 && proto.Size(message) > s.maxRecv {
+	if err == nil && s.maxRecv >= 0 && proto.Size(decoded) > s.maxRecv {
 		err = status.Error(codes.ResourceExhausted, "wego: protobuf response exceeds call receive limit")
 	}
 	s.mu.Lock()
@@ -278,6 +301,8 @@ func (s *taskClientStream) receiveResponse(result ports.Result, message proto.Me
 		err = status.FromContextError(s.ctx.Err()).Err()
 	}
 	if err == nil {
+		proto.Reset(message)
+		proto.Merge(message, decoded)
 		s.headers = metadata.MD(envelope.Headers).Copy()
 		s.headersReady = true
 		s.trailers = metadata.MD(envelope.Trailers).Copy()

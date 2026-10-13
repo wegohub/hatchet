@@ -7,11 +7,11 @@ import (
 	"reflect"
 
 	oldworker "github.com/hatchet-dev/hatchet/pkg/worker"
-	"go.opentelemetry.io/otel/propagation"
 
 	"github.com/hatchet-dev/hatchet/sdks/wego/internal/callctx"
 	"github.com/hatchet-dev/hatchet/sdks/wego/internal/logging"
 	"github.com/hatchet-dev/hatchet/sdks/wego/internal/spec"
+	"github.com/hatchet-dev/hatchet/sdks/wego/internal/wire"
 )
 
 // executionContext 绑定 wego 执行能力，并从调度元数据恢复父 trace
@@ -26,14 +26,8 @@ func (b *Backend) executionContext(ctx oldworker.HatchetContext, config spec.Run
 			return b.logRecord(ctx, info.TaskRunID, info.RetryCount, config.LogReportTimeout, record)
 		}
 	}
-	// carrier 构造当前步骤的数据对象，字段在提交、编码或断言之前一次性初始化
-	carrier := propagation.MapCarrier{}
-	// 逐项处理 []string{"traceparent", "tracestate"}，保留各项的身份和独立结果，避免把一个条目的结果套用到整组
-	for _, key := range []string{"traceparent", "tracestate"} {
-		carrier[key] = ctx.AdditionalMetadata()["wego."+key]
-	}
-	// bound 恢复 wego 自有执行能力，业务不能取出底层 Hatchet context
-	bound := logging.WithTask(callctx.Bind(propagation.TraceContext{}.Extract(ctx.GetContext(), carrier), state), info)
+	// 官方执行 metadata 的 traceparent 是引擎选择的父链路，不能被输入封包覆盖。
+	bound := logging.WithTask(callctx.Bind(executionTraceContext(ctx.GetContext(), ctx.AdditionalMetadata()), state), info)
 	if b.Bind != nil {
 		return b.Bind(bound)
 	}
@@ -41,26 +35,42 @@ func (b *Backend) executionContext(ctx oldworker.HatchetContext, config spec.Run
 	return bound
 }
 
+// bindResponseContract 一次固定错误出口；混合 Batch 的成功成员在输出阶段各自选择编码。
+func bindResponseContract(bound context.Context, input any, batch bool) context.Context {
+	// 响应模式在执行入口固定，错误和实时输出沿用同一契约。
+	if !batch {
+		packet, parseErr := wire.AsEnvelope(input)
+		if parseErr == nil {
+			return wire.WithResponse(bound, packet.Response == "wego")
+		}
+	} else if members, ok := input.(map[string]any); ok {
+		// 全原生批次的整体业务失败使用官方错误；混合批次的成员成功结果各自编码。
+		wego := false
+		for _, raw := range members {
+			packet, err := wire.AsEnvelope(raw)
+			if err != nil || packet.Response == "wego" {
+				wego = true
+				break
+			}
+		}
+		return wire.WithResponse(bound, wego)
+	}
+	return bound
+}
+
 // wrap 把普通任务 handler 包装为后端要求的执行入口，注入 wego 上下文并转换错误
-func (b *Backend) wrap(fn any, config spec.Runtime, name, rpcMethod string) func(oldworker.HatchetContext, any) (any, error) {
+func (b *Backend) wrap(fn any, config spec.Runtime, name, rpcMethod string, policy spec.Task, workflowName string) func(oldworker.HatchetContext, any) (any, error) {
 	return func(ctx oldworker.HatchetContext, input any) (result any, err error) {
 		// bound, cancel 创建当前步骤的派生上下文及取消函数，退出时必须释放取消资源，避免后台等待泄漏
 		bound, cancel := context.WithCancel(b.executionContext(ctx, config))
-		// 共享监听属于本次 handler；正常返回也取消剩余观察器，不继承执行器的较长资源上下文
-		if state, ok := callctx.Get(bound); ok {
-			// 仅 backend 自有执行视图继承 handler 生命周期，其他能力对象不被改写
-			if execution, ok := state.Execution.(*execution); ok {
-				execution.lifetime = bound
+		bound = bindResponseContract(bound, input, policy.Batch != nil)
+
+		defer func() {
+			if wire.WegoResponse(bound) {
+				err = toBackendError(err)
 			}
-		}
-		if b.StartExecution != nil && rpcMethod == "" {
-			// finish 执行观测的结束回调，业务返回时记录成功或失败并结束 span
-			var finish func(error)
-			bound, finish = b.StartExecution(bound, name)
-			defer func() {
-				finish(err)
-			}()
-		}
+		}()
+		// 解码 Filter 也可能执行下载，必须先登记取消句柄，Stop 才能终止此阶段。
 		b.observer.mu.Lock()
 		// 批量 handler 的 TaskRunID 可能相同或为空，取消句柄必须使用独立的执行编号
 		b.observer.nextExecution++
@@ -79,9 +89,43 @@ func (b *Backend) wrap(fn any, config spec.Runtime, name, rpcMethod string) func
 			}
 			b.observer.mu.Unlock()
 		}()
+		// 共享监听属于本次 handler；正常返回也取消剩余观察器，不继承执行器的较长资源上下文
+		if state, ok := callctx.Get(bound); ok {
+			// 仅 backend 自有执行视图继承 handler 生命周期，其他能力对象不被改写
+			if execution, ok := state.Execution.(*execution); ok {
+				execution.lifetime = bound
+			}
+		}
+		if state, ok := callctx.Get(bound); ok {
+			if execution, ok := state.Execution.(*execution); ok && len(ctx.FilterPayload()) > 0 {
+				envelope, decodeErr := wire.AsEnvelope(ctx.FilterPayload())
+				if decodeErr != nil {
+					return nil, decodeErr
+				}
+				limits := config.PayloadLimits
+				budget, stop := context.WithTimeout(bound, limits.DecodeTimeout)
+				decodeErr = wire.DecodeValue(budget, "", envelope, &execution.filterPayload, config, limits.MaxMessageBytes, limits.MaxEncodedBytes)
+				stop()
+				if decodeErr != nil {
+					return nil, decodeErr
+				}
+			}
+		}
+		if b.StartExecution != nil && rpcMethod == "" {
+			// finish 执行观测的结束回调，业务返回时记录成功或失败并结束 span
+			var finish func(error)
+			bound, finish = b.StartExecution(bound, name)
+			defer func() {
+				finish(err)
+			}()
+		}
 
-		result, err = invoke(fn, bound, input)
-		return result, toBackendError(err)
+		if rpcMethod == "" {
+			result, err = invokePayload(fn, bound, input, config, name, policy, workflowName)
+		} else {
+			result, err = invoke(fn, bound, input)
+		}
+		return result, err
 	}
 }
 

@@ -1,0 +1,109 @@
+{
+  "sdk_version": "0.3.2",
+  "protocol_version": 5,
+  "server_version": "v0.110.5",
+  "mq": "postgresql",
+  "commands": [
+    "GOWORK=off python3 scripts/unit.py",
+    "GOWORK=off python3 scripts/unit.py -race",
+    "GOWORK=off go vet ./...",
+    "GOWORK=off go build ./...",
+    "GOWORK=off go test ./tests/feature/client -run '^$'",
+    "GOWORK=off go test -tags=wego_embedded ./internal/backend -run '^$'",
+    "python3 sdks/wego/scripts/local-test.py env GOWORK=off GOFLAGS=-mod=readonly WEGO_REPORT_PATH=/tmp/wego-v032-trigger-evidence.json go -C sdks/wego test -json -count=1 -tags=e2e ./tests/e2e -run 'TestExamples/cron$|^TestTriggerPriorityPresence$' -timeout 5m"
+  ],
+  "e2e_elapsed_seconds": 58.72,
+  "trigger_priority_assertions": [
+    {
+      "scenario": "trigger-priority",
+      "namespace": "wego_accept_trigger-priority_1791658099215835000_",
+      "assertion": "cron priority 0 stored as 1; id=8fdda204-d0d4-419d-bdc1-54c1452c4971",
+      "assertion_id": "c35aa4da7aa002380e12c11c",
+      "at": "2026-10-10T18:48:19.582625Z"
+    },
+    {
+      "scenario": "trigger-priority",
+      "namespace": "wego_accept_trigger-priority_1791658099215835000_",
+      "assertion": "schedule priority 0 stored as 1; id=be61a54f-4084-48b9-b335-d25da4cbeb22",
+      "assertion_id": "6b612072bd3b753d7f035582",
+      "at": "2026-10-10T18:48:19.596793Z"
+    },
+    {
+      "scenario": "trigger-priority",
+      "namespace": "wego_accept_trigger-priority_1791658099215835000_",
+      "assertion": "cron priority 1 stored as 1; id=6163cdb1-2d36-4ce5-93c7-094bf2f28670",
+      "assertion_id": "fdf8b1a0c312e696e6d4a4da",
+      "at": "2026-10-10T18:48:19.608723Z"
+    },
+    {
+      "scenario": "trigger-priority",
+      "namespace": "wego_accept_trigger-priority_1791658099215835000_",
+      "assertion": "schedule priority 1 stored as 1; id=cd26133a-f4d5-4ca4-87d9-c1aa40fa6757",
+      "assertion_id": "05bc23f963f51dad1c95bc9b",
+      "at": "2026-10-10T18:48:19.619634Z"
+    },
+    {
+      "scenario": "trigger-priority",
+      "namespace": "wego_accept_trigger-priority_1791658099215835000_",
+      "assertion": "cron priority 2 stored as 2; id=e60c638a-afba-4422-b239-05830e93f215",
+      "assertion_id": "2ed7f43b3f756b5c794c7980",
+      "at": "2026-10-10T18:48:19.63086Z"
+    },
+    {
+      "scenario": "trigger-priority",
+      "namespace": "wego_accept_trigger-priority_1791658099215835000_",
+      "assertion": "schedule priority 2 stored as 2; id=82d4a6d6-168d-48db-8ad3-2bc3e145a2f5",
+      "assertion_id": "4202a1b5aa169f13f344324c",
+      "at": "2026-10-10T18:48:19.64122Z"
+    },
+    {
+      "scenario": "trigger-priority",
+      "namespace": "wego_accept_trigger-priority_1791658099215835000_",
+      "assertion": "cron priority 3 stored as 3; id=dfb50d97-0902-4f0f-bfde-57e3bcade541",
+      "assertion_id": "88a2675ace48a13de0934c1a",
+      "at": "2026-10-10T18:48:19.653328Z"
+    },
+    {
+      "scenario": "trigger-priority",
+      "namespace": "wego_accept_trigger-priority_1791658099215835000_",
+      "assertion": "schedule priority 3 stored as 3; id=7bf05de2-cc79-49ad-89fc-c9e06cc18ae6",
+      "assertion_id": "324a53c537aeb7d33427c164",
+      "at": "2026-10-10T18:48:19.663228Z"
+    }
+  ],
+  "execution_assertions": [
+    {
+      "scenario": "cron",
+      "test_scenario": "cron",
+      "namespace": "wego_accept_cron_1791658048486679000_",
+      "assertion": "all five expressions registered; real minute trigger with protobuf input",
+      "assertion_id": "5874421d6cd5821da10d9bfd",
+      "run_id": "02b4afa5-1f52-4a4b-b387-29459af9729b",
+      "worker_id": "df484eb0-776f-4b4e-9832-87a7d24c4611",
+      "at": "2026-10-10T18:48:12.52338Z"
+    },
+    {
+      "scenario": "cron",
+      "test_scenario": "cron",
+      "namespace": "wego_accept_cron_1791658048486679000_",
+      "assertion": "real scheduled protobuf invocation",
+      "assertion_id": "cd0fce43f98238b6b7821828",
+      "run_id": "0372a0f3-ba75-4275-b346-e4836f6c4d7a",
+      "worker_id": "df484eb0-776f-4b4e-9832-87a7d24c4611",
+      "at": "2026-10-10T18:48:19.14857Z"
+    }
+  ],
+  "cleanup": {
+    "namespaces": [
+      "wego_accept_cron_1791658048486679000_",
+      "wego_accept_trigger-priority_1791658099215835000_"
+    ],
+    "deleted_workflows": 6,
+    "deleted_task_runs": 2,
+    "remaining_owned_workflows": 0,
+    "remaining_owned_tasks": 0,
+    "remaining_owned_runs": 0,
+    "other_resources_preserved": true
+  },
+  "status": "PASSED"
+}

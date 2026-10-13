@@ -9,10 +9,10 @@ message Values {
   repeated bytes values = 1;
 }
 
-// LogFrame 是协议 4 的持久日志帧；完整帧序列化后统一经过 codec
+// LogFrame 是协议 6 的持久日志帧；完整帧序列化后统一经过 codec
 // CLAIM 与 DATA 均包含执行身份，解码成功后才解释代次和输出序号
 message LogFrame {
-  // version 固定为 4，不能与会话协议混用
+  // version 固定为 6，不能与会话协议混用
   uint32 version = 1;
   // kind 为 CLAIM、HEADERS、DATA、ATTEMPT_END、JOIN、EVENT 或 CANCEL
   string kind = 2;
@@ -54,7 +54,7 @@ message LogFrame {
 message EncodedLogFrame {
   // format_version 标识此引导封装的格式，目前为 1
   uint32 format_version = 1;
-  // codec_ids 按 Encode 顺序保存稳定版本标识，接收方必须有相同解码链
+  // codec_ids 按 Encode 顺序保存稳定版本标识，接收方按消息 ID 查找组件并逆序解码
   repeated string codec_ids = 2;
   // payload 为整帧的 codec 输出，允许是密文或对象引用
   bytes payload = 3;

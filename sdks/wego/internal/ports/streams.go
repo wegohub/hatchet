@@ -65,3 +65,21 @@ type SubmissionFinder interface {
 	// FindSubmission 按本次实际提交的随机标识查找，并核对方法和原始输入摘要
 	FindSubmission(context.Context, string, string, string) (Run, error)
 }
+
+// RPCContract 保存恢复所需的注册约束，来自本地生成的服务描述而非业务输入。
+type RPCContract struct {
+	// Shape 是 client、server 或 bidi 输入输出方向。
+	Shape string
+	// Mode 是 reliable 或 realtime 输出方式。
+	Mode string
+	// InputType 和 OutputType 是生成描述声明的 protobuf 完整类型名。
+	InputType string
+	// OutputType 使同名方法更换响应类型后不能误读已有运行。
+	OutputType string
+}
+
+// RunTargetValidator 使用运行保存的版本绑定核验恢复目标，不依赖输入携带方法名。
+type RunTargetValidator interface {
+	// ValidateRunTarget 验证运行确实属于当前 namespace 的指定方法。
+	ValidateRunTarget(context.Context, string, string, ...RPCContract) error
+}

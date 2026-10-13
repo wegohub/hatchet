@@ -13,6 +13,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/hatchet-dev/hatchet/sdks/wego/internal/spec"
 	"github.com/hatchet-dev/hatchet/sdks/wego/middleware"
 )
 
@@ -23,21 +24,21 @@ type encryptedCodec struct{ aead cipher.AEAD }
 func (c *encryptedCodec) CodecID() string { return "fixture-aes-gcm-v1" }
 
 // Encode 对完整帧加密，每次独立 Encode 都产生不同密文
-func (c *encryptedCodec) Encode(_ context.Context, method string, data []byte) ([]byte, error) {
+func (c *encryptedCodec) Encode(_ context.Context, data []byte) ([]byte, error) {
 	nonce := make([]byte, c.aead.NonceSize())
 	if _, err := rand.Read(nonce); err != nil {
 		return nil, err
 	}
-	return c.aead.Seal(nonce, nonce, data, []byte(method)), nil
+	return c.aead.Seal(nonce, nonce, data, nil), nil
 }
 
 // Decode 用于满足消息 codec 契约，持久帧使用 DecodeLimit
-func (c *encryptedCodec) Decode(ctx context.Context, method string, data []byte) ([]byte, error) {
-	return c.DecodeLimit(ctx, method, data, 4<<20)
+func (c *encryptedCodec) Decode(ctx context.Context, data []byte) ([]byte, error) {
+	return c.DecodeLimit(ctx, data, 4<<20)
 }
 
 // DecodeLimit 在解密分配前校验最终明文大小
-func (c *encryptedCodec) DecodeLimit(_ context.Context, method string, data []byte, limit int) ([]byte, error) {
+func (c *encryptedCodec) DecodeLimit(_ context.Context, data []byte, limit int) ([]byte, error) {
 	n := c.aead.NonceSize()
 	if len(data) < n+c.aead.Overhead() {
 		return nil, fmt.Errorf("truncated encrypted frame")
@@ -45,7 +46,7 @@ func (c *encryptedCodec) DecodeLimit(_ context.Context, method string, data []by
 	if len(data)-n-c.aead.Overhead() > limit {
 		return nil, status.Error(codes.ResourceExhausted, "plaintext exceeds limit")
 	}
-	return c.aead.Open(nil, data[:n], data[n:], []byte(method))
+	return c.aead.Open(nil, data[:n], data[n:], nil)
 }
 
 // TestControlAndDataUseIdenticalCodec 验证全部帧类型往返，控制字段不以明文留在外层
@@ -58,7 +59,7 @@ func TestControlAndDataUseIdenticalCodec(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	codec, err := NewFrameCodec([]middleware.Option{middleware.WithPayload(&encryptedCodec{aead})}, 4096, 8192)
+	codec, err := NewFrameCodec(spec.Runtime{Middleware: []middleware.Option{middleware.WithPayload(&encryptedCodec{aead})}}, 4096, 8192)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -83,8 +84,8 @@ func TestControlAndDataUseIdenticalCodec(t *testing.T) {
 			if !proto.Equal(frame, decoded) {
 				t.Fatal("frame did not round-trip")
 			}
-			if _, err := codec.Decode(context.Background(), "/fixture/Other", first); err == nil {
-				t.Fatal("incorrect method context decrypted frame")
+			if _, err := codec.Decode(context.Background(), "/fixture/Other", first); err != nil {
+				t.Fatal("codec must not depend on method AAD", err)
 			}
 		})
 	}
@@ -92,7 +93,7 @@ func TestControlAndDataUseIdenticalCodec(t *testing.T) {
 
 // TestFrameCodecBudgetsAndProfile 验证完整帧预算和外层 codec 配置不匹配
 func TestFrameCodecBudgetsAndProfile(t *testing.T) {
-	codec, err := NewFrameCodec(nil, 64, 128)
+	codec, err := NewFrameCodec(spec.Runtime{}, 64, 128)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -115,7 +116,7 @@ func TestFrameCodecBudgetsAndProfile(t *testing.T) {
 
 // FuzzFrameCodecDecode 用不可信字节验证封装解码没有 panic，并只返回协议 4 帧
 func FuzzFrameCodecDecode(f *testing.F) {
-	codec, _ := NewFrameCodec(nil, 4096, 8192)
+	codec, _ := NewFrameCodec(spec.Runtime{}, 4096, 8192)
 	valid, _ := codec.Encode(context.Background(), "", &LogFrame{Version: LogVersion, Kind: "CLAIM"})
 	f.Add(valid)
 	f.Add([]byte{0xff, 0x01})

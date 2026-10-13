@@ -100,6 +100,10 @@ func (e *RPCError) GRPCStatus() *status.Status {
 type PartialSubmissionError struct {
 	// SuccessfulRunIDs 例如首块已确认的 1000 个运行，即使后一块取消也保留
 	SuccessfulRunIDs []string
+	// UncertainInputIndices 的请求可能已被接受，但没有完整确认；不能自动重提。
+	UncertainInputIndices []int
+	// UnsubmittedInputIndices 尚未发送，可以由业务另行提交。
+	UnsubmittedInputIndices []int
 	// Err 仅含 wego、标准库或 gRPC 错误，不携带 Hatchet 错误实例
 	Err error
 }
@@ -116,7 +120,7 @@ func (e *PartialSubmissionError) Unwrap() error { return e.Err }
 func (e *BulkIdempotencyCollisionError) Unwrap() error { return e.Err }
 
 // SubmissionError 保存异常提交的可恢复信息；RunID 为空表示有限只读查询仍未确认结果
-// OperationKey 是原始业务幂等键，可再次用于 WithIdempotencyKey，不是内部作用域 hash
+// OperationKey 是原始业务幂等键，可再次用于 WithStreamIdempotencyKey，不是内部作用域 hash
 type SubmissionError struct {
 	// Err 保留原始传输或取消状态，不携带后端错误类型
 	Err error

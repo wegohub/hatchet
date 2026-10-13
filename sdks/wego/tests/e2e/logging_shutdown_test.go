@@ -25,6 +25,7 @@ import (
 	pb "github.com/hatchet-dev/hatchet/sdks/wego/examples/proto"
 	"github.com/hatchet-dev/hatchet/sdks/wego/examples/scenarios"
 	"github.com/hatchet-dev/hatchet/sdks/wego/examples/support"
+	"github.com/hatchet-dev/hatchet/sdks/wego/internal/wire"
 	wlog "github.com/hatchet-dev/hatchet/sdks/wego/log"
 	"github.com/hatchet-dev/hatchet/sdks/wego/model"
 	"github.com/hatchet-dev/hatchet/sdks/wego/runtime"
@@ -169,7 +170,7 @@ func TestLoggingShutdown(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	report := map[string]any{"sdk_version": wego.Version, "protocol_version": 4, "run_id": first.RunId, "worker_id": first.WorkerId, "engine": info, "log": logs, "cleanup": "explicit GracefulStop completed; workflow definitions deleted", "history": "run, Worker and topic history retained"}
+	report := map[string]any{"sdk_version": wego.Version, "protocol_version": wire.Version, "run_id": first.RunId, "worker_id": first.WorkerId, "engine": info, "log": logs, "cleanup": "explicit GracefulStop completed; workflow definitions deleted", "history": "run, Worker and topic history retained"}
 	data, err := json.MarshalIndent(report, "", "  ")
 	if err != nil {
 		t.Fatal(err)

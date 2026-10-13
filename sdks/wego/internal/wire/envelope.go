@@ -6,50 +6,63 @@ import (
 	"time"
 
 	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/hatchet-dev/hatchet/sdks/wego/middleware"
+	"github.com/hatchet-dev/hatchet/sdks/wego/internal/spec"
 )
 
-// Version 是任务 RPC envelope 与流协议版本；v4 使用 ProtoJSON 业务输入
-const Version = 4
+// Version 是任务 RPC envelope 与流协议版本；协议 6 使用 _wego 标记，注册绑定提供目标和类型
+const Version = 6
 
 // Envelope 保持调度信息为可读 JSON；业务 payload 使用 ProtoJSON，配置 codec 后保存变换字节的 base64
 // Metadata 按独立的 bytes/base64 规则传输，-bin 值不能被 UTF-8 替换
 // 协议值本身实现 RPC 查询和 JSON 编码接口；只有回填字段的 UnmarshalJSON 使用指针接收者。
 type Envelope struct {
+	// Native 表示未标记的原始值；response 契约独立于输入是否经过 codec。
+	Native bool
+	// Response 仅显式 wego 表示协议响应；缺省使用原生业务结果。
+	Response string
+	// Encoding 标识 JSON 或 base64 字节承载，后者不一定包含 codec。
+	Encoding string
+	// CodecIDs 按消息发送顺序记录格式，读取时逆序执行。
+	CodecIDs []string
+	// sealed 仅在内存中标记已经执行 codec，避免重复上传。
+	sealed bool
+	// opened 标记已还原的内部消息，后续业务反序列化不重复执行 codec。
+	opened bool
 	// Version 拒绝客户端与 Worker 混用不同协议
-	Version int `json:"version"`
-	// Method 明确记录完整 RPC 绑定，不用 workflow 名称前缀猜测执行类型
-	Method string `json:"method,omitempty"`
-	// Payload 无 codec 时为 JSON 对象或 well-known JSON 值；有 codec 时为 base64 JSON 字符串
-	Payload json.RawMessage `json:"payload"`
+	Version int
+	// Method 仅供本地提交绑定，不进入消息 JSON；接收端使用注册信息
+	Method string
+	// Payload 保存 JSON value；仅配置变换或数值不安全时使用 base64
+	Payload json.RawMessage
 	// Stream 表示 client、server 或 bidi；unary 为空
-	Stream string `json:"stream,omitempty"`
+	Stream string
 	// StreamMode 明确输出传输，防止两端配置不同导致永久等待
-	StreamMode string `json:"stream_mode,omitempty"`
+	StreamMode string
 	// IdempotencyKey 是作用域内稳定的提交键，不由输入 hash 自动生成
-	IdempotencyKey string `json:"idempotency_key,omitempty"`
+	IdempotencyKey string
 	// Routing 是调用方提供的调度字段，独立于加密/压缩后的业务数据
-	Routing map[string]any `json:"routing,omitempty"`
-	// Type 校验 protobuf 请求和响应类型
-	Type string `json:"type,omitempty"`
+	Routing map[string]any
+	// Type 仅用于本地类型检查，不随消息传输
+	Type string
 	// InputDigest 校验幂等恢复的输入身份，使用变换之前的规范请求和 routing
-	InputDigest string `json:"input_digest,omitempty"`
+	InputDigest string
 	// Metadata 保留请求多值和二进制 metadata
-	Metadata map[string][]string `json:"metadata,omitempty"`
+	Metadata map[string][]string
 	// Trace 保存实例 trace 传播载体
-	Trace map[string]string `json:"trace,omitempty"`
+	Trace map[string]string
 	// Deadline 保存绝对 Unix 纳秒截止时间，包含引擎排队时间
-	Deadline int64 `json:"deadline,omitempty"`
+	Deadline int64
 	// Headers 在响应和错误路径中交付业务 headers
-	Headers map[string][]string `json:"headers,omitempty"`
+	Headers map[string][]string
 	// Trailers 随最终状态交付
-	Trailers map[string][]string `json:"trailers,omitempty"`
+	Trailers map[string][]string
 }
 
 // RPCMethod 提供显式的内部 RPC 输入能力，原生 JSON map 即使有 method 键也不实现此接口
@@ -86,123 +99,40 @@ func MarshalMessage(message proto.Message, maxBytes int) (json.RawMessage, error
 }
 
 // Encode 保存 ProtoJSON 快照，按配置变换业务 payload；routing 不依赖 protobuf 字段标签
-func Encode(ctx context.Context, method string, message proto.Message, routing map[string]any, chain []middleware.Option, maxBytes int) (Envelope, error) {
+func Encode(ctx context.Context, method string, message proto.Message, routing map[string]any, config spec.Runtime, maxBytes int) (Envelope, error) {
 	data, err := MarshalMessage(message, maxBytes)
 	if err != nil {
 		return Envelope{}, err
 	}
-	return EncodeSnapshot(ctx, method, string(message.ProtoReflect().Descriptor().FullName()), data, routing, chain, maxBytes)
+	return EncodeSnapshot(ctx, method, string(message.ProtoReflect().Descriptor().FullName()), data, routing, config, maxBytes)
 }
 
 // EncodeSnapshot 只变换已经冻结的 ProtoJSON，摘要和传输使用同一份业务快照
-func EncodeSnapshot(ctx context.Context, method, typeName string, data json.RawMessage, routing map[string]any, chain []middleware.Option, maxBytes int) (Envelope, error) {
-	// err 是当前 codec 错误，失败不提交半成品
-	var err error
-	// encoded 在第一次变换后成为任意字节；最终只包一层 base64，不逐层重复转码
-	encoded, transformed := []byte(data), false
-	for _, m := range chain {
-		if err := ctx.Err(); err != nil {
-			return Envelope{}, status.FromContextError(err).Err()
-		}
-		if m.Payload != nil {
-			transformed = true
-			encoded, err = m.Payload.Encode(ctx, method, encoded)
-			if err != nil {
-				return Envelope{}, err
-			}
-			if len(encoded) > maxBytes {
-				return Envelope{}, status.Error(codes.ResourceExhausted, "wego: transformed payload exceeds limit")
-			}
-		}
-	}
-	if transformed {
-		data, err = json.Marshal(encoded)
-		if err != nil {
-			return Envelope{}, err
-		}
-	}
+func EncodeSnapshot(ctx context.Context, method, typeName string, data json.RawMessage, routing map[string]any, config spec.Runtime, maxBytes int) (Envelope, error) {
+	out := NewEnvelope(ctx, method, typeName, data, routing)
+	return Seal(ctx, out, config, maxBytes, maxBytes+(64<<10), 4<<20)
+}
+
+// NewEnvelope 冻结业务与请求信息，调用方补齐流形态或响应头后必须 Seal 再提交。
+func NewEnvelope(ctx context.Context, method, typeName string, data json.RawMessage, routing map[string]any) Envelope {
 	md, _ := metadata.FromOutgoingContext(ctx)
 	carrier := propagation.MapCarrier{}
 	propagation.TraceContext{}.Inject(ctx, carrier)
-	out := Envelope{Version: Version, Method: method, Payload: data, Routing: routing,
-		Type: typeName, Metadata: md.Copy(), Trace: carrier}
+	out := Envelope{Response: "wego", Version: Version, Method: method, Type: typeName, Payload: append(json.RawMessage(nil), data...), Routing: routing, Metadata: md.Copy(), Trace: carrier}
 	if deadline, ok := ctx.Deadline(); ok && ctx.Value(triggerContextKey{}) == nil {
 		out.Deadline = deadline.UnixNano()
 	}
-	return out, nil
+	return out
 }
 
 // Decode 按反向 codec 链还原 ProtoJSON；版本、绑定、类型和各层大小均先校验
-func Decode(ctx context.Context, method string, envelope Envelope, message proto.Message, chain []middleware.Option, maxBytes int) error {
-	return DecodeWithLimits(ctx, method, envelope, message, chain, maxBytes, maxBytes)
+func Decode(ctx context.Context, method string, envelope Envelope, message proto.Message, config spec.Runtime, maxBytes int) error {
+	return DecodeWithLimits(ctx, method, envelope, message, config, maxBytes, 4<<20)
 }
 
 // DecodeWithLimits 分开限制编码字节和最终原文，防止压缩或引用绕过业务消息上限
-func DecodeWithLimits(ctx context.Context, method string, envelope Envelope, message proto.Message, chain []middleware.Option, maxPlain, maxBytes int) error {
-	if envelope.Version != Version {
-		return status.Error(codes.FailedPrecondition, "wego: unsupported protocol version")
-	}
-	if envelope.Method != "" && envelope.Method != method {
-		return status.Error(codes.FailedPrecondition, "wego: RPC method mismatch")
-	}
-	if message == nil || !message.ProtoReflect().IsValid() {
-		return status.Error(codes.InvalidArgument, "wego: nil protobuf message")
-	}
-	if envelope.Type != "" && envelope.Type != string(message.ProtoReflect().Descriptor().FullName()) {
-		return status.Error(codes.InvalidArgument, "wego: protobuf message type mismatch")
-	}
-	data, err := RestorePayload(ctx, method, envelope.Payload, chain, maxPlain, maxBytes)
-	if err != nil {
-		return err
-	}
-	if err := protojson.Unmarshal(data, message); err != nil {
-		return status.Errorf(codes.DataLoss, "wego: invalid ProtoJSON payload: %v", err)
-	}
-	return nil
-}
-
-// RestorePayload 对一条冻结消息只逆向执行一次 codec，返回受最终业务预算约束的 ProtoJSON
-func RestorePayload(ctx context.Context, method string, payload json.RawMessage, chain []middleware.Option, maxPlain, maxBytes int) ([]byte, error) {
-	data := []byte(payload)
-	// 是否采用 base64 由实例 codec 链确定，不根据 payload 的 JSON 形状猜测
-	for _, m := range chain {
-		if m.Payload != nil {
-			if len(data) > (maxBytes+2)/3*4+2 {
-				return nil, status.Error(codes.ResourceExhausted, "wego: encoded payload exceeds limit")
-			}
-			if err := json.Unmarshal(data, &data); err != nil {
-				return nil, status.Error(codes.DataLoss, "wego: codec payload requires base64 JSON")
-			}
-			break
-		}
-	}
-	if len(data) > maxBytes {
-		return nil, status.Error(codes.ResourceExhausted, "wego: payload exceeds limit")
-	}
-	for i := len(chain) - 1; i >= 0; i-- {
-		if err := ctx.Err(); err != nil {
-			return nil, status.FromContextError(err).Err()
-		}
-		if chain[i].Payload != nil {
-			// err 是当前层还原的错误，失败不得继续解释业务消息
-			var err error
-			if bounded, ok := chain[i].Payload.(middleware.FramedPayload); ok {
-				data, err = bounded.DecodeLimit(ctx, method, data, maxBytes)
-			} else {
-				data, err = chain[i].Payload.Decode(ctx, method, data)
-			}
-			if err != nil {
-				return nil, err
-			}
-			if len(data) > maxBytes {
-				return nil, status.Error(codes.ResourceExhausted, "wego: restored payload exceeds limit")
-			}
-		}
-	}
-	if len(data) > maxPlain {
-		return nil, status.Error(codes.ResourceExhausted, "wego: restored business message exceeds limit")
-	}
-	return data, nil
+func DecodeWithLimits(ctx context.Context, method string, envelope Envelope, message proto.Message, config spec.Runtime, maxPlain, maxBytes int) error {
+	return DecodeValue(ctx, method, envelope, message, config, maxPlain, maxBytes)
 }
 
 // AsEnvelope 把字符串、字符串指针或 JSON 值统一解码为 envelope
@@ -214,6 +144,16 @@ func AsEnvelope(value any) (Envelope, error) {
 	var err error
 	// v 保存类型分派后的准确值，各分支只按该类型读取字段或调用方法
 	switch v := value.(type) {
+	case Envelope:
+		return v, nil
+	case *Envelope:
+		if v != nil {
+			return *v, nil
+		}
+	case json.RawMessage:
+		data = v
+	case []byte:
+		data = v
 	case string:
 		data = []byte(v)
 	case *string:
@@ -235,8 +175,13 @@ func AsEnvelope(value any) (Envelope, error) {
 
 // Incoming 恢复请求 metadata、trace 和绝对截止时间；任务排队时间同样计入 RPC 预算
 func Incoming(ctx context.Context, envelope Envelope) (context.Context, context.CancelFunc) {
+	ctx = WithResponse(ctx, envelope.Response == "wego")
 	ctx = metadata.NewIncomingContext(ctx, metadata.MD(envelope.Metadata))
-	ctx = propagation.TraceContext{}.Extract(ctx, propagation.MapCarrier(envelope.Trace))
+	// 已绑定的执行 trace 优先；请求头仅在没有有效父上下文时提供后备链路。
+	// 例如引擎给出的排队/重试 trace 不应被最初提交时的父 span 替换。
+	if !trace.SpanContextFromContext(ctx).IsValid() {
+		ctx = propagation.TraceContext{}.Extract(ctx, propagation.MapCarrier(envelope.Trace))
+	}
 	// 恢复绝对 deadline 而非重新分配时长；例如排队已用 2 秒的 3 秒请求只剩约 1 秒
 	if envelope.Deadline != 0 {
 		return context.WithDeadline(ctx, time.Unix(0, envelope.Deadline))

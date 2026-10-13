@@ -23,23 +23,54 @@ import (
 func (s *taskClientStream) observeResult(ref ports.Run) {
 	defer s.background.Done()
 	result, err := ref.Wait(s.ctx)
+	// response 在状态锁外完成 codec I/O，持锁期间只安装快照。
+	var response *wire.Envelope
+	if err == nil {
+		out, decodeErr := SingleOutput(result.Outputs)
+		if decodeErr == nil {
+			envelope, openErr := wire.AsEnvelope(out)
+			if openErr == nil && (envelope.Native || envelope.Response != "wego") {
+				openErr = status.Error(codes.DataLoss, "wego: unexpected stream response contract")
+			}
+			if openErr == nil {
+				budget, cancel := context.WithTimeout(s.ctx, s.options.DecodeTimeout)
+				envelope, openErr = wire.Open(budget, s.method, envelope, s.engine.Config, s.options.MaxMessageBytes, s.options.MaxEncodedMessageBytes)
+				cancel()
+			}
+			if openErr == nil {
+				if s.desc.ServerStreams {
+					// 只在锁外解码最终清单；锁内核验不执行远程 codec。
+					var completion stream.Completion
+					openErr = json.Unmarshal(envelope.Payload, &completion)
+					if openErr == nil {
+						result.Outputs = map[string]any{"completion": completion}
+					} else {
+						err = status.Error(codes.DataLoss, "wego: invalid stream completion")
+					}
+				} else {
+					response = &envelope
+				}
+			} else {
+				err = openErr
+			}
+		} else {
+			err = decodeErr
+		}
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.resultDone, s.resultErr = true, err
 	if err == nil {
 		s.result = &result
 	}
-	if err == nil && !s.desc.ServerStreams {
-		out, outErr := SingleOutput(result.Outputs)
-		if outErr == nil {
-			envelope, decodeErr := wire.AsEnvelope(out)
-			if decodeErr == nil {
-				s.headers = metadata.MD(envelope.Headers).Copy()
-				s.headersReady = true
-				s.trailers = metadata.MD(envelope.Trailers).Copy()
-			}
-		}
+	if response != nil {
+		s.headers, s.trailers = metadata.MD(response.Headers).Copy(), metadata.MD(response.Trailers).Copy()
+		s.headersReady = true
+		// 使用已 Open 的响应，后续 Recv 不再次执行 codec I/O。
+		result.Outputs = map[string]any{"response": *response}
+		s.result = &result
 	}
+
 	if transport := new(model.RPCError); errors.As(err, &transport) {
 		if !s.headersReady {
 			s.headers = metadata.MD(transport.Headers).Copy()
@@ -136,6 +167,10 @@ func (s *taskClientStream) accept(entry ports.DurableEntry) error {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	// 解码在锁外执行；完成时关闭可能已经清空队列，迟到回调不能重建状态。
+	if s.finished || s.ctx.Err() != nil {
+		return status.Error(codes.Canceled, "wego: output stream closed")
+	}
 	s.disconnected = false
 	if entry.Cursor != "" && entry.Cursor == s.scannedCursor {
 		return nil
@@ -177,16 +212,8 @@ func (s *taskClientStream) accept(entry ports.DurableEntry) error {
 	if len(frame.Payload) > s.options.MaxMessageBytes {
 		return status.Error(codes.ResourceExhausted, "wego: output message exceeds limit")
 	}
-	for len(s.queue) >= s.options.PrefetchMessages || s.queueBytes+len(frame.Payload) > s.options.PrefetchBytes {
-		changed := s.changed
-		s.mu.Unlock()
-		select {
-		case <-s.ctx.Done():
-			s.mu.Lock()
-			return s.ctx.Err()
-		case <-changed:
-			s.mu.Lock()
-		}
+	if err := s.waitOutputCapacity(len(frame.Payload)); err != nil {
+		return err
 	}
 	// State 快照不复制结束帧；HEADERS 已在首次交付时固定，不随预取修改
 	snapshot := s.state
@@ -197,6 +224,26 @@ func (s *taskClientStream) accept(entry ports.DurableEntry) error {
 	s.recordMetric("wego_output_prefetch_bytes", "active", float64(len(frame.Payload)))
 	s.scannedCursor = entry.Cursor
 	s.notify()
+	return nil
+}
+
+// waitOutputCapacity 进入和返回时均持有 mu；等待期间释放锁，每次唤醒后检查关闭状态。
+func (s *taskClientStream) waitOutputCapacity(size int) error {
+	for len(s.queue) >= s.options.PrefetchMessages || s.queueBytes+size > s.options.PrefetchBytes {
+		changed := s.changed
+		s.mu.Unlock()
+		select {
+		case <-s.ctx.Done():
+			s.mu.Lock()
+			return s.ctx.Err()
+		case <-changed:
+			s.mu.Lock()
+		}
+	}
+	// 等待背压时释放过锁；关闭与消费者同时唤醒后必须重新确认所有权。
+	if s.finished || s.ctx.Err() != nil {
+		return status.Error(codes.Canceled, "wego: output stream closed")
+	}
 	return nil
 }
 
@@ -234,7 +281,9 @@ func (s *taskClientStream) fail(err error) {
 
 // finish 取消后等待 SDK 观察资源退出，再释放实例登记；正常 EOF 不取消已经完成的任务
 func (s *taskClientStream) finish(err error) {
+	won := false
 	s.closed.Do(func() {
+		won = true
 		// 先与提交锁同步，保证 Wait 开始后不会新增后台观察者
 		s.sendMu.Lock()
 		s.mu.Lock()
@@ -248,7 +297,7 @@ func (s *taskClientStream) finish(err error) {
 		s.cancel()
 		s.sendMu.Unlock()
 		s.background.Wait()
-		if status.Code(err) == codes.Canceled || status.Code(err) == codes.DeadlineExceeded {
+		if s.ownsRun && (status.Code(err) == codes.Canceled || status.Code(err) == codes.DeadlineExceeded) {
 			s.mu.Lock()
 			id := s.runID
 			s.mu.Unlock()
@@ -260,8 +309,11 @@ func (s *taskClientStream) finish(err error) {
 				cancel()
 			}
 		}
-		s.complete(err)
 	})
+	// 业务回调允许重入完成入口；不能在 Once 的临界区内调用。
+	if won {
+		s.complete(err)
+	}
 }
 
 // recordMetric 只使用此已验证 RPC 的有限标签，运行 UUID 和 cursor 留在日志及断点中

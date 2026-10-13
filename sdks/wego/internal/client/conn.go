@@ -59,7 +59,7 @@ func New(options ...Option) (*Conn, error) {
 func FromEngine(e *engine.Engine, borrowed bool) *Conn {
 	// c 共享此 Engine 的连接视图，borrowed 控制关闭权限，管理入口复用同一后端
 	c := &Conn{engine: e, borrowed: borrowed}
-	c.features = features.New(&managedFeatures{Backend: e.Backend, engine: e}, func(ctx context.Context, name string, value any) (string, any, error) {
+	c.features = features.New(&managedFeatures{Backend: e.Backend, engine: e}, e.Config, func(ctx context.Context, name string, value any) (string, any, error) {
 		return rpc.Input(ctx, e.Config, name, value)
 	})
 	if !borrowed {
@@ -75,7 +75,7 @@ func (c *Conn) Invoke(ctx context.Context, method string, args, reply any, opts 
 	return rpc.Invoke(ctx, c.engine, method, args, reply, opts...)
 }
 
-// NewStream 实现 grpc.ClientConnInterface 的流调用，建立 owner 会话并返回标准 gRPC ClientStream
+// NewStream 实现 grpc.ClientConnInterface 的流调用，返回批次输入、流式输出的标准 gRPC ClientStream
 func (c *Conn) NewStream(ctx context.Context, description *grpc.StreamDesc, method string, opts ...grpc.CallOption) (grpc.ClientStream, error) {
 	return rpc.NewStream(ctx, c.engine, description, method, opts...)
 }
@@ -178,7 +178,7 @@ func (c *Conn) Tenant() *features.TenantClient {
 // 编译期接口或签名检查，确保适配对象可以被标准 gRPC 或 wego 入口使用
 var _ grpc.ClientConnInterface = (*Conn)(nil)
 
-// ResumeStream 根据保存的断点继续消费已有可靠输出，不再提交请求
-func (c *Conn) ResumeStream(ctx context.Context, checkpoint model.StreamCheckpoint) (grpc.ClientStream, error) {
-	return rpc.ResumeStream(ctx, c.engine, checkpoint)
+// ResumeStream 根据 Client 保存的消费凭证继续读取已有可靠输出，不重新提交输入或恢复 Worker。
+func (c *Conn) ResumeStream(ctx context.Context, token model.StreamResumeToken, options ...grpc.CallOption) (grpc.ClientStream, error) {
+	return rpc.ResumeStream(ctx, c.engine, token, options...)
 }

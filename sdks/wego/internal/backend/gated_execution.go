@@ -11,7 +11,6 @@ import (
 	"time"
 
 	v0 "github.com/hatchet-dev/hatchet/pkg/client"
-	"go.opentelemetry.io/otel/propagation"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -73,7 +72,15 @@ func (r *gatedRunner) handle(ctx context.Context, action *v0.Action) bool {
 		r.mu.Unlock()
 		return true
 	}
+	if action.ActionType == v0.ActionTypeCancelStepRun {
+		r.mu.Unlock()
+		return false // 没有本地门禁执行的取消交由官方执行器处理。
+	}
 	if !registered {
+		r.mu.Unlock()
+		return false
+	}
+	if confirmedNativeStart(action) {
 		r.mu.Unlock()
 		return false
 	}
@@ -113,6 +120,25 @@ func (r *gatedRunner) handle(ctx context.Context, action *v0.Action) bool {
 	return true
 }
 
+// confirmedNativeStart 只允许合法且明确选择 native 的输入进入官方执行器；畸形标记仍受门禁保护。
+func confirmedNativeStart(action *v0.Action) bool {
+	// 只有已确认的原生输入绕过持久门禁；畸形 _wego 仍由获胜执行报告错误。
+	if action.ActionType == v0.ActionTypeStartStepRun {
+		// carrier 从官方 START 动作取得完整 input；解析失败不得绕过 CLAIM。
+		var carrier struct {
+			// Input 是官方 action 的任务输入，不是已解码业务值。
+			Input json.RawMessage `json:"input"`
+		}
+		if len(action.ActionPayload) <= backendMessageLimit && json.Unmarshal(action.ActionPayload, &carrier) == nil {
+			packet, err := wire.AsEnvelope(carrier.Input)
+			if err == nil && packet.Response != "wego" {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // execute 的门禁失败不能变成 FAILED；否则同代次落选者会终结获胜执行
 func (r *gatedRunner) execute(ctx context.Context, attempt *gatedAttempt, definition ports.Definition, executionID uint64) {
 	owner, action := r.dispatcher.owner, attempt.action
@@ -132,6 +158,7 @@ func (r *gatedRunner) execute(ctx context.Context, attempt *gatedAttempt, defini
 	// payload 只解析官方动作中的任务输入，不把包装字段交给业务
 	var payload struct {
 		// Input 是官方 START 的任务 JSON；完整动作包装不能直接作为业务输入
+		// Input 是官方 action 的任务输入，不是已解码业务值。
 		Input json.RawMessage `json:"input"`
 	}
 	if len(action.ActionPayload) > backendMessageLimit {
@@ -213,11 +240,7 @@ func (r *gatedRunner) bind(ctx context.Context, execution *gatedExecution) conte
 			return execution.backend.logRecord(ctx, execution.info.TaskRunID, execution.info.RetryCount, r.config.LogReportTimeout, record)
 		}
 	}
-	carrier := propagation.MapCarrier{}
-	for _, key := range []string{"traceparent", "tracestate"} {
-		carrier[key] = execution.info.AdditionalMetadata["wego."+key]
-	}
-	ctx = logging.WithTask(callctx.Bind(propagation.TraceContext{}.Extract(ctx, carrier), state), execution.info)
+	ctx = logging.WithTask(callctx.Bind(executionTraceContext(ctx, execution.info.AdditionalMetadata), state), execution.info)
 	if execution.backend.Bind != nil {
 		ctx = execution.backend.Bind(ctx)
 	}
@@ -339,11 +362,11 @@ func (e *gatedExecution) Refresh(ctx context.Context, d time.Duration) error {
 
 // Stream 发布实时输出的兼容能力；可靠流使用持久输出发布器
 func (e *gatedExecution) Stream(ctx context.Context, data []byte) error {
-	return e.backend.Publish(ctx, e.info.TaskRunID, data)
+	return e.backend.publishNativeStream(ctx, e.info.TaskRunID, data)
 }
 
 // ParentOutput 可靠流是单独任务，本次不允许以 DAG 输出伪造历史恢复
-func (e *gatedExecution) ParentOutput(string, any) error {
+func (e *gatedExecution) ParentOutput(context.Context, string, any) error {
 	return status.Error(codes.FailedPrecondition, "wego: reliable output task has no DAG parent output")
 }
 

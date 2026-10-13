@@ -102,7 +102,7 @@ func WithCron(v ...string) Option {
 	}
 }
 
-// WithCronInput 设置定义级 Cron 输入，RPC 任务使用携带方法名和 protobuf 的 model.RPCInput
+// WithCronInput 设置定义级 Cron 输入，任务使用 model.Input 携带业务值和 routing；RPC 目标由注册方法确定
 func WithCronInput(v any) Option {
 	return func(c *spec.Task) {
 		c.CronInput = v

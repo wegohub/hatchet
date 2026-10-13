@@ -2,140 +2,169 @@ package client
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strings"
+	"time"
 
 	"go.opentelemetry.io/otel/trace"
 
+	"github.com/hatchet-dev/hatchet/sdks/wego/internal/callctx"
+	"github.com/hatchet-dev/hatchet/sdks/wego/internal/ports"
 	"github.com/hatchet-dev/hatchet/sdks/wego/internal/rpc"
+	"github.com/hatchet-dev/hatchet/sdks/wego/internal/spec"
+	"github.com/hatchet-dev/hatchet/sdks/wego/internal/wire"
 	"github.com/hatchet-dev/hatchet/sdks/wego/model"
 )
 
-// RunNoWait 在引擎接受调度后返回句柄，不等待业务执行完成
-// 例如先保存 run-001，再用 Result(ctx) 等待；提交返回不表示业务已经执行完毕
+// submit 共享提交链路；同步执行保留 deadline，异步只限制本次提交 I/O。
+func (c *Conn) submit(ctx context.Context, name string, input any, synchronous bool, options ...RunOption) (_ *RunRef, err error) {
+	opts, err := spec.ApplyRunOptions(options...)
+	if err != nil {
+		return nil, err
+	}
+	if opts.StreamIdempotencyKey != "" {
+		return nil, fmt.Errorf("wego: stream idempotency key requires a streaming RPC")
+	}
+	ctx, done, err := c.engine.BeginIO(ctx, "run.submit")
+	if err != nil {
+		return nil, err
+	}
+	defer done()
+	ctx, finish := c.engine.StartSpan(ctx, name, trace.SpanKindClient)
+	defer func() { finish(err) }()
+	ctx, err = ports.PrepareTarget(ctx, c.engine.Backend, name, "unary", "", wire.ValueType(input))
+	if err != nil {
+		return nil, err
+	}
+	encodingContext := ctx
+	if !synchronous {
+		encodingContext = wire.ForTrigger(ctx)
+	}
+	target, encoded, err := rpc.Input(encodingContext, c.engine.Config, name, input, opts)
+	if err != nil {
+		return nil, err
+	}
+	ref, err := c.engine.Backend.Run(ctx, target, encoded, opts)
+	if err != nil {
+		return nil, err
+	}
+	return &RunRef{RunID: ref.ID, InputIndex: -1, wait: ref.Wait, engine: c.engine, method: name}, nil
+}
+
+// RunNoWait 返回引擎确认的身份，调用 context 不绑定后续执行或结果等待。
 func (c *Conn) RunNoWait(ctx context.Context, name string, input any, options ...RunOption) (*RunRef, error) {
-	// ctx, done, err 登记本次调用并取得结束回调，返回前释放登记以允许实例排空
-	ctx, done, err := c.engine.Begin(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	defer done()
-
-	// method 本次调用用于 trace、投影及任务路由的方法名；RPCInput 提供完整方法时覆盖普通任务名
-	method := name
-	// value 提供完整 RPC 方法名，任务命名和结果解码据此采用 protobuf 路径
-	if value, ok := input.(model.RPCInput); ok && value.Method != "" {
-		method = value.Method
-	}
-	// ctx, finish 开始属于当前实例的 span，结束时按实际执行错误标记状态
-	ctx, finish := c.engine.StartSpan(ctx, method, trace.SpanKindClient)
-	defer func() {
-		finish(err)
-	}()
-
-	name, input, err = rpc.Input(ctx, c.engine.Config, name, input)
-	if err != nil {
-		return nil, err
-	}
-
-	// opts 本次任务提交的 wego 运行选项，包含键、优先级、metadata 和亲和性
-	opts := model.RunOptions{}
-	// 按配置顺序应用每一项；重复设置的字段以后面的值为准，载荷解码路径则使用反向顺序
-	for _, o := range options {
-		o(&opts)
-	}
-	// ref, err 接收 c.engine.Backend.Run 的返回值，同时保存错误供紧接着的分支检查；失败时不继续使用结果
-	ref, err := c.engine.Backend.Run(ctx, name, input, opts)
-	if err != nil {
-		return nil, err
-	}
-
-	return &RunRef{
-		RunID:  ref.ID,
-		wait:   ref.Wait,
-		engine: c.engine,
-		method: method,
-	}, nil
+	return c.submit(ctx, name, input, false, options...)
 }
 
-// Run 使用调用方上下文等待结果；关闭实例时该等待计入排空范围
-// 例如 RPCInput 指定 SayHello 和 Request{Message:"hello"}，同步返回对应 protobuf envelope 的结果视图
+// Run 拥有同步调用的取消责任；durable 父执行中断不取消已记录的子任务。
 func (c *Conn) Run(ctx context.Context, name string, input any, options ...RunOption) (*Result, error) {
-	// ctx, done, err 登记本次调用并取得结束回调，返回前释放登记以允许实例排空
-	ctx, done, err := c.engine.Begin(ctx)
+	ctx, done, err := c.engine.BeginIO(ctx, "run.synchronous")
 	if err != nil {
 		return nil, err
 	}
-
 	defer done()
-
-	// ref, err 接收 c.RunNoWait 的返回值，同时保存错误供紧接着的分支检查；失败时不继续使用结果
-	ref, err := c.RunNoWait(ctx, name, input, options...)
+	ref, err := c.submit(ctx, name, input, true, options...)
 	if err != nil {
 		return nil, err
 	}
-
-	return ref.Result(ctx)
+	result, err := ref.Result(ctx)
+	state, _ := callctx.Get(ctx)
+	durable := state != nil && state.Execution != nil && state.Execution.Info().Durable
+	if err != nil && ctx.Err() != nil && !durable {
+		budget, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Second)
+		cancelErr := ref.Cancel(budget)
+		cancel()
+		return nil, errors.Join(err, cancelErr)
+	}
+	return result, err
 }
 
-// RunMany 批量提交同一目标的输入，返回顺序与输入顺序一致
-// 例如输入 [A,B,C] 使用各自的优先级和 metadata，返回对应的三个运行句柄
+// RunMany 全批完成本地校验后才执行 codec；部分成功时保留已证明的输入位置。
 func (c *Conn) RunMany(ctx context.Context, name string, inputs []RunManyInput) ([]RunRef, error) {
-	// ctx, done, err 登记本次调用并取得结束回调，返回前释放登记以允许实例排空
-	ctx, done, err := c.engine.Begin(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	defer done()
-
-	// compiled 分配当前步骤的结果列表，容量只用于聚合，不代表业务已经成功完成
-	compiled := make([]model.RunManyInput, len(inputs))
-	// target 当前步骤使用的字符串值 ""，用于路由、请求或断言
-	target := ""
-	// 逐项处理 inputs，保留各项的身份和独立结果，避免把一个条目的结果套用到整组
-	for i, v := range inputs {
-		// n, data, err 接收 rpc.Input 的返回值，同时保存错误供紧接着的分支检查；失败时不继续使用结果
-		n, data, err := rpc.Input(ctx, c.engine.Config, name, v.Input)
-		if err != nil {
-			return nil, err
-		}
-		if target != "" && n != target {
-			return nil, fmt.Errorf("wego: batch targets must agree")
-		}
-
-		target = n
-		// opts 本次任务提交的 wego 运行选项，包含键、优先级、metadata 和亲和性
-		opts := model.RunOptions{}
-		// 逐项处理 v.Options，保留各项的身份和独立结果，避免把一个条目的结果套用到整组
-		for _, o := range v.Options {
-			o(&opts)
-		}
-		compiled[i] = model.RunManyInput{Input: data, Options: opts}
-	}
 	if len(inputs) == 0 {
 		return []RunRef{}, nil
 	}
-
-	// refs, err 接收 c.engine.Backend.RunMany 的返回值，同时保存错误供紧接着的分支检查；失败时不继续使用结果
-	refs, submitErr := c.engine.Backend.RunMany(ctx, target, compiled)
-
-	// out 分配当前步骤的结果列表，容量只用于聚合，不代表业务已经成功完成
+	ctx, done, err := c.engine.BeginIO(ctx, "run.bulk")
+	if err != nil {
+		return nil, err
+	}
+	defer done()
+	compiled := make([]model.RunManyInput, len(inputs))
+	snapshots := make([]wire.Envelope, len(inputs))
+	for i, item := range inputs {
+		envelope, opts, err := prepareBulkInput(ctx, c.engine.Config, name, item)
+		if err != nil {
+			return nil, fmt.Errorf("wego: input %d: %w", i, err)
+		}
+		snapshots[i], compiled[i].Options = envelope, opts
+	}
+	ctx, err = ports.PrepareTarget(ctx, c.engine.Backend, name, "unary", "", inputTypes(snapshots)...)
+	if err != nil {
+		return nil, err
+	}
+	limits := c.engine.Config.PayloadLimits
+	for i, value := range snapshots {
+		budget, cancel := context.WithTimeout(ctx, limits.EncodeTimeout)
+		envelope, err := wire.Seal(budget, value, c.engine.Config, limits.MaxMessageBytes, limits.MaxMessageBytes+(64<<10), limits.MaxEncodedBytes)
+		cancel()
+		if err != nil {
+			return nil, err
+		}
+		compiled[i].Input = envelope
+	}
+	refs, submitErr := c.engine.Backend.RunMany(ctx, name, compiled)
 	out := make([]RunRef, len(refs))
-	// 逐项处理 refs，保留各项的身份和独立结果，避免把一个条目的结果套用到整组
-	for i, r := range refs {
-		// method 本次调用用于 trace、投影及任务路由的方法名；RPCInput 提供完整方法时覆盖普通任务名
-		method := name
-		// value 是当前批量条目的 RPC 输入，方法身份不能被相邻条目覆盖
-		if value, ok := inputs[r.InputIndex].Input.(model.RPCInput); ok && value.Method != "" {
-			method = value.Method
-		}
-		out[i] = RunRef{
-			RunID:  r.ID,
-			wait:   r.Wait,
-			engine: c.engine,
-			method: method,
-		}
+	for i, ref := range refs {
+		out[i] = RunRef{RunID: ref.ID, InputIndex: ref.InputIndex, wait: ref.Wait, engine: c.engine, method: name}
 	}
 	return out, submitErr
+}
+
+// prepareBulkInput 只进行本地参数与序列化检查，整批成功后才允许 codec I/O。
+func prepareBulkInput(ctx context.Context, config spec.Runtime, name string, item RunManyInput) (wire.Envelope, model.RunOptions, error) {
+	opts, err := spec.ApplyRunOptions(item.Options...)
+	if err != nil {
+		return wire.Envelope{}, model.RunOptions{}, err
+	}
+	if opts.StreamIdempotencyKey != "" {
+		return wire.Envelope{}, model.RunOptions{}, fmt.Errorf("wego: bulk input uses stream-only option")
+	}
+	value, defaults, err := wire.InputValue(item.Input)
+	if err != nil {
+		return wire.Envelope{}, model.RunOptions{}, err
+	}
+	routing := map[string]any{}
+	for key, item := range defaults {
+		routing[key] = item
+	}
+	for key, item := range opts.Routing {
+		routing[key] = item
+	}
+	merged, err := config.Routing(name, routing)
+	if err != nil {
+		return wire.Envelope{}, model.RunOptions{}, err
+	}
+	data, typeName, err := wire.MarshalValue(value, config.PayloadLimits.MaxMessageBytes)
+	if err != nil {
+		return wire.Envelope{}, model.RunOptions{}, err
+	}
+	method := ""
+	if strings.HasPrefix(name, "/") {
+		method = name
+		if typeName == "" {
+			return wire.Envelope{}, model.RunOptions{}, fmt.Errorf("wego: RPC input must be protobuf")
+		}
+	}
+	envelope := wire.NewEnvelope(wire.ForTrigger(ctx), method, typeName, data, merged)
+	return envelope, opts, nil
+}
+
+// inputTypes 从已完成序列化的批次读取类型约束，不再次访问可变业务对象。
+func inputTypes(inputs []wire.Envelope) []string {
+	types := make([]string, len(inputs))
+	for index, input := range inputs {
+		types[index] = input.Type
+	}
+	return types
 }

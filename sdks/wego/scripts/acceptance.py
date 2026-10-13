@@ -19,7 +19,7 @@ SDK = REPO / 'sdks/wego'
 RESULTS = SDK / '.test-results'
 # REQUIRED_GATES 必须全部通过的门禁集合，不能用注册成功替代真实业务验收。
 REQUIRED_GATES = {'source-boundary', 'published-dependency', 'format', 'unit', 'vet', 'race', 'upstream', 'upstream-embedded',
-                  'embedded-module', 'generation', 'fuzz', 'fuzz-state', 'report-contract', 'protocol-engine', 'compose-config',
+                  'embedded-module', 'generation', 'fuzz', 'fuzz-payload', 'fuzz-state', 'report-contract', 'protocol-engine', 'compose-config',
                   'engine', 'embedded-engine', 'engine-race'}
 # FAULTS 对应当前单任务输出模型；Owner 崩溃由独立真实进程重启证据覆盖。
 FAULTS = {'delayed_subscription', 'duplicate_cursor', 'reconnect', 'missing_output',
@@ -138,6 +138,31 @@ def assemble(gates, since, destination):
     result_cancel_path, result_cancel = latest('result-cancel-*.json', lambda d: current_evidence(d, manifest), since)
     # 真实 S3 往返是独立必需证据，不能用内存对象 fixture 的 middleware 场景替代。
     minio_path, minio = latest('minio-codec-*.json', lambda d: current_evidence(d, manifest) and len(d.get('records', [])) >= 12, since)
+    # 两种载荷模式均须执行完整消息链路，不能以 RPC codec 场景替代原生任务。
+    unified = {}
+    unified_paths = []
+    for mode in ('bytes', 'gzip-aes-s3'):
+        path, evidence = latest(f'unified-{mode}-*.json', lambda d: current_evidence(d, manifest) and len(d.get('assertions', [])) >= 8, since)
+        unified[mode] = evidence
+        unified_paths.append(path)
+    # 协议 6 的原生路径需要独立真实证据，不能用 wego 封包往返替代。
+    native = {}
+    native_paths = []
+    for pattern, category, minimum in (('v6-console-*.json', 'console', 3),
+                                        ('v6-native-paths-*.json', 'business-paths', 5)):
+        path, evidence = latest(pattern, lambda d: current_evidence(d, manifest)
+                                and len(d.get('assertions', [])) >= minimum, since)
+        native[category] = evidence
+        native_paths.append(path)
+    native['streams'] = []
+    for method in ('UploadHellos', 'WatchHellos', 'ChatHellos'):
+        for encoding in ('json', 'gzip'):
+            path, evidence = latest('v6-native-stream-*.json', lambda d: current_evidence(d, manifest)
+                                    and d.get('method', '').endswith('/' + method)
+                                    and d.get('input_encoding') == encoding
+                                    and len(d.get('assertions', [])) >= 3, since)
+            native['streams'].append(evidence)
+            native_paths.append(path)
     aliases = {'simple': 'basic', 'sdk-migration': 'basic', 'sdk-migration-v1': 'events'}
     sources = []
     for entry in manifest['sources']:
@@ -172,10 +197,10 @@ def assemble(gates, since, destination):
             'stream-cost': cost, 'stream-cost-concurrent': concurrent, 'durable-memo-recovery': memo,
             'stream-faults': faults, 'stream-recovery': recovery, 'stream-restart': stream_restart, 'worker-events': events, 'stream-submission': submission, 'stream-realtime': realtime, 'result-cancel': result_cancel,
             'durable-restart': restart, 'embedded': embedded, 'batch-shutdown': batch,
-            'minio-codec': minio,
+            'minio-codec': minio, 'unified-messages': unified, 'protocol-v6-native': native,
         },
         'evidence_files': [str(p.relative_to(REPO)) for p in
-                           (ordinary_path, faults_path, restart_path, embedded_path, batch_path, cost_path, concurrent_path, memo_path, recovery_path, stream_restart_path, events_path, submission_path, realtime_path, result_cancel_path, minio_path)],
+                           (ordinary_path, faults_path, restart_path, embedded_path, batch_path, cost_path, concurrent_path, memo_path, recovery_path, stream_restart_path, events_path, submission_path, realtime_path, result_cancel_path, minio_path, *unified_paths, *native_paths)],
         'cleanup': {
             'workflow_and_trigger_resources': 'deleted under unique namespaces',
             'embedded_database': 'dropped', 'owned_listeners_and_connections': 'closed',
@@ -237,12 +262,13 @@ def main():
         ('embedded-module', ['go', 'test', '-tags=wego_embedded', './...'], SDK / 'examples/embedded'),
         ('generation', ['go', 'test', './tests/quality', '-run', '^TestGenerationAndAcceptanceManifestAreReproducible$'], SDK),
         ('fuzz', ['go', 'test', './internal/wire', '-run', '^$', '-fuzz', '^FuzzFrameCodecDecode$', '-fuzztime=10s'], SDK),
+        ('fuzz-payload', ['go', 'test', './internal/wire', '-run', '^$', '-fuzz', '^FuzzUnifiedPayload$', '-fuzztime=10s'], SDK),
         ('fuzz-state', ['go', 'test', './internal/stream', '-run', '^$', '-fuzz', '^FuzzLogInterpreter$', '-fuzztime=10s'], SDK),
         ('report-contract', [sys.executable, '-m', 'unittest', 'test_acceptance'], SDK / 'scripts'),
         ('compose-config', ['docker', 'compose', '-f', 'sdks/wego/tests/compose.yml', 'config', '--quiet'], REPO),
         ('protocol-engine', [sys.executable, str(SDK / 'scripts/local-test.py'), 'env', 'GOWORK=off', 'GOFLAGS=-mod=readonly', 'WEGO_P0_FAULT_FIXTURES=1', 'go', '-C', str(SDK), 'test', '-race', '-count=1', '-tags=e2e', './internal/backend', '-run', 'P0|TestRPCBindingsP1|TestWorkerEventReconnect|TestOversizedResultReport', '-timeout', '10m'], REPO),
         ('engine', prefix + ['test', '-json', '-count=1', '-tags=e2e', './tests/e2e/...', '-timeout', '30m'], REPO),
-        ('engine-race', prefix + ['test', '-race', '-json', '-count=1', '-tags=e2e', './tests/e2e/...', '-run', 'TestExamples/(batch|grpc-streams|middleware|shutdown|dual-entry)$|TestBatchShutdownBudget$|TestReview|TestIndependentReview|TestStream|TestReliableStreamRecovery|TestRealtimeStreams|TestResultCancellation|TestWorkerEvents|TestMinIOCodec', '-timeout', '15m'], REPO),
+        ('engine-race', prefix + ['test', '-race', '-json', '-count=1', '-tags=e2e', './tests/e2e/...', '-run', 'TestExamples/(batch|grpc-streams|middleware|shutdown|dual-entry)$|TestBatchShutdownBudget$|TestReview|TestIndependentReview|TestStream|TestReliableStreamRecovery|TestRealtimeStreams|TestResultCancellation|TestWorkerEvents|TestMinIOCodec|TestUnified|TestProtocolV6', '-timeout', '15m'], REPO),
         ('embedded-engine', prefix + ['test', '-json', '-count=1', '-tags=e2e,wego_embedded', './tests/e2e/...', '-run', '^TestEmbedded$', '-timeout', '10m'], REPO),
     ]
     for name, command, cwd in commands:

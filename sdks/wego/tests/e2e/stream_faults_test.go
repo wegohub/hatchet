@@ -229,7 +229,7 @@ func faultConn(t *testing.T, namespace, mode string) (*coreclient.Conn, *faultBa
 	if err != nil {
 		t.Fatal(err)
 	}
-	codec, err := wire.NewFrameCodec(config.Middleware, 4<<20, 4<<20)
+	codec, err := wire.NewFrameCodec(config, 4<<20, 4<<20)
 	if err != nil {
 		_ = e.Close()
 		t.Fatal(err)

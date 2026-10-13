@@ -62,7 +62,7 @@ type queuedEvent struct {
 // newWorkerEvents 不启动资源，缺少有界 codec 能力在接收任务之前失败
 func newWorkerEvents(w *worker, config spec.Runtime) (*workerEvents, error) {
 	o := config.WorkerEventOptionsFor()
-	codec, err := wire.NewFrameCodec(config.Middleware, o.MaxFrameBytes, o.MaxEncodedBytes, w.backend.FrameObserver())
+	codec, err := wire.NewFrameCodec(config, o.MaxFrameBytes, o.MaxEncodedBytes, w.backend.FrameObserver())
 	if err != nil {
 		return nil, err
 	}

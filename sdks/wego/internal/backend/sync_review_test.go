@@ -146,6 +146,7 @@ func TestSyncReviewConcurrentSleepAndNow(t *testing.T) {
 func TestSyncReviewDurablePartialSubmission(t *testing.T) {
 	// e、p、ctx 分别提供执行视图、受控对端和有限测试预算
 	e, p, ctx := syncExecution(t)
+	bindFixtureTarget(t, e.backend)
 	// budget 只限制批量提交 250ms，根 listener 仍拥有独立生命周期
 	budget, stop := context.WithTimeout(ctx, 250*time.Millisecond)
 	defer stop()
@@ -242,6 +243,7 @@ func TestCancelledAckDrainsBeforeNextRequest(t *testing.T) {
 func TestDurableMissingIdentityAck(t *testing.T) {
 	// e 和 peer 只替换确认出口，子提交仍执行完整生产实现
 	e, peer, ctx := syncExecution(t)
+	bindFixtureTarget(t, e.backend)
 	// bound 使调用使用父 durable 身份，而不是普通 Admin 提交
 	bound := callctx.Bind(ctx, &callctx.State{Execution: e})
 	go func() {

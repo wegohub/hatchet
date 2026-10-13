@@ -11,6 +11,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
+	"github.com/hatchet-dev/hatchet/sdks/wego/internal/spec"
 	"github.com/hatchet-dev/hatchet/sdks/wego/middleware"
 )
 
@@ -34,7 +35,7 @@ func BenchmarkFrameCodec(b *testing.B) {
 				profile = "aes-gcm"
 				options = []middleware.Option{middleware.WithPayload(&encryptedCodec{aead})}
 			}
-			codec, err := NewFrameCodec(options, 1<<20, 2<<20)
+			codec, err := NewFrameCodec(spec.Runtime{Middleware: options}, 1<<20, 2<<20)
 			if err != nil {
 				b.Fatal(err)
 			}
@@ -69,7 +70,7 @@ func BenchmarkFrameCodec(b *testing.B) {
 func BenchmarkProtoJSONEnvelope(b *testing.B) {
 	message := wrapperspb.String(string(bytes.Repeat([]byte{'x'}, 1024)))
 	for b.Loop() {
-		if _, err := Encode(context.Background(), "/fixture/Call", message, nil, nil, 1<<20); err != nil {
+		if _, err := Encode(context.Background(), "/fixture/Call", message, nil, spec.Runtime{}, 1<<20); err != nil {
 			b.Fatal(err)
 		}
 	}

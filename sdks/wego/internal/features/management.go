@@ -7,6 +7,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/hatchet-dev/hatchet/sdks/wego/internal/ports"
+	"github.com/hatchet-dev/hatchet/sdks/wego/internal/wire"
 	"github.com/hatchet-dev/hatchet/sdks/wego/model"
 )
 
@@ -96,11 +97,29 @@ func (c *FiltersClient) List(ctx context.Context, query model.Query) (model.Reso
 
 // Create 创建事件过滤器，通过共享后端调用 Filters.Create；输入和返回结果只使用 wego 或普通 JSON 类型
 func (c *FiltersClient) Create(ctx context.Context, request model.Resource) (model.Resource, error) {
+	ctx, done, err := c.begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer done()
+	request, err = c.preparePayload(ctx, request)
+	if err != nil {
+		return nil, err
+	}
 	return c.invoke(ctx, ports.FiltersCreate{Request: request})
 }
 
 // Update 更新事件过滤器，通过共享后端调用 Filters.Update；输入和返回结果只使用 wego 或普通 JSON 类型
 func (c *FiltersClient) Update(ctx context.Context, id string, request model.Resource) (model.Resource, error) {
+	ctx, done, err := c.begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer done()
+	request, err = c.preparePayload(ctx, request)
+	if err != nil {
+		return nil, err
+	}
 	return c.invoke(ctx, ports.FiltersUpdate{ID: id, Request: request})
 }
 
@@ -207,4 +226,21 @@ func (c *WorkersClient) SendEvent(ctx context.Context, workerKey string, event m
 func (c *WorkersClient) BroadcastEvent(ctx context.Context, event model.WorkerEvent) error {
 	_, err := c.invoke(ctx, ports.WorkerSendEvent{Event: event})
 	return err
+}
+
+// preparePayload 复制管理请求，只替换官方 payload 字段，Update 未提供该字段时保持不变。
+func (c *FiltersClient) preparePayload(ctx context.Context, request model.Resource) (model.Resource, error) {
+	copy := make(model.Resource, len(request))
+	for key, value := range request {
+		copy[key] = value
+	}
+	if value, exists := request["payload"]; exists {
+		target, _ := request["workflowId"].(string)
+		envelope, err := wire.EncodeFilter(ctx, c.config, target, value)
+		if err != nil {
+			return nil, err
+		}
+		copy["payload"] = envelope
+	}
+	return copy, nil
 }

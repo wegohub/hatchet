@@ -2,6 +2,9 @@ package client
 
 import (
 	"context"
+	"encoding/json"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/hatchet-dev/hatchet/sdks/wego/internal/engine"
 	"github.com/hatchet-dev/hatchet/sdks/wego/internal/ports"
@@ -18,7 +21,7 @@ type managedFeatures struct {
 // Feature 把管理调用纳入实例在途登记，后端返回前完成登记释放；任务内部调用在排空期间仍可继续
 func (b *managedFeatures) Feature(ctx context.Context, request ports.FeatureRequest, out any) error {
 	// ctx, done, err 接收 b.engine.Begin 的返回值，同时保存错误供紧接着的分支检查；失败时不继续使用结果
-	ctx, done, err := b.engine.Begin(ctx)
+	ctx, done, err := b.engine.BeginIO(ctx, "management.request")
 	if err != nil {
 		return err
 	}
@@ -43,5 +46,22 @@ func (b *managedFeatures) Stream(ctx context.Context, id string, consume func(st
 
 // Begin 在 payload 上传之前登记操作，排空或强制关闭覆盖整段编码与提交
 func (b *managedFeatures) Begin(ctx context.Context) (context.Context, func(), error) {
-	return b.engine.Begin(ctx)
+	return b.engine.BeginIO(ctx, "management.request")
+}
+
+// ValidateTarget 将部署绑定检查传到真实后端，管理提交与 Run 共用约束。
+func (b *managedFeatures) ValidateTarget(ctx context.Context, name, shape, mode string, typeNames ...string) error {
+	if validator, ok := b.Backend.(ports.TargetValidator); ok {
+		return validator.ValidateTarget(ctx, name, shape, mode, typeNames...)
+	}
+	return nil
+}
+
+// RunInput 转发持久契约读取；管理订阅的外层登记覆盖读取和后续消费。
+func (b *managedFeatures) RunInput(ctx context.Context, id string) (json.RawMessage, error) {
+	reader, ok := b.Backend.(ports.RunInputReader)
+	if !ok {
+		return nil, status.Error(codes.Unimplemented, "wego: stored run input unavailable")
+	}
+	return reader.RunInput(ctx, id)
 }

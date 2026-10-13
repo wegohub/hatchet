@@ -112,7 +112,7 @@ func run() error {
 				return nil, fmt.Errorf("snapshot fixture: %d", response.StatusCode)
 			}
 
-			_, err = task.WaitForEvent(ctx, "restart:finish", "input.run_id == "+strconv.Quote(out.RunId))
+			_, err = task.WaitForEvent(ctx, "restart:finish", "input.routing.run_id == "+strconv.Quote(out.RunId))
 			return out, err
 		},
 	}

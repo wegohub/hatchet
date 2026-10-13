@@ -82,7 +82,7 @@ func (r *eventReconnectReceiver) Recv() (*v1.StreamMessage, error) {
 // TestWorkerEventReconnect 验证真实持久回读、重连后的通知与稳定实例身份，不创建控制任务或额外 Worker
 func TestWorkerEventReconnect(t *testing.T) {
 	b, config, ctx := p0Backend(t)
-	codec, err := wire.NewFrameCodec(nil, 4<<20, 4<<20)
+	codec, err := wire.NewFrameCodec(spec.Runtime{}, 4<<20, 4<<20)
 	if err != nil {
 		t.Fatal(err)
 	}

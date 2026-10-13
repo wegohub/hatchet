@@ -38,7 +38,7 @@ func writeP0Report(t *testing.T, b *Backend, name string, data map[string]any) {
 	if err := json.Unmarshal(manifestData, &manifest); err != nil {
 		t.Fatal(err)
 	}
-	data["sdk_version"], data["public_protocol_version"], data["probe_protocol_version"] = manifest.Version, manifest.Protocol, uint32(4)
+	data["sdk_version"], data["public_protocol_version"], data["probe_protocol_version"] = manifest.Version, manifest.Protocol, manifest.Protocol
 	data["server_version"], data["recorded_at"], data["command"] = version, time.Now().UTC().Format(time.RFC3339), os.Getenv("WEGO_TEST_COMMAND")
 	data["mq"], data["source_boundary"] = "PostgreSQL", "only sdks/wego; unmodified official release"
 	encoded, err := json.MarshalIndent(data, "", "  ")

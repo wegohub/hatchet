@@ -88,13 +88,13 @@ func (x *Values) GetValues() [][]byte {
 	return nil
 }
 
-// LogFrame 是协议 4 的持久日志帧；完整帧序列化后统一经过 codec
+// LogFrame 是协议 6 的持久日志帧；完整帧序列化后统一经过 codec
 // CLAIM 与 DATA 均包含执行身份，解码成功后才解释代次和输出序号
 // LogFrame 生成的消息、调用接口或服务适配类型；业务语义以 .proto 的中文说明为准
 type LogFrame struct {
 	// state protobuf 运行时消息状态，关联当前实例的反射描述；业务不直接读写
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// version 固定为 4，不能与会话协议混用
+	// version 固定为 6，不能与会话协议混用
 	Version uint32 `protobuf:"varint,1,opt,name=version,proto3" json:"version,omitempty"`
 	// kind 为 CLAIM、HEADERS、DATA、ATTEMPT_END、JOIN、EVENT 或 CANCEL
 	Kind string `protobuf:"bytes,2,opt,name=kind,proto3" json:"kind,omitempty"`
@@ -346,7 +346,7 @@ type EncodedLogFrame struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// format_version 标识此引导封装的格式，目前为 1
 	FormatVersion uint32 `protobuf:"varint,1,opt,name=format_version,json=formatVersion,proto3" json:"format_version,omitempty"`
-	// codec_ids 按 Encode 顺序保存稳定版本标识，接收方必须有相同解码链
+	// codec_ids 按 Encode 顺序保存稳定版本标识，接收方按消息 ID 查找组件并逆序解码
 	CodecIds []string `protobuf:"bytes,2,rep,name=codec_ids,json=codecIds,proto3" json:"codec_ids,omitempty"`
 	// payload 为整帧的 codec 输出，允许是密文或对象引用
 	Payload []byte `protobuf:"bytes,3,opt,name=payload,proto3" json:"payload,omitempty"`

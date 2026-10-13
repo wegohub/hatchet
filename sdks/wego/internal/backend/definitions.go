@@ -16,12 +16,18 @@ import (
 // workflowDefinition 编码纯调度数据；例如 standalone hello 只生成 hello:hello 一个 action
 // 不构造官方 Workflow 对象，避免定义阶段创建不可关闭的 metadata 缓存
 func workflowDefinition(name string, policy spec.Task, namespace string) (*v1.CreateWorkflowVersionRequest, error) {
-	name = clientconfig.ApplyNamespace(strings.ToLower(name), &namespace)
+	name = nativeWorkflowName(namespace, name)
 	// req 当前协议请求，编码完整后才发送，不能使用未初始化的调度字段
 	req := &v1.CreateWorkflowVersionRequest{Name: name, CronTriggers: append([]string(nil), policy.Cron...)}
 	// 逐项处理本组定义、成员或协议详情，保留每项身份；例如 run-1 的结果不能交给 run-2
+	seenEvents := make(map[string]struct{}, len(policy.Events))
 	for _, key := range policy.Events {
-		req.EventTriggers = append(req.EventTriggers, clientconfig.ApplyNamespace(key, &namespace))
+		key = clientconfig.ApplyNamespace(key, &namespace)
+		if _, exists := seenEvents[key]; exists {
+			continue
+		}
+		seenEvents[key] = struct{}{}
+		req.EventTriggers = append(req.EventTriggers, key)
 	}
 	if policy.CronInput != nil {
 		// data 编码后的业务或协议字节，只有编码成功才可交付
@@ -45,9 +51,9 @@ func workflowDefinition(name string, policy spec.Task, namespace string) (*v1.Cr
 			yes := true
 			value.IsTenantScoped = &yes
 		}
-		if c.LimitStrategy != nil {
-			// n, ok 取得 v1.ConcurrencyLimitStrategy_value[string 的结果，确认成功后才进入下一处理阶段
-			n, ok := v1.ConcurrencyLimitStrategy_value[string(*c.LimitStrategy)]
+		if c.LimitStrategy != "" {
+			// 空值留给服务端默认策略；显式值必须是官方协议支持的枚举。
+			n, ok := v1.ConcurrencyLimitStrategy_value[string(c.LimitStrategy)]
 			if !ok {
 				return nil, fmt.Errorf("wego: invalid concurrency strategy")
 			}
@@ -131,9 +137,9 @@ func taskDefinition(workflow string, d ports.Definition) (*v1.CreateTaskOpts, er
 			units := int32(*limit.Units)
 			value.Units = &units
 		}
-		if limit.Duration != nil {
-			// n, ok 取得 v1.RateLimitDuration_value[strings.ToUpper 的结果，确认成功后才进入下一处理阶段
-			n, ok := v1.RateLimitDuration_value[strings.ToUpper(string(*limit.Duration))]
+		if limit.Duration != "" {
+			// 空值不发送周期；例如 Minute 映射为官方 MINUTE，不改变静态限流资源的周期。
+			n, ok := v1.RateLimitDuration_value[strings.ToUpper(string(limit.Duration))]
 			if !ok {
 				return nil, fmt.Errorf("wego: invalid rate limit duration")
 			}

@@ -1,5 +1,88 @@
 # Changelog
 
+## 0.4.10
+
+- 提交和事件使用官方 traceparent/tracestate 调度字段；普通与可靠流执行接续引擎父 trace，输入封包仅在缺少有效执行上下文时恢复 trace，避免 Console 把业务与引擎 spans 分成两条链路。协议保持 6。
+
+## 0.4.9
+
+- feature Worker 和 Conn 统一通过 NewGzip 与组件阈值选项构造 gzip，初始化失败释放已有 S3 连接。协议保持 6。
+
+## 0.4.8
+
+- 发送阈值归属组件：NewGzip、NewZstd、NewS3 使用 payload.WithThreshold 配置，默认 256 KiB，0 强制执行；移除 Runtime 阈值配置，发送链仅选择组件和顺序。协议保持 6。
+
+## 0.4.7
+
+- 压缩与 S3 默认按当前步骤输入的 256 KiB 阈值执行，支持 WithEncodingThreshold 覆盖；普通消息和完整流帧只记录实际执行的 CodecID，解码不依赖发送阈值。协议保持 6。
+
+## 0.4.6
+
+- CodecID 去掉 example 前缀，新增有界 zstd codec；feature Worker 和 Conn 显式选择 zstd、AES-GCM、MinIO/S3 发送链，gzip 保留解码注册。旧 ID 消息需排空后切换，协议保持 6。
+
+## 0.4.5
+
+- 本机 MinIO 默认登录改为 admin / 12345678，同步 feature S3 凭证；Compose 仍支持环境变量覆盖。协议保持 6。
+
+## 0.4.4
+
+- 在手动 feature Worker 与 Conn 的启动文件直接展示 gzip、AES-GCM、MinIO/S3 初始化和 Middleware 配置，移除仅供配置转发的 support 包。协议保持 6。
+
+## 0.4.3
+
+- 手动 feature Worker 与 Conn 统一配置 gzip、AES-GCM、MinIO/S3 codec；读取私有环境配置，共用稳定对象前缀，退出时释放实例 HTTP 连接。协议保持 6。
+
+## 0.4.2
+
+- Events.Push 的可选 scope 改为字符串值：省略参数不设置范围，显式空字符串保留为空范围；同步迁移示例、测试及文档。协议保持 6。
+
+## 0.4.1
+
+- 混合 Batch 的整体失败按成员响应契约分别上报；原生结果超限也不暴露 wego 错误载体。Filter 解码先登记取消能力，关闭同时保留排空与资源清理错误。
+
+- 收紧协议 6 控制字段：拒绝重复字段、已定义字段的 null 和大小写别名；未知可选扩展及业务 value 仍按原约定处理。非法或超限发送头在 codec I/O 前失败。
+- 执行 deadline 覆盖普通任务及 RPC 输入解码；历史结果和流恢复继续使用观察者预算。unary 响应必须符合注册的 protobuf 输出类型。
+- CLAIM 首次读回核对 RunID；服务端终态封闭后禁止迟到发送与 metadata 修改，客户端关闭后拒绝迟到解码及背压回调。协议保持 6。
+
+## 0.4.0
+
+- 协议升至 6：以 `_wego` 声明协议、`value` 承载业务、`routing` 承载调度；删除每条输入中的 method、scope、format、类型及普通调用摘要。目标由持久注册绑定确定。
+- 接受原生业务 JSON 和显式 Input；输入 codec 与响应契约分别选择。SDK 请求严格读取 wego 响应；Console 原生调用返回业务 JSON，原生 server/bidi 使用官方 PutStream 并仅保存输出数量。
+- 无 codec 消息可读；不安全 JSON 数字自动使用 base64 字节承载。公开 `model.Input` 支持 ProtoJSON 序列化，流内容摘要统一对象顺序和等价数字表示。
+- Payload 移除 scope 参数；AES-GCM 使用随机 nonce、nil AAD，示例格式 ID 升至 `example.aes256-gcm.v2`。接收端按消息 CodecID 解码，最多 16 步，协议头最多 64 KiB。
+- 所有流提交键位于 `_wego.idempotency_key`，按注册方法隔离。恢复核验运行实际使用的 workflow 版本；原生运行不会被 SDK 当作可靠流附着。
+- 同步普通任务、durable、DAG、Batch、事件、Filter、触发器及结果链路；新增 Console 三入口、原生三种流、混合 Batch 和数值保真验证。协议 5 不提供读取兼容，需排空后协调升级。
+
+## 0.3.3
+
+- 启用的四种 RPC 默认注册完整方法名事件，与自定义事件按 namespace 后的实际 key 稳定去重；禁用方法及纯网络入口不注册。流事件使用 ProtoJSON 请求数组、一对多方法幂等隔离和现有可靠／实时输出链路。
+- Payload 组件按 CodecID 建立实例只读注册表，接收端按消息记录逆序解码；新增 runtime.WithEncodingCodecs，独立选择发送链，支持显式空链和重复执行步骤。未知 ID 在任何 codec I/O 前失败，历史消息不依赖当前注册顺序。
+- 示例 CodecID 使用常量；静态 Cron／Filter 摘要采用实际消息编码链，保留随机密文复用与有界解码。协议保持 5，启用不同发送链前升级两端；仍只接受 wego 封包。
+
+## 0.3.2
+
+- CreateCronTrigger.Priority、CreateScheduledRunTrigger.Priority 改为 int32；0 表示未指定，1–3 为合法调度优先级，其他值在目标查询、codec 上传及提交前失败。
+- Cron 创建在 backend 中显式传递官方 REST priority 字段，避免配置被丢弃；补充真实 HTTP 映射、默认值和本机触发验收，更新示例与可选字段说明。源码 API 变更，协议保持 5。
+
+## 0.3.1
+
+- DesiredWorkerLabel.Comparator、Concurrency.LimitStrategy 和 RateLimit.Duration 改为值类型，可直接配置枚举常量；Comparator 零值为 LabelEqual，其余两项空值保持未指定语义。
+- 同步迁移示例、测试与配置文档，验证默认值、非法枚举、快照隔离及官方协议映射；这属于源码 API 变更，通信协议保持 5。
+
+## 0.3.0
+
+- 协议升级为 5：普通 JSON 与 protobuf 任务统一封包、routing 和有界 codec，业务字节不进入引擎浮点 map。
+- 使用 RunOption 配置所有提交，并通过 WithRunOptions 适配生成客户端；触发器使用 model.Input。
+- Result 和 ResumeStream 取消只结束当前观察，RunRef.Cancel 显式终止运行；异步提交不固化调用 deadline。
+- 原生输入、输出、Batch、父输出、事件与实时输出采用统一 codec；客户端与 Worker 需要协调升级。
+
+## 0.2.10
+
+- 规范调用配置命名：官方运行选项保持 WithRunKey / WithRunSticky / WithRunPriority / WithRunMetadata / WithDesiredWorkerLabels；自有 RunOptions 字段 Metadata、Labels 对齐为 AdditionalMetadata、DesiredWorkerLabels，并明确 Key 是稳定子调用键。
+- wego 扩展改名：WithIdempotencyKey → WithStreamIdempotencyKey，WithRouting → WithRPCRouting，WithRoutingDefaults → WithRoutingDefaults；流幂等键仅用于流提交，RPC routing 是 envelope 中供 CEL 读取的数据。
+- Client 消费凭证的函数及模型 StreamCheckpoint → StreamResumeToken；Worker 保留 task.Checkpoint 恢复发布历史。流提交与消费接口集中到 client/stream.go，迁移示例、测试与当前使用文档。
+- 以上为源码 API 更名，旧名称不保留别名；消费凭证 JSON 字段与协议 4 保持一致。
+
 ## 0.2.9
 
 - worker.WithDisableMethod 改为可变参数，支持一次禁用多个 RPC 或展开方法切片；单方法调用继续可用。空参数无效果，重复方法幂等，输入切片在构造 Option 时复制，各实例禁用集合保持隔离。

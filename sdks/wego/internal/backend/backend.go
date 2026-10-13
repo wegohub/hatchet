@@ -72,6 +72,9 @@ type Backend struct {
 func New(config spec.Runtime) (result *Backend, err error) {
 	// 后端拥有独立配置容器，调用方后续调整投影或标签不会改变已创建实例
 	config = config.Clone()
+	if err := config.Validate(); err != nil {
+		return nil, err
+	}
 	// embeddedShutdown 嵌入引擎的关闭回调；未启用嵌入模式时为 nil
 	var embeddedShutdown func(context.Context) error
 	// 先启动实例拥有的嵌入引擎，再使用其解析后的连接地址创建客户端
@@ -91,39 +94,8 @@ func New(config spec.Runtime) (result *Backend, err error) {
 			}
 		}()
 	}
-	// 令牌缺失时尝试明确配置或环境回退；仍缺失则启动失败，不能创建匿名任务后端
-	if config.Token == "" {
-		config.Token = os.Getenv("HATCHET_CLIENT_TOKEN")
-	}
-	// 令牌缺失时尝试明确配置或环境回退；仍缺失则启动失败，不能创建匿名任务后端
-	if config.Token == "" {
-		return nil, fmt.Errorf("wego: token is required")
-	}
-
-	// claims, err 接收 loaderutils.GetConfFromJWT 的返回值，同时保存错误供紧接着的分支检查；失败时不继续使用结果
-	claims, err := loaderutils.GetConfFromJWT(config.Token)
-	// 当前步骤失败时终止处理：wego: invalid token: %s；不把无效结果交给下一步
-	if err != nil {
-		return nil, fmt.Errorf("wego: invalid token: %s", err)
-	}
-	if !claims.ExpiresAt.After(time.Now()) {
-		return nil, fmt.Errorf("wego: token has expired")
-	}
-	// 未显式提供 gRPC 地址时从令牌配置补齐，显式地址不被覆盖
-	if config.Address == "" {
-		config.Address = claims.GrpcBroadcastAddress
-	}
-	// 未显式提供 API 地址时从令牌配置补齐
-	if config.ServerURL == "" {
-		config.ServerURL = claims.ServerURL
-	}
-	// 未显式提供授权范围身份时从令牌声明补齐
-	if config.TenantID == "" {
-		config.TenantID = claims.TenantId
-	}
-	// 仅在应用未选择 TLS 或明文时推导默认传输配置，显式 nil TLS 不能被覆盖
-	if !config.TLSSet {
-		config.TLS = &tls.Config{MinVersion: tls.VersionTLS12}
+	if err := resolveConnectionConfig(&config); err != nil {
+		return nil, err
 	}
 	// level 当前日志等级的默认值，解析记录或实例配置后再选择实际级别
 	level := zerolog.InfoLevel
@@ -190,6 +162,45 @@ func New(config spec.Runtime) (result *Backend, err error) {
 	b.features = newFeatureClients(raw)
 	b.workflowTasks = map[string][]string{}
 	return b, nil
+}
+
+// resolveConnectionConfig 显式实例配置优先于令牌默认地址；缺失或过期凭证在连接前失败。
+func resolveConnectionConfig(config *spec.Runtime) error {
+	// 令牌缺失时尝试明确配置或环境回退；仍缺失则启动失败，不能创建匿名任务后端
+	if config.Token == "" {
+		config.Token = os.Getenv("HATCHET_CLIENT_TOKEN")
+	}
+	// 令牌缺失时尝试明确配置或环境回退；仍缺失则启动失败，不能创建匿名任务后端
+	if config.Token == "" {
+		return fmt.Errorf("wego: token is required")
+	}
+
+	// claims, err 接收 loaderutils.GetConfFromJWT 的返回值，同时保存错误供紧接着的分支检查；失败时不继续使用结果
+	claims, err := loaderutils.GetConfFromJWT(config.Token)
+	// 当前步骤失败时终止处理：wego: invalid token: %s；不把无效结果交给下一步
+	if err != nil {
+		return fmt.Errorf("wego: invalid token: %s", err)
+	}
+	if !claims.ExpiresAt.After(time.Now()) {
+		return fmt.Errorf("wego: token has expired")
+	}
+	// 未显式提供 gRPC 地址时从令牌配置补齐，显式地址不被覆盖
+	if config.Address == "" {
+		config.Address = claims.GrpcBroadcastAddress
+	}
+	// 未显式提供 API 地址时从令牌配置补齐
+	if config.ServerURL == "" {
+		config.ServerURL = claims.ServerURL
+	}
+	// 未显式提供授权范围身份时从令牌声明补齐
+	if config.TenantID == "" {
+		config.TenantID = claims.TenantId
+	}
+	// 仅在应用未选择 TLS 或明文时推导默认传输配置，显式 nil TLS 不能被覆盖
+	if !config.TLSSet {
+		config.TLS = &tls.Config{MinVersion: tls.VersionTLS12}
+	}
+	return nil
 }
 
 // Config 返回后端当前使用的连接配置，供内部适配层读取实例设置

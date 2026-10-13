@@ -62,7 +62,7 @@ func (f *barrierFixture) SubscribeDurable(ctx context.Context, _ ports.DurableSu
 
 // TestJoinBudgetsAndReadback 验证空 Publish 响应不能代替游标，超时和扫描超限均明确失败
 func TestJoinBudgetsAndReadback(t *testing.T) {
-	codec, err := wire.NewFrameCodec(nil, 4096, 8192)
+	codec, err := wire.NewFrameCodec(spec.Runtime{}, 4096, 8192)
 	if err != nil {
 		t.Fatal(err)
 	}

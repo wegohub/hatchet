@@ -32,7 +32,7 @@ type Task struct {
 	RateLimits []model.RateLimit
 	// Cron Cron 触发表达式，例如 * * * * * 表示每分钟
 	Cron []string
-	// CronInput Cron 触发时提交的输入；RPC 输入使用 model.RPCInput
+	// CronInput Cron 触发时提交的输入；固定输入可用 model.Input 显式携带 routing
 	CronInput any
 	// CronInputSet 区分未设置和显式 nil 清除，独立于 Cron 表达式
 	CronInputSet bool

@@ -2,6 +2,7 @@ package stream
 
 import (
 	"encoding/json"
+	"github.com/hatchet-dev/hatchet/sdks/wego/internal/wire"
 	"testing"
 
 	"google.golang.org/grpc/codes"
@@ -12,7 +13,7 @@ import (
 func TestInputIdentitySnapshots(t *testing.T) {
 	digest := func(message string, routing map[string]any) string {
 		t.Helper()
-		value, err := InputDigest("/fixture/Call", []json.RawMessage{json.RawMessage(message)}, routing)
+		value, err := wire.EventDigest(json.RawMessage(message), routing)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -28,17 +29,17 @@ func TestInputIdentitySnapshots(t *testing.T) {
 	if IdempotencyKey("a", "/fixture/Call", "key") == IdempotencyKey("b", "/fixture/Call", "key") || IdempotencyKey("a", "/fixture/Call", "key") == IdempotencyKey("a", "/fixture/Other", "key") {
 		t.Fatal("tenant-shared keys lack method/namespace isolation")
 	}
-	input, err := json.Marshal(map[string]any{"version": 4, "method": "/fixture/Call", "input_digest": first})
+	input, err := json.Marshal(map[string]any{"_wego": map[string]any{"version": 6, "response": "wego", "input_digest": first}, "value": map[string]any{}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := VerifyRunIdentity(input, "/fixture/Call", first); err != nil {
+	if err := VerifyRunIdentity(input, first); err != nil {
 		t.Fatal(err)
 	}
-	if err := VerifyRunIdentity(input, "/fixture/Other", first); status.Code(err) != codes.FailedPrecondition {
+	if err := VerifyRunIdentity(input, "different-digest"); status.Code(err) != codes.FailedPrecondition {
 		t.Fatal(err)
 	}
-	if _, err := InputDigest("/fixture/Call", []json.RawMessage{json.RawMessage(`{} {}`)}, nil); status.Code(err) != codes.InvalidArgument {
+	if _, err := wire.EventDigest(json.RawMessage(`{} {}`), nil); err == nil {
 		t.Fatal(err)
 	}
 }

@@ -18,15 +18,15 @@ func routingFields(request *pb.Request) map[string]any {
 }
 
 // routedInput 为 Run/RunMany/触发器中的每个请求显式提供 routing
-// 目标参数已给出完整 RPC 方法，因此这里省略 RPCInput.Method；多个输入不共享可变 map
-func routedInput(request *pb.Request) model.RPCInput {
-	return model.RPCInput{Message: request, Routing: routingFields(request)}
+// 目标参数已给出完整 RPC 方法，因此这里省略 方法字段；多个输入不共享可变 map
+func routedInput(request *pb.Request) model.Input {
+	return model.Input{Value: request, Routing: routingFields(request)}
 }
 
 // routingFixtureInterceptor 仅统一验收夹具的调用数据，使用公开 WithRouting 为每次生成桩调用提供 map
 func routingFixtureInterceptor(ctx context.Context, method string, req, reply any, conn *grpc.ClientConn, next grpc.UnaryInvoker, opts ...grpc.CallOption) error {
 	if request, ok := req.(*pb.Request); ok && request != nil {
-		ctx = client.WithRouting(ctx, routingFields(request))
+		opts = append(opts, client.WithRunOptions(client.WithRouting(routingFields(request))))
 	}
 	return next(ctx, method, req, reply, conn, opts...)
 }

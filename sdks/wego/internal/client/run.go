@@ -6,19 +6,18 @@ import (
 	"strings"
 	"time"
 
-	"google.golang.org/protobuf/proto"
-
 	"github.com/hatchet-dev/hatchet/sdks/wego/internal/engine"
 	"github.com/hatchet-dev/hatchet/sdks/wego/internal/ports"
 	"github.com/hatchet-dev/hatchet/sdks/wego/internal/rpc"
+	"github.com/hatchet-dev/hatchet/sdks/wego/internal/spec"
 	"github.com/hatchet-dev/hatchet/sdks/wego/internal/wire"
 	"github.com/hatchet-dev/hatchet/sdks/wego/model"
 )
 
 // RunOption 构造期配置函数或自有别名，按传入顺序合并到对应配置
-type RunOption func(*model.RunOptions)
+type RunOption = spec.RunOption
 
-// WithRunKey 设置此次运行的键，与定义级幂等表达式分别配置
+// WithRunKey 设置父任务内的稳定子调用键；与官方同名，不表示提交幂等或限流键。
 func WithRunKey(v string) RunOption {
 	return func(o *model.RunOptions) {
 		o.Key = &v
@@ -32,8 +31,7 @@ func WithRunSticky(v bool) RunOption {
 	}
 }
 
-// WithRunPriority 设置此次提交的调度优先级，指针保留显式零值
-// 例如显式优先级 0 通过指针保留，不能被当成没有设置而丢弃
+// WithRunPriority 设置官方优先级 1–3；非法值在提交前报错，不能先转换 int32 造成溢出。
 func WithRunPriority(v int) RunOption {
 	return func(o *model.RunOptions) {
 		o.Priority = &v
@@ -43,15 +41,17 @@ func WithRunPriority(v int) RunOption {
 // WithRunMetadata 设置此次运行的附加 metadata，供查询和追踪关联使用
 // 例如 {"case":"case-1"} 随该运行保存，日志或结果查询可据此关联当前验收
 func WithRunMetadata(v map[string]string) RunOption {
+	snapshot := spec.CloneRunOptions(model.RunOptions{AdditionalMetadata: v})
 	return func(o *model.RunOptions) {
-		o.Metadata = v
+		o.AdditionalMetadata = spec.CloneRunOptions(snapshot).AdditionalMetadata
 	}
 }
 
 // WithDesiredWorkerLabels 设置运行亲和性要求；如 owner 标签 Required=true 可禁止跨实例调度
 func WithDesiredWorkerLabels(v map[string]*model.DesiredWorkerLabel) RunOption {
+	snapshot := spec.CloneRunOptions(model.RunOptions{DesiredWorkerLabels: v})
 	return func(o *model.RunOptions) {
-		o.Labels = v
+		o.DesiredWorkerLabels = spec.CloneRunOptions(snapshot).DesiredWorkerLabels
 	}
 }
 
@@ -67,6 +67,8 @@ type RunManyInput struct {
 type RunRef struct {
 	// RunID 工作流运行身份，例如 run-001，用于等待、查询和取消
 	RunID string
+	// InputIndex 为已证明的批量输入下标；未知或非批量调用使用 -1。
+	InputIndex int
 	// wait 在给定 context 的预算内等待任务结果的函数
 	wait func(context.Context) (ports.Result, error)
 	// engine 本实例的执行引擎，协调调用、Worker 与资源关闭
@@ -75,7 +77,7 @@ type RunRef struct {
 	method string
 }
 
-// Result 等待同一个运行；等待 context 主动取消时也请求取消远端运行，其他观察者会受到影响
+// Result 只观察运行；取消当前等待不改变远端执行或其他观察者。
 // 未传入 context 时使用后台上下文，业务错误不会被误判为观察者主动取消
 func (r *RunRef) Result(contexts ...context.Context) (*Result, error) {
 	// ctx 选取不带业务 deadline 的资源上下文，具体清理步骤另有明确预算
@@ -94,14 +96,7 @@ func (r *RunRef) Result(contexts ...context.Context) (*Result, error) {
 	// result, err 接收 r.wait 的返回值，同时保存错误供紧接着的分支检查；失败时不继续使用结果
 	result, err := r.wait(ctx)
 	if err != nil {
-		if ctx.Err() != nil && r.RunID != "" {
-			budget, stop := context.WithTimeout(context.WithoutCancel(ctx), time.Second)
-			cancelErr := r.engine.Backend.Feature(budget, ports.RunsCancel{Request: map[string]any{"externalIds": []string{r.RunID}}}, nil)
-			stop()
-			if cancelErr != nil {
-				r.engine.Config.Logger.Warn("result wait cancellation request failed", "run_id", r.RunID, "error", cancelErr)
-			}
-		}
+
 		return nil, err
 	}
 
@@ -149,12 +144,12 @@ func (r *Result) TaskOutput(name string) *Result {
 	}
 }
 
-// Into 根据目标类型还原结果：protobuf 使用协议及载荷变换，其他类型使用 JSON
+// Into 对所有输出执行统一 codec，再按目标类型解码 JSON 或 ProtoJSON。
 func (r *Result) Into(target any) error {
-	// 默认解码预算与实例清理预算一致，对象下载不能无限等待
+	// 默认采用 PayloadLimits.DecodeTimeout，对象下载不能无限等待
 	timeout := 30 * time.Second
-	if r.engine != nil && r.engine.Config.Shutdown.Timeout > 0 {
-		timeout = r.engine.Config.Shutdown.Timeout
+	if r.engine != nil && r.engine.Config.PayloadLimits.DecodeTimeout > 0 {
+		timeout = r.engine.Config.PayloadLimits.DecodeTimeout
 	}
 	// ctx 给没有显式预算的调用提供有限 deadline
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
@@ -183,42 +178,50 @@ func (r *Result) IntoContext(ctx context.Context, target any) error {
 			return err
 		}
 	}
-	// message 为 protobuf 解码目标，原生 JSON 结果走另一条明确解码路径
-	if message, ok := target.(proto.Message); ok {
-		// envelope, err 接收 wire.AsEnvelope 的返回值，同时保存错误供紧接着的分支检查；失败时不继续使用结果
-		envelope, err := wire.AsEnvelope(value)
+	envelope, err := wire.AsEnvelope(value)
+	if err != nil {
+		return err
+	}
+	if r.engine == nil {
+		return fmt.Errorf("wego: result has no decoding runtime")
+	}
+	// SDK 提交只接受显式协议结果，不将原生结果当作成功响应。
+	if envelope.Native || envelope.Response != "wego" {
+		return fmt.Errorf("wego: result response contract mismatch")
+	}
+
+	// 使用冻结注册表判断 I/O 能力，不在每次结果读取时遍历中间件。
+	codecs, err := r.engine.Config.Codecs()
+	if err != nil {
+		return err
+	}
+	if codecs.HasDecoders() {
+		budget, done, err := r.engine.BeginIO(ctx, "result.decode")
 		if err != nil {
 			return err
 		}
-
-		// 纯内存解码可读取已取得的结果；带 payload 变换的调用必须登记生命周期
-		managed := false
-		// option 只要包含载荷变换，就可能执行外部 I/O，需登记实例生命周期
-		for _, option := range r.engine.Config.Middleware {
-			if option.Payload != nil {
-				managed = true
-				break
-			}
-		}
-		if managed {
-			// done 直到对象读取及所有反向变换结束才释放，不沿用 Result 返回时已取消的上下文
-			budget, done, err := r.engine.BeginIO(ctx, "result.decode")
-			if err != nil {
-				return err
-			}
-			defer done()
-			ctx = budget
-		}
-		return wire.Decode(ctx, r.method, envelope, message, r.engine.Config.Middleware, r.engine.Config.Stream.MaxMessageBytes)
+		defer done()
+		ctx = budget
 	}
-
-	return rpc.DecodeJSON(value, target)
+	budget, cancel := context.WithTimeout(ctx, r.engine.Config.PayloadLimits.DecodeTimeout)
+	defer cancel()
+	return wire.DecodeValue(budget, r.method, envelope, target, r.engine.Config, r.engine.Config.PayloadLimits.MaxMessageBytes, r.engine.Config.PayloadLimits.MaxEncodedBytes)
 }
 
-// Raw 返回结果的独立副本，调用方修改它不会改变句柄内部状态
+// Raw 返回存储格式的独立快照，不下载或解密；业务还原使用 IntoContext。
 func (r *Result) Raw() map[string]any {
 	// out 当前结果的按键映射，逐项写入转换后的输出；不会把后端对象直接放入公开返回值
 	out := map[string]any{}
 	_ = rpc.DecodeJSON(r.outputs, &out)
 	return out
+}
+
+// Cancel 显式终止远端运行，所有观察者都会看到引擎取消终态。
+func (r *RunRef) Cancel(ctx context.Context) error {
+	ctx, done, err := r.engine.BeginIO(ctx, "run.cancel")
+	if err != nil {
+		return err
+	}
+	defer done()
+	return r.engine.Backend.Feature(ctx, ports.RunsCancel{Request: map[string]any{"externalIds": []string{r.RunID}}}, nil)
 }

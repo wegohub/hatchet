@@ -2,6 +2,7 @@ package scenarios
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
@@ -110,7 +111,7 @@ func (s *temporalService) execute(ctx context.Context, in *pb.Request, method st
 		quoted := strconv.Quote(in.CorrelationId)
 		// event 事件等待返回的普通 JSON 数据，用于检查匹配条件与 payload
 		var event map[string]any
-		event, err = task.WaitForEvent(ctx, "approval:granted", "input.correlation_id == "+quoted, model.EventWait{})
+		event, err = task.WaitForEvent(ctx, "approval:granted", "input.routing.correlation_id == "+quoted, model.EventWait{})
 		if err != nil {
 			return nil, err
 		}
@@ -245,7 +246,7 @@ func Temporal(ctx context.Context, report *Report) (err error) {
 	opts := []runtime.Option{runtime.WithLogReport(true)}
 	// 逐项处理 pb.Temporal_ServiceDesc.Methods，保留各项的身份和独立结果，避免把一个条目的结果套用到整组
 	for _, desc := range pb.Temporal_ServiceDesc.Methods {
-		// method 本次调用用于 trace、投影及任务路由的方法名；RPCInput 提供完整方法时覆盖普通任务名
+		// method 本次调用用于 trace 和任务路由的完整方法名，不从业务字段推断
 		method := "/wego.example.v1.Temporal/" + desc.MethodName
 		methods = append(methods, method)
 		names = append(names, method)
@@ -272,8 +273,6 @@ func Temporal(ctx context.Context, report *Report) (err error) {
 			task.WithEviction(model.EvictionPolicy{TTL: option.Some(ttl), AllowCapacityEviction: option.Some(true)}),
 		))
 	}
-	// strategy 本场景需要验证的并发策略，实际执行峰值和终态用于判断其是否生效
-	strategy := model.CancelInProgress
 	policies = append(
 		policies,
 		worker.WithTask(pb.Temporal_ChargeWithRetries_FullMethodName, task.WithRetries(3), task.WithRetryBackoff(2, 3*time.Second)),
@@ -283,7 +282,7 @@ func Temporal(ctx context.Context, report *Report) (err error) {
 			task.WithConcurrency(model.Concurrency{
 				Expression:    "input.routing.account",
 				MaxRuns:       pointer(int32(1)),
-				LimitStrategy: &strategy,
+				LimitStrategy: model.CancelInProgress,
 			}),
 		),
 		worker.WithTask(pb.Temporal_CallModel_FullMethodName, task.WithRateLimits(model.RateLimit{Key: key, Units: pointer(1)})),
@@ -410,8 +409,7 @@ func Temporal(ctx context.Context, report *Report) (err error) {
 		h,
 		approval,
 		"approval:granted",
-		map[string]any{"correlation_id": "approval-fixture", "approved_by": "fixture-approver"},
-		nil,
+		model.Input{Value: map[string]any{"correlation_id": "approval-fixture", "approved_by": "fixture-approver"}, Routing: map[string]any{"correlation_id": "approval-fixture"}},
 	); err != nil {
 		return err
 	}
@@ -548,7 +546,7 @@ func temporalDAG(ctx context.Context, h *Harness) (err error) {
 	if err = result.TaskOutput("fulfill").Into(&out); err != nil {
 		return err
 	}
-	if out["fulfilled"] != true || out["amount"] != float64(1999) {
+	if out["fulfilled"] != true || out["amount"] != json.Number("1999") {
 		return fmt.Errorf("DAG result: %v", out)
 	}
 

@@ -18,6 +18,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/hatchet-dev/hatchet/sdks/wego"
+	"github.com/hatchet-dev/hatchet/sdks/wego/internal/wire"
 )
 
 // TestEmbedded 创建独立 PostgreSQL 数据库并运行嵌入验收子进程，结束后删除测试库
@@ -129,7 +130,7 @@ func TestEmbedded(t *testing.T) {
 		t.Fatal(err)
 	}
 	report["command"] = os.Getenv("WEGO_TEST_COMMAND")
-	report["sdk_version"], report["protocol_version"] = wego.Version, 4
+	report["sdk_version"], report["protocol_version"] = wego.Version, wire.Version
 	report["independent_example"] = "PASSED: Hello, embed!"
 	report["database_dropped"] = true
 	report["cleanup"] = "workflow definitions deleted; API/gRPC listeners closed; independent PostgreSQL database dropped"

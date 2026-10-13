@@ -32,8 +32,8 @@ type Concurrency struct {
 	Expression string
 	// MaxRuns 静态并发上限；如 2 表示相同分组最多两次同时执行
 	MaxRuns *int32
-	// LimitStrategy 超过并发上限时的取消、丢弃或排队策略
-	LimitStrategy *ConcurrencyLimitStrategy
+	// LimitStrategy 超限策略；空值不指定策略，由服务端应用默认规则。
+	LimitStrategy ConcurrencyLimitStrategy
 	// Name 资源或任务名称，注册与调用必须使用相同值
 	Name string
 	// IsTenantScoped 是否在授权范围内共享并发限制，而非仅限当前任务
@@ -74,8 +74,8 @@ type RateLimit struct {
 	UnitsExpr *string
 	// LimitValueExpr 动态计算限流上限的表达式
 	LimitValueExpr *string
-	// Duration 限流统计周期，例如 Minute 对应一分钟
-	Duration *RateLimitDuration
+	// Duration 限流统计周期，例如 Minute 表示一分钟；空值不覆盖后端周期配置。
+	Duration RateLimitDuration
 }
 
 // StickyStrategy 任务粘性策略枚举，区分优先复用与必须复用 Worker
@@ -114,8 +114,8 @@ type DesiredWorkerLabel struct {
 	Required bool
 	// Weight 软亲和性匹配权重，用于排序候选 Worker
 	Weight int32
-	// Comparator 标签比较方式；nil 使用后端默认比较规则
-	Comparator *WorkerLabelComparator
+	// Comparator 标签比较方式；零值 LabelEqual 表示相等，可直接填写 LabelGreater 等常量。
+	Comparator WorkerLabelComparator
 }
 
 // EvictionPolicy durable 挂起执行的 TTL、容量驱逐许可及优先级配置

@@ -28,7 +28,7 @@ func TestStreamLimitsNeverSubmitPrefix(t *testing.T) {
 	}
 	fixture.mu.Lock()
 	defer fixture.mu.Unlock()
-	if fixture.calls != 0 || len(s.inputs) != 0 || len(s.plains) != 0 {
+	if fixture.calls != 0 || len(s.inputs) != 0 {
 		t.Fatal("oversized input submitted partial prefix or retained payload")
 	}
 }
@@ -148,7 +148,7 @@ func TestCheckpointDoesNotAdvanceWithPrefetch(t *testing.T) {
 			t.Fatal(s.ctx.Err())
 		}
 	}
-	cp, err := s.checkpoint()
+	cp, err := s.resumeToken()
 	if err != nil || cp.OutputSeq != 0 || cp.Cursor != "" || !cp.HeadersSeen {
 		t.Fatal("prefetch advanced checkpoint", cp, err)
 	}
@@ -156,7 +156,7 @@ func TestCheckpointDoesNotAdvanceWithPrefetch(t *testing.T) {
 		if err := s.RecvMsg(&pb.Reply{}); err != nil {
 			t.Fatal(err)
 		}
-		cp, err = s.checkpoint()
+		cp, err = s.resumeToken()
 		if err != nil || cp.OutputSeq != i || cp.Cursor == "" {
 			t.Fatal("delivery checkpoint mismatch", cp, err)
 		}

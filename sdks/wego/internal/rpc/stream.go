@@ -21,26 +21,29 @@ func NewStream(ctx context.Context, e *engine.Engine, description *grpc.StreamDe
 		return nil, status.Error(codes.FailedPrecondition, "wego: streams cannot participate in durable replay")
 	}
 
-	// ctx, done, err 登记本次调用并取得结束回调，返回前释放登记以允许实例排空
-	ctx, done, err := e.BeginIO(ctx, "rpc.stream")
-	if err != nil {
-		return nil, err
+	initial, parseErr := ParseCallOptions(opts, false)
+	if parseErr != nil {
+		initial.Finish(&parseErr)
+		return nil, parseErr
 	}
-
-	// ctx, finish 开始属于当前实例的 span，结束时按实际执行错误标记状态
-	ctx, finish := e.StartSpan(ctx, method, trace.SpanKindClient)
-	// completed 只执行一次的完成或释放保护，避免重复关闭通知通道
-	var completed sync.Once
-	// closed 在流订阅与会话清理完成后释放 Engine.Begin 登记，不能在 END 确认时提前释放
-	closed := func(err error) {
-		completed.Do(func() {
-			finish(err)
-			done()
-		})
-	}
-	// streamer 建立客户端流适配链，拦截器传入的参数必须传至真实调用
+	// created 仅记录真实传输，外层拦截器创建后再失败时必须主动清理。
+	var created *taskClientStream
 	streamer := grpc.Streamer(func(ctx context.Context, desc *grpc.StreamDesc, _ *grpc.ClientConn, method string, opts ...grpc.CallOption) (grpc.ClientStream, error) {
-		return newTaskClient(ctx, e, desc, method, closed, opts...)
+		ctx, done, err := e.BeginIO(ctx, "rpc.stream")
+		if err != nil {
+			return nil, err
+		}
+		ctx, finish := e.StartSpan(ctx, method, trace.SpanKindClient)
+		// completed 防止启动失败和正常关闭重复释放登记。
+		var completed sync.Once
+		closed := func(err error) { completed.Do(func() { finish(err); done() }) }
+		stream, err := newTaskClient(ctx, e, desc, method, closed, opts...)
+		if err != nil {
+			closed(err)
+			return nil, err
+		}
+		created = stream.(*taskClientStream)
+		return stream, nil
 	})
 	// 遍历本组明确的条目，逐项验证结果或登记资源；迭代结束后才汇总这一组断言
 	for i := len(e.Config.Middleware) - 1; i >= 0; i-- {
@@ -57,7 +60,12 @@ func NewStream(ctx context.Context, e *engine.Engine, description *grpc.StreamDe
 	// stream, err 保存此步骤的并行结果或状态快照，后续逻辑分别使用对应值
 	stream, err := streamer(ctx, description, nil, method, opts...)
 	if err != nil {
-		closed(err)
+		if created != nil {
+			created.cancel()
+			created.finish(err)
+		} else {
+			initial.Finish(&err)
+		}
 		return nil, err
 	}
 

@@ -92,7 +92,7 @@ func TestStreamAmbiguousSubmissionCancellation(t *testing.T) {
 	e.Backend = proxy
 	conn := coreclient.FromEngine(e, false)
 	defer conn.Close()
-	_, err = pb.NewGreeterClient(conn).WatchHellos(client.WithIdempotencyKey(callCtx, "saved-operation"), &pb.Request{Count: 4})
+	_, err = pb.NewGreeterClient(conn).WatchHellos(callCtx, &pb.Request{Count: 4}, client.WithRunOptions(client.WithStreamIdempotencyKey("saved-operation")))
 	// failure 必须由真实 REST 查询取得身份，错误中同时保留业务在提交前保存的原始 key
 	var failure *model.SubmissionError
 	if !errors.As(err, &failure) || status.Code(err) != codes.Canceled || failure.OperationKey != "saved-operation" || failure.RunID == "" || failure.RunID != proxy.accepted.ID {

@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -24,7 +25,7 @@ func TestSyncReviewJSONStringOutput(t *testing.T) {
 	for _, value := range []string{"7", "true", "null", `{"a":1}`} {
 		t.Run(value, func(t *testing.T) {
 			// r 是受控协议请求或自有结果视图，测试只检查其当前入口的行为
-			r := &Result{outputs: map[string]any{"task": value}}
+			r := &Result{outputs: map[string]any{"task": resultEnvelope(t, value)}, engine: resultEngine(t, spec.Defaults())}
 			// out 要求字符串类型，内容为 null 也不能被转换为空值
 			var out string
 			// err 检查当前操作结果，失败时不能使用未解码或未交付的输出
@@ -38,7 +39,7 @@ func TestSyncReviewJSONStringOutput(t *testing.T) {
 // TestSyncReviewSelectedNullOutput 验证已存在的 null 与缺失输出键分别处理
 func TestSyncReviewSelectedNullOutput(t *testing.T) {
 	// r 是受控协议请求或自有结果视图，测试只检查其当前入口的行为
-	r := &Result{outputs: map[string]any{"task": nil}}
+	r := &Result{outputs: map[string]any{"task": resultEnvelope(t, nil)}, engine: resultEngine(t, spec.Defaults())}
 	// out 允许检查 JSON 真实类型，合法 null 解码后为 nil
 	var out any
 	// err 检查当前操作结果，失败时不能使用未解码或未交付的输出
@@ -88,12 +89,12 @@ type syncDecodePayload struct {
 }
 
 // Encode 保留业务字节，此测试仅在 Decode 阶段模拟外部 I/O
-func (*syncDecodePayload) Encode(_ context.Context, _ string, data []byte) ([]byte, error) {
+func (*syncDecodePayload) Encode(_ context.Context, data []byte) ([]byte, error) {
 	return data, nil
 }
 
 // Decode 等待释放或上下文取消，模拟可取消的对象存储下载
-func (p *syncDecodePayload) Decode(ctx context.Context, _ string, data []byte) ([]byte, error) {
+func (p *syncDecodePayload) Decode(ctx context.Context, data []byte) ([]byte, error) {
 	p.entered <- ctx
 	select {
 	case <-ctx.Done():
@@ -117,7 +118,7 @@ func TestResultDecodeBudgetsAndShutdown(t *testing.T) {
 			// instance 拥有完整在途表，测试结束会重复关闭验证幂等
 			instance := resultEngine(t, config)
 			// envelope 是合法业务输出，不含损坏协议或错误状态
-			envelope, err := wire.Encode(context.Background(), "/fixture/Call", &pb.Reply{}, nil, config.Middleware, 1024)
+			envelope, err := wire.Encode(context.Background(), "/fixture/Call", &pb.Reply{}, nil, config, 1024)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -236,4 +237,35 @@ func TestWorkerRuntimeBoundary(t *testing.T) {
 	if err := validateWorkerRuntime(base, local, local.TLS); err == nil {
 		t.Fatal("result polling override accepted")
 	}
+}
+
+// CodecID 为测试内存变换提供稳定格式身份。
+func (*syncDecodePayload) CodecID() string { return "fixture.syncDecodePayload.v1" }
+
+// DecodeLimit 复用测试变换并检查有限字节，不把成功的超限结果交给协议层。
+func (p *syncDecodePayload) DecodeLimit(ctx context.Context, data []byte, limit int) ([]byte, error) {
+	out, err := p.Decode(ctx, data)
+	if err != nil {
+		return nil, err
+	}
+	if len(out) > limit {
+		return nil, fmt.Errorf("fixture decoded payload exceeds limit")
+	}
+	return out, nil
+}
+
+// resultEnvelope 模拟引擎已经存储的封包；字符串 "null" 与 JSON null 保持不同类型。
+func resultEnvelope(t *testing.T, value any) wire.Envelope {
+	t.Helper()
+	plain, kind, err := wire.MarshalValue(value, 1<<20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	packet := wire.NewEnvelope(context.Background(), "", kind, plain, nil)
+
+	packet, err = wire.Seal(context.Background(), packet, spec.Runtime{}, 1<<20, (1<<20)+(64<<10), 4<<20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return packet
 }

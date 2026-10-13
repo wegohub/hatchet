@@ -1,0 +1,374 @@
+{
+  "sdk_version": "0.4.0",
+  "protocol_version": 6,
+  "host": "Apple M2 Max / darwin-arm64",
+  "local_command": "GOWORK=off go test ./internal/wire -run ^$ -bench ^BenchmarkMessageProtocol$ -benchmem -benchtime=100ms -count=2",
+  "measurement": "median of two samples; Seal plus json.Marshal, serialization outside timed loop; repeated x bytes; synchronous single goroutine; no network I/O",
+  "baseline": "Protocol 5 captured before migration, same benchmark shape and payloads; AES v1/AAD compared with v2/nil AAD",
+  "records": [
+    {
+      "profile": "aes",
+      "input_bytes": 16,
+      "protocol5": {
+        "ns_per_op": 7525.5,
+        "wire_bytes": 342.0,
+        "allocated_bytes": 3950.0,
+        "allocations": 24.0
+      },
+      "protocol6": {
+        "ns_per_op": 4419.5,
+        "wire_bytes": 174.0,
+        "allocated_bytes": 2323.0,
+        "allocations": 18.0
+      },
+      "time_change_percent": -41.27,
+      "wire_change_percent": -49.12
+    },
+    {
+      "profile": "gzip",
+      "input_bytes": 16,
+      "protocol5": {
+        "ns_per_op": 89210.5,
+        "wire_bytes": 286.0,
+        "allocated_bytes": 819056.5,
+        "allocations": 46.0
+      },
+      "protocol6": {
+        "ns_per_op": 76378.0,
+        "wire_bytes": 144.0,
+        "allocated_bytes": 817637.0,
+        "allocations": 41.0
+      },
+      "time_change_percent": -14.38,
+      "wire_change_percent": -49.65
+    },
+    {
+      "profile": "gzip-aes",
+      "input_bytes": 16,
+      "protocol5": {
+        "ns_per_op": 113761.0,
+        "wire_bytes": 354.0,
+        "allocated_bytes": 819807.0,
+        "allocations": 50.0
+      },
+      "protocol6": {
+        "ns_per_op": 81226.5,
+        "wire_bytes": 204.0,
+        "allocated_bytes": 818055.5,
+        "allocations": 43.0
+      },
+      "time_change_percent": -28.6,
+      "wire_change_percent": -42.37
+    },
+    {
+      "profile": "plain",
+      "input_bytes": 16,
+      "protocol5": {
+        "ns_per_op": 5742.5,
+        "wire_bytes": 274.0,
+        "allocated_bytes": 3167.0,
+        "allocations": 18.0
+      },
+      "protocol6": {
+        "ns_per_op": 2589.5,
+        "wire_bytes": 68.0,
+        "allocated_bytes": 1626.5,
+        "allocations": 13.0
+      },
+      "time_change_percent": -54.91,
+      "wire_change_percent": -75.18
+    },
+    {
+      "profile": "aes",
+      "input_bytes": 1024,
+      "protocol5": {
+        "ns_per_op": 33332.0,
+        "wire_bytes": 1686.0,
+        "allocated_bytes": 15461.5,
+        "allocations": 24.0
+      },
+      "protocol6": {
+        "ns_per_op": 26808.5,
+        "wire_bytes": 1518.0,
+        "allocated_bytes": 11468.5,
+        "allocations": 18.0
+      },
+      "time_change_percent": -19.57,
+      "wire_change_percent": -9.96
+    },
+    {
+      "profile": "gzip",
+      "input_bytes": 1024,
+      "protocol5": {
+        "ns_per_op": 103023.0,
+        "wire_bytes": 294.0,
+        "allocated_bytes": 821900.0,
+        "allocations": 47.5
+      },
+      "protocol6": {
+        "ns_per_op": 80421.0,
+        "wire_bytes": 152.0,
+        "allocated_bytes": 818749.5,
+        "allocations": 40.0
+      },
+      "time_change_percent": -21.94,
+      "wire_change_percent": -48.3
+    },
+    {
+      "profile": "gzip-aes",
+      "input_bytes": 1024,
+      "protocol5": {
+        "ns_per_op": 122195.5,
+        "wire_bytes": 362.0,
+        "allocated_bytes": 822523.5,
+        "allocations": 51.0
+      },
+      "protocol6": {
+        "ns_per_op": 80801.5,
+        "wire_bytes": 212.0,
+        "allocated_bytes": 819260.0,
+        "allocations": 43.0
+      },
+      "time_change_percent": -33.88,
+      "wire_change_percent": -41.44
+    },
+    {
+      "profile": "plain",
+      "input_bytes": 1024,
+      "protocol5": {
+        "ns_per_op": 36342.5,
+        "wire_bytes": 1618.0,
+        "allocated_bytes": 12577.0,
+        "allocations": 18.0
+      },
+      "protocol6": {
+        "ns_per_op": 20752.0,
+        "wire_bytes": 1076.0,
+        "allocated_bytes": 7050.5,
+        "allocations": 13.0
+      },
+      "time_change_percent": -42.9,
+      "wire_change_percent": -33.5
+    },
+    {
+      "profile": "aes",
+      "input_bytes": 65536,
+      "protocol5": {
+        "ns_per_op": 1684532.5,
+        "wire_bytes": 87706.0,
+        "allocated_bytes": 774748.5,
+        "allocations": 27.0
+      },
+      "protocol6": {
+        "ns_per_op": 1423890.5,
+        "wire_bytes": 87534.0,
+        "allocated_bytes": 613147.0,
+        "allocations": 20.0
+      },
+      "time_change_percent": -15.47,
+      "wire_change_percent": -0.2
+    },
+    {
+      "profile": "gzip",
+      "input_bytes": 65536,
+      "protocol5": {
+        "ns_per_op": 572434.0,
+        "wire_bytes": 402.0,
+        "allocated_bytes": 972830.0,
+        "allocations": 44.0
+      },
+      "protocol6": {
+        "ns_per_op": 341608.5,
+        "wire_bytes": 244.0,
+        "allocated_bytes": 891775.5,
+        "allocations": 38.5
+      },
+      "time_change_percent": -40.32,
+      "wire_change_percent": -39.3
+    },
+    {
+      "profile": "gzip-aes",
+      "input_bytes": 65536,
+      "protocol5": {
+        "ns_per_op": 580318.0,
+        "wire_bytes": 470.0,
+        "allocated_bytes": 975855.0,
+        "allocations": 49.0
+      },
+      "protocol6": {
+        "ns_per_op": 343965.5,
+        "wire_bytes": 304.0,
+        "allocated_bytes": 892302.0,
+        "allocations": 41.0
+      },
+      "time_change_percent": -40.73,
+      "wire_change_percent": -35.32
+    },
+    {
+      "profile": "plain",
+      "input_bytes": 65536,
+      "protocol5": {
+        "ns_per_op": 1632132.5,
+        "wire_bytes": 87638.0,
+        "allocated_bytes": 625698.0,
+        "allocations": 20.0
+      },
+      "protocol6": {
+        "ns_per_op": 1163451.0,
+        "wire_bytes": 65588.0,
+        "allocated_bytes": 377601.5,
+        "allocations": 14.0
+      },
+      "time_change_percent": -28.72,
+      "wire_change_percent": -25.16
+    },
+    {
+      "profile": "aes",
+      "input_bytes": 1048576,
+      "protocol5": {
+        "ns_per_op": 25838192.5,
+        "wire_bytes": 1398426.0,
+        "allocated_bytes": 13431292.0,
+        "allocations": 44.0
+      },
+      "protocol6": {
+        "ns_per_op": 22932087.5,
+        "wire_bytes": 1398254.0,
+        "allocated_bytes": 11183741.5,
+        "allocations": 36.5
+      },
+      "time_change_percent": -11.25,
+      "wire_change_percent": -0.01
+    },
+    {
+      "profile": "gzip",
+      "input_bytes": 1048576,
+      "protocol5": {
+        "ns_per_op": 7752543.0,
+        "wire_bytes": 1670.0,
+        "allocated_bytes": 3248417.5,
+        "allocations": 50.5
+      },
+      "protocol6": {
+        "ns_per_op": 4187347.0,
+        "wire_bytes": 1516.0,
+        "allocated_bytes": 1886613.5,
+        "allocations": 45.5
+      },
+      "time_change_percent": -45.99,
+      "wire_change_percent": -9.22
+    },
+    {
+      "profile": "gzip-aes",
+      "input_bytes": 1048576,
+      "protocol5": {
+        "ns_per_op": 7917515.0,
+        "wire_bytes": 1738.0,
+        "allocated_bytes": 3401406.5,
+        "allocations": 56.0
+      },
+      "protocol6": {
+        "ns_per_op": 4328361.0,
+        "wire_bytes": 1576.0,
+        "allocated_bytes": 1888691.0,
+        "allocations": 46.5
+      },
+      "time_change_percent": -45.33,
+      "wire_change_percent": -9.32
+    },
+    {
+      "profile": "plain",
+      "input_bytes": 1048576,
+      "protocol5": {
+        "ns_per_op": 25543599.0,
+        "wire_bytes": 1398358.0,
+        "allocated_bytes": 10658353.0,
+        "allocations": 33.5
+      },
+      "protocol6": {
+        "ns_per_op": 18361844.0,
+        "wire_bytes": 1048628.0,
+        "allocated_bytes": 5906086.5,
+        "allocations": 23.0
+      },
+      "time_change_percent": -28.12,
+      "wire_change_percent": -25.01
+    }
+  ],
+  "s3": {
+    "command": "env GOWORK=off go -C sdks/wego run ./.test-results/s3-bench.go",
+    "concurrency": 1,
+    "objects_deleted": 4,
+    "prefix": "v040-bench-fb726e19-e9bf-4d63-9f8f-f9c87383870c/",
+    "records": [
+      {
+        "bytes": 16,
+        "operation": "upload",
+        "iterations": 132,
+        "nanoseconds_per_op": 8913977,
+        "allocations_per_op": 545,
+        "allocated_bytes_per_op": 46016
+      },
+      {
+        "bytes": 16,
+        "operation": "download",
+        "iterations": 1256,
+        "nanoseconds_per_op": 823484,
+        "allocations_per_op": 514,
+        "allocated_bytes_per_op": 37303
+      },
+      {
+        "bytes": 1024,
+        "operation": "upload",
+        "iterations": 409,
+        "nanoseconds_per_op": 2812996,
+        "allocations_per_op": 550,
+        "allocated_bytes_per_op": 47950
+      },
+      {
+        "bytes": 1024,
+        "operation": "download",
+        "iterations": 1882,
+        "nanoseconds_per_op": 748307,
+        "allocations_per_op": 518,
+        "allocated_bytes_per_op": 38967
+      },
+      {
+        "bytes": 65536,
+        "operation": "upload",
+        "iterations": 266,
+        "nanoseconds_per_op": 3962356,
+        "allocations_per_op": 550,
+        "allocated_bytes_per_op": 80582
+      },
+      {
+        "bytes": 65536,
+        "operation": "download",
+        "iterations": 1286,
+        "nanoseconds_per_op": 937355,
+        "allocations_per_op": 531,
+        "allocated_bytes_per_op": 175186
+      },
+      {
+        "bytes": 1048576,
+        "operation": "upload",
+        "iterations": 122,
+        "nanoseconds_per_op": 9779326,
+        "allocations_per_op": 550,
+        "allocated_bytes_per_op": 80278
+      },
+      {
+        "bytes": 1048576,
+        "operation": "download",
+        "iterations": 202,
+        "nanoseconds_per_op": 5971871,
+        "allocations_per_op": 549,
+        "allocated_bytes_per_op": 2269299
+      }
+    ],
+    "remaining_objects": 0,
+    "status": "PASSED",
+    "measurement": "single process sequential MinIO I/O, testing.Benchmark, 16 B/1 KiB/64 KiB/1 MiB; includes signing/hash/network; bytes restored and all four objects deleted",
+    "source": "v0.4.0-s3-benchmark.txt"
+  }
+}

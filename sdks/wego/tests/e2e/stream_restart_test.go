@@ -94,7 +94,7 @@ func TestStreamWorkerRestart(t *testing.T) {
 	}
 	defer conn.Close()
 	start()
-	watch, err := pb.NewGreeterClient(conn).WatchHellos(client.WithIdempotencyKey(ctx, "restart-operation"), &pb.Request{Count: 4})
+	watch, err := pb.NewGreeterClient(conn).WatchHellos(ctx, &pb.Request{Count: 4}, client.WithRunOptions(client.WithStreamIdempotencyKey("restart-operation")))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -111,7 +111,7 @@ func TestStreamWorkerRestart(t *testing.T) {
 	case <-ctx.Done():
 		t.Fatal(ctx.Err())
 	}
-	checkpoint, err := client.StreamCheckpoint(watch.Context())
+	checkpoint, err := client.StreamResumeToken(watch.Context())
 	if err != nil || checkpoint.OutputSeq != 2 {
 		t.Fatal(checkpoint, err)
 	}

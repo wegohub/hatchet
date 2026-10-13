@@ -3,6 +3,7 @@ package rpc
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -30,12 +31,12 @@ type blockedResponseCodec struct {
 }
 
 // Encode 冻结输入，生成真实的 codec envelope 而非伪造最终响应
-func (c *blockedResponseCodec) Encode(_ context.Context, _ string, data []byte) ([]byte, error) {
+func (c *blockedResponseCodec) Encode(_ context.Context, data []byte) ([]byte, error) {
 	return bytes.Clone(data), nil
 }
 
 // Decode 等待显式屏障或阶段预算，网络实现必须遵守同样的 context 契约
-func (c *blockedResponseCodec) Decode(ctx context.Context, _ string, data []byte) ([]byte, error) {
+func (c *blockedResponseCodec) Decode(ctx context.Context, data []byte) ([]byte, error) {
 	close(c.entered)
 	if c.late {
 		<-c.release
@@ -60,7 +61,7 @@ func TestClientStreamResponseDecodeDoesNotBlockStop(t *testing.T) {
 			defer cancel()
 			options := config.StreamOptionsFor("/fixture/Upload")
 			options.DecodeTimeout = 50 * time.Millisecond
-			envelope, err := wire.Encode(ctx, "/fixture/Upload", &pb.Reply{Message: "response"}, nil, config.Middleware, options.MaxMessageBytes)
+			envelope, err := wire.Encode(ctx, "/fixture/Upload", &pb.Reply{Message: "response"}, nil, config, options.MaxMessageBytes)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -105,5 +106,36 @@ func TestClientStreamResponseDecodeDoesNotBlockStop(t *testing.T) {
 				t.Fatal("failed or late decode advanced response state")
 			}
 		})
+	}
+}
+
+// CodecID 为测试内存变换提供稳定格式身份。
+func (*blockedResponseCodec) CodecID() string { return "fixture.blockedResponseCodec.v1" }
+
+// DecodeLimit 复用测试变换并检查有限字节，不把成功的超限结果交给协议层。
+func (p *blockedResponseCodec) DecodeLimit(ctx context.Context, data []byte, limit int) ([]byte, error) {
+	out, err := p.Decode(ctx, data)
+	if err != nil {
+		return nil, err
+	}
+	if len(out) > limit {
+		return nil, fmt.Errorf("fixture decoded payload exceeds limit")
+	}
+	return out, nil
+}
+
+// TestHeaderRetainsProtocolFailure 内部取消只负责唤醒 Header；例如缺失 HEADERS 的 DataLoss 不能被改为 Canceled。
+func TestHeaderRetainsProtocolFailure(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	inputClosed := make(chan struct{})
+	close(inputClosed)
+	failure := status.Error(codes.DataLoss, "missing response headers")
+	s := &taskClientStream{ctx: ctx, inputClosed: inputClosed, changed: make(chan struct{}), streamErr: failure, terminalErr: status.Error(codes.Canceled, "internal cleanup")}
+	if _, err := s.Header(); status.Code(err) != codes.DataLoss {
+		t.Fatal("cleanup cancellation masked protocol failure", err)
+	}
+	if err := s.headerContextError(); status.Code(err) != codes.DataLoss {
+		t.Fatal("context wakeup masked protocol failure", err)
 	}
 }

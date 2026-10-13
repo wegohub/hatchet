@@ -34,7 +34,7 @@ func DurableEvents(ctx context.Context, report *Report) (err error) {
 			// expression 当前步骤使用的字符串值 ""，用于路由、请求或断言
 			expression := ""
 			if in.Message == "filter" {
-				expression = "input.user_id == 'target'"
+				expression = "input.routing.user_id == 'target'"
 			}
 			if in.Message == "lookback" {
 				opts.Scope = pointer("user:target")
@@ -69,7 +69,7 @@ func DurableEvents(ctx context.Context, report *Report) (err error) {
 		if variant == "lookback" {
 			// scope 当前步骤使用的字符串值 "user:target"，用于路由、请求或断言
 			scope := "user:target"
-			if err = h.Conn.Events().Push(ctx, "durable:update", map[string]any{"message": "lookback"}, &scope); err != nil {
+			if err = h.Conn.Events().Push(ctx, "durable:update", map[string]any{"message": "lookback"}, scope); err != nil {
 				return err
 			}
 		}
@@ -87,11 +87,11 @@ func DurableEvents(ctx context.Context, report *Report) (err error) {
 		}
 		if variant != "lookback" {
 			if variant == "filter" {
-				if err = h.Conn.Events().Push(ctx, "durable:update", map[string]any{"user_id": "unmatched", "message": "wrong"}); err != nil {
+				if err = h.Conn.Events().Push(ctx, "durable:update", model.Input{Value: map[string]any{"user_id": "unmatched", "message": "wrong"}, Routing: map[string]any{"user_id": "unmatched"}}); err != nil {
 					return err
 				}
 			}
-			if err = pushUntilCompleted(ctx, h, ref, "durable:update", map[string]any{"user_id": "target", "message": variant}, nil); err != nil {
+			if err = pushUntilCompleted(ctx, h, ref, "durable:update", model.Input{Value: map[string]any{"user_id": "target", "message": variant}, Routing: map[string]any{"user_id": "target"}}); err != nil {
 				return err
 			}
 		}
@@ -116,11 +116,11 @@ func DurableEvents(ctx context.Context, report *Report) (err error) {
 }
 
 // pushUntilCompleted 在 deadline 内重发受控事件直到任务完成，避免监听建立竞态
-func pushUntilCompleted(ctx context.Context, h *Harness, ref *client.RunRef, key string, payload any, scope *string) error {
+func pushUntilCompleted(ctx context.Context, h *Harness, ref *client.RunRef, key string, payload any, scope ...string) error {
 	// 重复当前步骤直到完成条件或取消信号满足；等待期间重新检查状态，避免把一次唤醒当作最终结果
 	for {
 		// err 接收 h.Conn.Events 的结果；按当前分支校验错误或有效性，确认成功后才继续本逻辑块
-		if err := h.Conn.Events().Push(ctx, key, payload, scope); err != nil {
+		if err := h.Conn.Events().Push(ctx, key, payload, scope...); err != nil {
 			return err
 		}
 
@@ -296,7 +296,7 @@ func Eviction(ctx context.Context, report *Report) (err error) {
 			assertion = waitEvicted(ctx, h, ref.RunID)
 		}
 		if variant == "ttl-event" && assertion == nil {
-			assertion = pushUntilCompleted(ctx, h, ref, "eviction:event", map[string]any{}, nil)
+			assertion = pushUntilCompleted(ctx, h, ref, "eviction:event", map[string]any{})
 		}
 		if assertion == nil {
 			// result, e 等待此运行的业务结果；等待失败不能作为正常完成，返回的 RunID 可用于关联证据

@@ -35,7 +35,7 @@ func TestRPCBindingsP1(t *testing.T) {
 					return nil, err
 				}
 				request := new(pb.Request)
-				if err := wire.Decode(ctx, method, input, request, nil, 1024); err != nil {
+				if err := wire.Decode(ctx, method, input, request, spec.Runtime{}, 1024); err != nil {
 					return nil, err
 				}
 				state, ok := callctx.Get(ctx)
@@ -46,7 +46,7 @@ func TestRPCBindingsP1(t *testing.T) {
 				if ok && state.Execution.Info().WorkerLabels["worker_name"] != config.InstanceName {
 					t.Error("execution worker name label differs from registered display name")
 				}
-				return wire.Encode(ctx, method, &pb.Reply{Message: method + ":" + request.Message}, nil, nil, 1024)
+				return wire.Encode(ctx, method, &pb.Reply{Message: method + ":" + request.Message}, nil, spec.Runtime{}, 1024)
 			},
 		})
 	}
@@ -137,7 +137,7 @@ func TestRPCBindingsP1(t *testing.T) {
 		if stored["method"] != method || stored["action"] != binding.Action(config.Namespace, method) {
 			t.Fatalf("persisted binding lost: %#v", stored)
 		}
-		input, err := wire.Encode(ctx, method, &pb.Request{Message: "mixed CASE"}, map[string]any{"group": "one", "cost": 3}, nil, 1024)
+		input, err := wire.Encode(ctx, method, &pb.Request{Message: "mixed CASE"}, map[string]any{"group": "one", "cost": 3}, spec.Runtime{}, 1024)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -159,11 +159,11 @@ func TestRPCBindingsP1(t *testing.T) {
 				t.Fatal(err)
 			}
 			out := new(pb.Reply)
-			if err := wire.Decode(ctx, method, envelope, out, nil, 1024); err != nil || out.Message != method+":mixed CASE" {
+			if err := wire.Decode(ctx, method, envelope, out, spec.Runtime{}, 1024); err != nil || out.Message != method+":mixed CASE" {
 				t.Fatalf("case route mismatch: %v %v", out, err)
 			}
 		}
-		// 实际持久输入应为可读对象，不是生成结构体的普通 JSON 或二进制 base64
+		// 业务载荷为字节封包，调度字段仍保持明文；读回并还原真实存储内容。
 		data, err := b.RunInput(ctx, run.ID)
 		if err != nil {
 			t.Fatal(err)
@@ -173,7 +173,15 @@ func TestRPCBindingsP1(t *testing.T) {
 		if err := json.Unmarshal(data, &persisted); err != nil {
 			t.Fatal(err)
 		}
-		if persisted["payload"].(map[string]any)["message"] != "mixed CASE" || persisted["routing"].(map[string]any)["cost"] != float64(3) {
+		storedInput, err := wire.AsEnvelope(persisted)
+		if err != nil {
+			t.Fatal(err)
+		}
+		restored := new(pb.Request)
+		if err := wire.Decode(ctx, method, storedInput, restored, spec.Runtime{}, 1024); err != nil {
+			t.Fatal(err)
+		}
+		if _, ok := persisted["_wego"].(map[string]any); !ok || restored.Message != "mixed CASE" || persisted["routing"].(map[string]any)["cost"] != float64(3) {
 			t.Fatal("JSON scheduling input lost")
 		}
 	}

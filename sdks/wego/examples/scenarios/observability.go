@@ -2,6 +2,7 @@ package scenarios
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -386,7 +387,7 @@ func observabilityGraph(ctx context.Context, h *Harness) (runID string, err erro
 		if e := task.ParentOutput(ctx, reserve.GetName(), &inventory); e != nil {
 			return nil, e
 		}
-		if payment["amount"] != float64(1999) || inventory["items"] != float64(3) {
+		if payment["amount"] != json.Number("1999") || inventory["items"] != json.Number("3") {
 			return nil, fmt.Errorf("parallel DAG parent results")
 		}
 
@@ -469,7 +470,7 @@ func observabilityGraph(ctx context.Context, h *Harness) (runID string, err erro
 	if e = result.TaskOutput("confirmation").Into(&out); e != nil {
 		return "", e
 	}
-	if out["sent"] != true || out["notifications"] != float64(10) {
+	if out["sent"] != true || out["notifications"] != json.Number("10") {
 		return "", fmt.Errorf("confirmation output: %v", out)
 	}
 

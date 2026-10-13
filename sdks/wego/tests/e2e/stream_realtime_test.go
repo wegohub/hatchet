@@ -50,7 +50,7 @@ func TestRealtimeStreams(t *testing.T) {
 	if _, err := watch.Recv(); err != io.EOF {
 		t.Fatal("unverified realtime EOF", err)
 	}
-	if _, err := client.StreamCheckpoint(watch.Context()); status.Code(err) != codes.FailedPrecondition {
+	if _, err := client.StreamResumeToken(watch.Context()); status.Code(err) != codes.FailedPrecondition {
 		t.Fatal("realtime checkpoint advertised recovery", err)
 	}
 	chat, err := rpc.ChatHellos(ctx)

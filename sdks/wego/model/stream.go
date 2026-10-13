@@ -26,8 +26,9 @@ type StreamCompletion struct {
 	EndID string `json:"end_id"`
 }
 
-// StreamCheckpoint 是业务可保存的消费断点，仅在一条输出成功交付后推进 Cursor
-type StreamCheckpoint struct {
+// StreamResumeToken 保存 Client 的流消费位置及运行身份，供 ResumeStream 恢复已有输出。
+// 它不是认证令牌，也不用于 Worker 恢复执行；仅在输出成功交付后推进 Cursor。
+type StreamResumeToken struct {
 	// Version 防止混用不同日志协议
 	Version uint32 `json:"version"`
 	// Namespace 与 TenantID 校验恢复连接的作用域

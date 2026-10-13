@@ -66,18 +66,27 @@ func (t *Task) definitions() []ports.Definition {
 }
 
 // Run 提交任务并按此入口的结果类型等待或返回执行结果；输入和执行策略共同决定调度
-// 例如 RPCInput 指定 SayHello 和 Request{Message:"hello"}，同步返回对应 protobuf envelope 的结果视图
+// 例如 Request{Message:"hello"} 或普通 JSON 输入，经统一 codec 返回结果视图
 func (t *Task) Run(ctx context.Context, input any, opts ...RunOption) (*Result, error) {
+	if t.workflow != nil {
+		return t.workflow.Run(ctx, input, opts...)
+	}
 	return t.conn.Run(ctx, t.GetName(), input, opts...)
 }
 
 // RunNoWait 提交任务后返回运行句柄，不等待业务完成；例如得到 RunID 后可另行等待或取消
 func (t *Task) RunNoWait(ctx context.Context, input any, opts ...RunOption) (*RunRef, error) {
+	if t.workflow != nil {
+		return t.workflow.RunNoWait(ctx, input, opts...)
+	}
 	return t.conn.RunNoWait(ctx, t.GetName(), input, opts...)
 }
 
 // RunMany 批量提交输入；例如三条输入得到三个对应运行句柄，逐条保存各自的选项
 func (t *Task) RunMany(ctx context.Context, inputs []RunManyInput) ([]RunRef, error) {
+	if t.workflow != nil {
+		return t.conn.RunMany(ctx, t.workflow.name, inputs)
+	}
 	return t.conn.RunMany(ctx, t.GetName(), inputs)
 }
 
@@ -147,7 +156,7 @@ func (w *Workflow) definitions() []ports.Definition {
 }
 
 // Run 提交任务并按此入口的结果类型等待或返回执行结果；输入和执行策略共同决定调度
-// 例如 RPCInput 指定 SayHello 和 Request{Message:"hello"}，同步返回对应 protobuf envelope 的结果视图
+// 例如 Request{Message:"hello"} 或普通 JSON 输入，经统一 codec 返回结果视图
 func (w *Workflow) Run(ctx context.Context, input any, opts ...RunOption) (*Result, error) {
 	return w.conn.Run(ctx, w.name, input, opts...)
 }

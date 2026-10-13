@@ -55,6 +55,7 @@ func (a *cardinalityAdmin) BulkTriggerWorkflow(_ context.Context, req *adminpb.B
 func TestIndependentReviewValidBulkCollisionChunks(t *testing.T) {
 	// 后端只替换受控的协议出口，分块、错误转换与合并均执行生产实现
 	b := &Backend{admin: &cardinalityAdmin{}, config: spec.Defaults()}
+	bindFixtureTarget(t, b)
 	// err 保留调用的失败原因；本场景只验证错误或合并详情，不使用普通返回值
 	_, err := b.RunMany(context.Background(), "child", make([]model.RunManyInput, 1002))
 	// collision 接收跨块合并的成功身份和冲突详情
@@ -268,6 +269,7 @@ func (a *mixedSubmissionAdmin) BulkTriggerWorkflow(ctx context.Context, request 
 func TestBulkConflictPreservesOtherChunkError(t *testing.T) {
 	// backend 使用真实分块与 Normalize，仅协议出口由 fixture 控制
 	backend := &Backend{admin: &mixedSubmissionAdmin{}, config: spec.Defaults()}
+	bindFixtureTarget(t, backend)
 	// err 包含首块 999 个成功、1 个冲突及后续单项超时
 	_, err := backend.RunMany(context.Background(), "child", make([]model.RunManyInput, 1001))
 	// collision 是自有合并错误，不能携带官方错误实例

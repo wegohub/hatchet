@@ -34,7 +34,7 @@ import (
 type gzipPayload struct{}
 
 // Encode 压缩业务或完整协议字节，例如重复文本压缩后仍通过 Decode 完整还原
-func (*gzipPayload) Encode(_ context.Context, _ string, data []byte) ([]byte, error) {
+func (*gzipPayload) Encode(_ context.Context, data []byte) ([]byte, error) {
 	// out 保存当前步骤的输出或解码目标，初始化后由当前调用填充；错误时不能使用其零值作为成功结果
 	var out bytes.Buffer
 	// w 创建 gzip 业务载荷编码器，关闭后才可使用完整压缩结果
@@ -52,15 +52,15 @@ func (*gzipPayload) Encode(_ context.Context, _ string, data []byte) ([]byte, er
 }
 
 // Decode 还原 gzip 载荷并关闭 reader，向上层返回原始字节
-func (p *gzipPayload) Decode(ctx context.Context, method string, data []byte) ([]byte, error) {
-	return p.DecodeLimit(ctx, method, data, 4<<20)
+func (p *gzipPayload) Decode(ctx context.Context, data []byte) ([]byte, error) {
+	return p.DecodeLimit(ctx, data, 4<<20)
 }
 
 // CodecID 固定压缩格式标识；随机 nonce 或对象地址不进入此标识
 func (*gzipPayload) CodecID() string { return "gzip.v1" }
 
 // DecodeLimit 在解压过程中最多读取 limit+1 字节，例如 5 MiB 解压结果在 4 MiB 预算下明确失败
-func (*gzipPayload) DecodeLimit(ctx context.Context, _ string, data []byte, limit int) ([]byte, error) {
+func (*gzipPayload) DecodeLimit(ctx context.Context, data []byte, limit int) ([]byte, error) {
 	// r, err 接收 gzip.NewReader 的返回值，同时保存错误供紧接着的分支检查；失败时不继续使用结果
 	r, err := gzip.NewReader(bytes.NewReader(data))
 	if err != nil {
@@ -79,7 +79,7 @@ type encryptedPayload struct {
 }
 
 // Encode 生成 nonce 并使用 AEAD 加密载荷，nonce 随密文保存
-func (p *encryptedPayload) Encode(_ context.Context, method string, data []byte) ([]byte, error) {
+func (p *encryptedPayload) Encode(_ context.Context, data []byte) ([]byte, error) {
 	// nonce 分配本段逻辑独占的容器或通知通道，避免与其他调用共享可变状态
 	nonce := make([]byte, p.NonceSize())
 	// _, err 保存随机字节读取的数量与错误；随机源失败时不得使用未填满的 nonce 或会话身份
@@ -87,19 +87,19 @@ func (p *encryptedPayload) Encode(_ context.Context, method string, data []byte)
 		return nil, err
 	}
 
-	return p.Seal(nonce, nonce, data, []byte(method)), nil
+	return p.Seal(nonce, nonce, data, nil), nil
 }
 
 // Decode 按 AEAD 的 nonce 长度拆分密文并校验完整性，验证失败不交给 protobuf 解码
-func (p *encryptedPayload) Decode(ctx context.Context, method string, data []byte) ([]byte, error) {
-	return p.DecodeLimit(ctx, method, data, 4<<20)
+func (p *encryptedPayload) Decode(ctx context.Context, data []byte) ([]byte, error) {
+	return p.DecodeLimit(ctx, data, 4<<20)
 }
 
 // CodecID 描述 AEAD 格式，不包含每条消息随机生成的 nonce
 func (*encryptedPayload) CodecID() string { return "aes-gcm.v1" }
 
 // DecodeLimit 在分配明文前根据 AEAD 长度检查预算，并验证当前方法作为附加认证数据
-func (p *encryptedPayload) DecodeLimit(ctx context.Context, method string, data []byte, limit int) ([]byte, error) {
+func (p *encryptedPayload) DecodeLimit(ctx context.Context, data []byte, limit int) ([]byte, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -110,7 +110,7 @@ func (p *encryptedPayload) DecodeLimit(ctx context.Context, method string, data 
 		return nil, fmt.Errorf("encrypted payload truncated")
 	}
 
-	return p.Open(nil, data[:p.NonceSize()], data[p.NonceSize():], []byte(method))
+	return p.Open(nil, data[:p.NonceSize()], data[p.NonceSize():], nil)
 }
 
 // objectPayload 受控对象存储卸载变换，把字节存入 fixture 并通过引用恢复
@@ -122,7 +122,7 @@ type objectPayload struct {
 }
 
 // Encode 把业务字节交给受控对象 fixture，返回可用于恢复的引用
-func (p *objectPayload) Encode(ctx context.Context, method string, data []byte) ([]byte, error) {
+func (p *objectPayload) Encode(ctx context.Context, data []byte) ([]byte, error) {
 	// id 当前资源的唯一身份，用于查找对应运行或会话
 	id := make([]byte, 16)
 	// _, err 保存随机字节读取的数量与错误；随机源失败时不得使用未填满的 nonce 或会话身份
@@ -154,15 +154,15 @@ func (p *objectPayload) Encode(ctx context.Context, method string, data []byte) 
 }
 
 // Decode 根据对象引用读取原始字节，验证卸载后的业务载荷可以往返
-func (p *objectPayload) Decode(ctx context.Context, method string, data []byte) ([]byte, error) {
-	return p.DecodeLimit(ctx, method, data, 4<<20)
+func (p *objectPayload) Decode(ctx context.Context, data []byte) ([]byte, error) {
+	return p.DecodeLimit(ctx, data, 4<<20)
 }
 
 // CodecID 稳定标识引用格式，具体对象 key 在编码载荷中保存
 func (*objectPayload) CodecID() string { return "fixture-object.v1" }
 
 // DecodeLimit 对对象下载使用当前 context 和字节预算，不先无限下载再检查大小
-func (p *objectPayload) DecodeLimit(ctx context.Context, method string, data []byte, limit int) ([]byte, error) {
+func (p *objectPayload) DecodeLimit(ctx context.Context, data []byte, limit int) ([]byte, error) {
 	if len(data) != 32 {
 		return nil, fmt.Errorf("invalid fixture object key")
 	}
@@ -323,8 +323,6 @@ func Middleware(ctx context.Context, report *Report) (err error) {
 			return Reply(ctx, in), nil
 		},
 	}
-	// strategy 本场景需要验证的并发策略，实际执行峰值和终态用于判断其是否生效
-	strategy := model.GroupRoundRobin
 	// h, err 接收 runtime.WithMiddleware 的返回值，同时保存错误供紧接着的分支检查；失败时不继续使用结果
 	h, err := Start(
 		ctx,
@@ -337,7 +335,7 @@ func Middleware(ctx context.Context, report *Report) (err error) {
 			task.WithConcurrency(model.Concurrency{
 				Expression:    "input.routing.group",
 				MaxRuns:       pointer(int32(1)),
-				LimitStrategy: &strategy,
+				LimitStrategy: model.GroupRoundRobin,
 			}),
 		),
 	)

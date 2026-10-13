@@ -2,6 +2,7 @@ package features
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/hatchet-dev/hatchet/sdks/wego/internal/ports"
 	"github.com/hatchet-dev/hatchet/sdks/wego/internal/wire"
@@ -26,8 +27,9 @@ type EventsClient struct {
 	base
 }
 
-// Push 不把发布请求的截止时间写入 RPC 载荷，事件触发的任务可在发布结束后运行
-func (c *EventsClient) Push(ctx context.Context, key string, input any, scope ...*string) error {
+// Push 发布事件；省略 scope 不设置过滤范围，显式空字符串保留为空范围。
+// 发布请求的截止时间不写入业务载荷，事件触发的任务可在发布结束后运行。
+func (c *EventsClient) Push(ctx context.Context, key string, input any, scope ...string) error {
 	// ctx 纳入实例在途登记，编码 I/O 与后端提交共享关闭和取消预算
 	ctx, done, beginErr := c.begin(ctx)
 	if beginErr != nil {
@@ -35,7 +37,7 @@ func (c *EventsClient) Push(ctx context.Context, key string, input any, scope ..
 	}
 	defer done()
 	// _, data, err 接收 c.encode 的返回值，同时保存错误供紧接着的分支检查；失败时不继续使用结果
-	_, data, err := c.encode(wire.ForTrigger(ctx), key, input)
+	data, err := wire.EncodeEvent(ctx, c.config, key, input)
 	if err != nil {
 		return err
 	}
@@ -43,7 +45,9 @@ func (c *EventsClient) Push(ctx context.Context, key string, input any, scope ..
 	// request 明确标记输入和可选作用域，避免位置参数的隐式约定
 	request := ports.EventsPush{Key: key, Input: data}
 	if len(scope) > 0 {
-		request.Scope = scope[0]
+		// filterScope 是本次发布的独立快照，不引用调用方传入的切片元素。
+		filterScope := scope[0]
+		request.Scope = &filterScope
 	}
 	return c.backend.Feature(ctx, request, nil)
 }
@@ -56,7 +60,16 @@ func (c *CronsClient) Create(ctx context.Context, name string, trigger model.Cre
 		return nil, beginErr
 	}
 	defer done()
+	// 0 保留服务端默认值；非法配置必须先于目标查询、codec 上传及创建请求失败。
+	if trigger.Priority < 0 || trigger.Priority > 3 {
+		return nil, fmt.Errorf("wego: cron priority must be 0 (unspecified) or between 1 and 3")
+	}
 	// target, input, err 接收 c.encode 的返回值，同时保存错误供紧接着的分支检查；失败时不继续使用结果
+	if validator, ok := c.backend.(ports.TargetValidator); ok {
+		if err := validator.ValidateTarget(ctx, name, "unary", "", wire.ValueType(trigger.Input)); err != nil {
+			return nil, err
+		}
+	}
 	target, input, err := c.encode(wire.ForTrigger(ctx), name, trigger.Input)
 	if err != nil {
 		return nil, err
@@ -74,8 +87,17 @@ func (c *SchedulesClient) Create(ctx context.Context, name string, trigger model
 		return nil, beginErr
 	}
 	defer done()
+	// 例如 -1 和 4 均非法；0 不发送 priority 字段，由服务端选择默认优先级。
+	if trigger.Priority < 0 || trigger.Priority > 3 {
+		return nil, fmt.Errorf("wego: schedule priority must be 0 (unspecified) or between 1 and 3")
+	}
 	trigger.TriggerAt = trigger.TriggerAt.UTC()
 	// target, input, err 接收 c.encode 的返回值，同时保存错误供紧接着的分支检查；失败时不继续使用结果
+	if validator, ok := c.backend.(ports.TargetValidator); ok {
+		if err := validator.ValidateTarget(ctx, name, "unary", "", wire.ValueType(trigger.Input)); err != nil {
+			return nil, err
+		}
+	}
 	target, input, err := c.encode(wire.ForTrigger(ctx), name, trigger.Input)
 	if err != nil {
 		return nil, err

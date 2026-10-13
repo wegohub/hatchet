@@ -98,7 +98,7 @@ func Batch(ctx context.Context, report *Report) (err error) {
 	// simple 注册批量聚合定义，例如三项输入各有独立 RunID 与对应输出
 	simple := h.Conn.NewStandaloneBatchTask("batch-simple", mapOutput, model.BatchConfig{MaxSize: 3, MaxInterval: &interval})
 	// keyed 注册批量聚合定义，例如三项输入各有独立 RunID 与对应输出
-	keyed := h.Conn.NewStandaloneBatchTask("batch-keyed", mapOutput, model.BatchConfig{MaxSize: 2, MaxInterval: &interval, GroupKey: pointer("input.Group")})
+	keyed := h.Conn.NewStandaloneBatchTask("batch-keyed", mapOutput, model.BatchConfig{MaxSize: 2, MaxInterval: &interval, GroupKey: pointer("input.routing.group")})
 	// broadcast 注册批量聚合定义，例如三项输入各有独立 RunID 与对应输出
 	broadcast := h.Conn.NewStandaloneBatchTask("batch-broadcast", func(ctx context.Context, inputs map[string]batchInput) (batchOutput, error) {
 		// sum 当前步骤的初始计数 0，后续根据实际执行或数据量更新
@@ -141,7 +141,8 @@ func Batch(ctx context.Context, report *Report) (err error) {
 		// 遍历本组明确的条目，逐项验证结果或登记资源；迭代结束后才汇总这一组断言
 		for i := 0; i < n; i++ {
 			inputs = append(inputs, client.RunManyInput{
-				Input: batchInput{Message: fmt.Sprintf("m%d", i), Group: fmt.Sprintf("group%d", i%2)},
+				Input:   batchInput{Message: fmt.Sprintf("m%d", i), Group: fmt.Sprintf("group%d", i%2)},
+				Options: []client.RunOption{client.WithRouting(map[string]any{"group": fmt.Sprintf("group%d", i%2)})},
 			})
 		}
 		// refs, e 逐条提交并保留输入顺序，结果句柄与每项输入一一对应

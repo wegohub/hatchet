@@ -96,8 +96,14 @@ type Runtime struct {
 	LogReport bool
 	// LogReportTimeout 单次同步日志上报预算；默认 5 秒，调用 deadline 更早时优先。
 	LogReportTimeout time.Duration
-	// Middleware 按顺序应用的业务中间件；载荷解码按反向顺序还原
+	// Middleware 保存拦截器和 codec 注册；默认发送链沿用注册顺序。
 	Middleware []middleware.Option
+	// EncodingCodecs 是显式发送链；重复 ID 表示重复执行同一个变换。
+	EncodingCodecs []string
+	// EncodingCodecsSet 区分未配置与显式空链，空链仍使用 wego 封包。
+	EncodingCodecsSet bool
+	// codecs 是 Validate 冻结的注册表，Clone 可安全共享其只读内容。
+	codecs *PayloadCodecs
 	// Telemetry 实例观测配置，追踪与指标分别启用
 	Telemetry telemetry.Config
 	// Shutdown 实例关闭策略和资源清理预算
@@ -105,6 +111,10 @@ type Runtime struct {
 	// ResultPollInterval 辅助取消状态查询的最小间隔；默认 1 秒，零值使用默认值
 	// 例如 100 个长期等待每秒最多发起约 100 次查询，而非每 250ms 全部查询
 	ResultPollInterval time.Duration
+	// PayloadLimits 统一普通任务和 RPC 的载荷预算。
+	PayloadLimits PayloadLimits
+	// EventRoutingDefaults 保存事件级默认值，不从任意接收任务继承。
+	EventRoutingDefaults map[string]map[string]any
 	// Stream 流方法描述或流配置，由所属类型决定
 	Stream StreamConfig
 
@@ -126,13 +136,15 @@ type Runtime struct {
 // Defaults 构造默认实例配置；普通槽 100、durable 槽 1000，输出预取 64 条
 func Defaults() Runtime {
 	return Runtime{
-		BackendMessageLimit: 4 << 20,
-		Slots:               100,
-		DurableSlots:        1000,
-		Logger:              slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo})),
-		Shutdown:            ShutdownConfig{Timeout: 30 * time.Second},
-		ResultPollInterval:  time.Second,
-		LogReportTimeout:    5 * time.Second,
+		BackendMessageLimit:  4 << 20,
+		PayloadLimits:        DefaultPayloadLimits(),
+		EventRoutingDefaults: map[string]map[string]any{},
+		Slots:                100,
+		DurableSlots:         1000,
+		Logger:               slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo})),
+		Shutdown:             ShutdownConfig{Timeout: 30 * time.Second},
+		ResultPollInterval:   time.Second,
+		LogReportTimeout:     5 * time.Second,
 		Stream: StreamConfig{
 			Window:          64,
 			BufferBytes:     4 << 20,
@@ -153,25 +165,23 @@ func (r *Runtime) CleanupTimeout() time.Duration {
 
 // Validate 检查配置组合的有效性，在资源启动前拒绝不合法的容量和预算
 func (r *Runtime) Validate() error {
-	// options 保存合并后的独立预算，校验不改变实例配置。
-	options := r.WorkerEventOptionsFor()
-	if err := options.Validate(); err != nil {
+	r.codecs = nil
+	prepared, err := r.prepareCodecs()
+	if err != nil {
 		return err
 	}
-	for method := range r.StreamMethods {
-		streamOptions := r.StreamOptionsFor(method)
-		if err := streamOptions.Validate(); err != nil {
-			return fmt.Errorf("%s: %w", method, err)
-		}
+	r.codecs = prepared
+	if err := r.PayloadLimits.Validate(); err != nil {
+		return err
+	}
+	if err := r.validateMessageOptions(); err != nil {
+		return err
 	}
 	if r.routingError != nil {
 		return r.routingError
 	}
-	if r.ResultPollInterval < 0 {
-		return fmt.Errorf("wego: result polling interval cannot be negative")
-	}
-	if r.BackendMessageLimit < 1 {
-		return fmt.Errorf("wego: backend message limit must be positive")
+	if err := r.validateConnectionBudgets(); err != nil {
+		return err
 	}
 	if r.Logger == nil {
 		return fmt.Errorf("wego: logger cannot be nil")
@@ -192,5 +202,32 @@ func (r *Runtime) Validate() error {
 		return fmt.Errorf("wego: invalid stream limits")
 	}
 
+	return nil
+}
+
+// validateMessageOptions 在启动前检查流和通知的独立预算，避免业务执行中才发现无效缓冲设置。
+func (r *Runtime) validateMessageOptions() error {
+	// options 保存合并后的独立预算，校验不改变实例配置。
+	options := r.WorkerEventOptionsFor()
+	if err := options.Validate(); err != nil {
+		return err
+	}
+	for method := range r.StreamMethods {
+		streamOptions := r.StreamOptionsFor(method)
+		if err := streamOptions.Validate(); err != nil {
+			return fmt.Errorf("%s: %w", method, err)
+		}
+	}
+	return nil
+}
+
+// validateConnectionBudgets 检查服务端请求上限与终态轮询预算，不允许负间隔或无界请求配置。
+func (r *Runtime) validateConnectionBudgets() error {
+	if r.ResultPollInterval < 0 {
+		return fmt.Errorf("wego: result polling interval cannot be negative")
+	}
+	if r.BackendMessageLimit < 1 {
+		return fmt.Errorf("wego: backend message limit must be positive")
+	}
 	return nil
 }

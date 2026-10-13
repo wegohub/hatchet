@@ -133,7 +133,7 @@ type CreateWebhookOpts struct {
 	Auth WebhookAuth
 }
 
-// CreateCronTrigger 定时重复触发配置，例如 * * * * * 配合 RPCInput 每分钟调用一次方法
+// CreateCronTrigger 定时重复触发配置，例如 * * * * * 配合 model.Input 每分钟提交业务输入
 type CreateCronTrigger struct {
 	// Name 资源或任务名称，注册与调用必须使用相同值
 	Name string `json:"name"`
@@ -143,8 +143,8 @@ type CreateCronTrigger struct {
 	Input any `json:"input,omitempty"`
 	// AdditionalMetadata 随运行保存的附加 metadata，用于检索和追踪关联
 	AdditionalMetadata map[string]any `json:"additionalMetadata,omitempty"`
-	// Priority 调度或驱逐优先级；指针或 Option 用于区分未设置与显式零值
-	Priority *int32 `json:"priority,omitempty"`
+	// Priority 触发运行的调度优先级；0 表示未指定，1–3 为有效值，例如 3 表示最高优先级。
+	Priority int32 `json:"priority,omitempty"`
 }
 
 // CreateScheduledRunTrigger 一次性调度配置，TriggerAt 为绝对触发时间
@@ -155,8 +155,8 @@ type CreateScheduledRunTrigger struct {
 	Input any `json:"input,omitempty"`
 	// AdditionalMetadata 随运行保存的附加 metadata，用于检索和追踪关联
 	AdditionalMetadata map[string]any `json:"additionalMetadata,omitempty"`
-	// Priority 调度或驱逐优先级；指针或 Option 用于区分未设置与显式零值
-	Priority *int32 `json:"priority,omitempty"`
+	// Priority 触发运行的调度优先级；0 表示未指定，1–3 为有效值，例如 3 表示最高优先级。
+	Priority int32 `json:"priority,omitempty"`
 }
 
 // CreateRatelimitOpts 限流资源定义，例如一分钟最多 10 单位额度

@@ -16,6 +16,7 @@ import (
 	"github.com/hatchet-dev/hatchet/sdks/wego/client"
 	pb "github.com/hatchet-dev/hatchet/sdks/wego/examples/proto"
 	"github.com/hatchet-dev/hatchet/sdks/wego/examples/scenarios"
+	"github.com/hatchet-dev/hatchet/sdks/wego/internal/wire"
 	"github.com/hatchet-dev/hatchet/sdks/wego/model"
 	"github.com/hatchet-dev/hatchet/sdks/wego/runtime"
 )
@@ -75,7 +76,7 @@ func TestBatchShutdownBudget(t *testing.T) {
 		<-ctx.Done()
 		stopped <- struct{}{}
 		return nil, ctx.Err()
-	}, model.BatchConfig{MaxSize: 1, MaxInterval: &interval, GroupKey: pointerForBatch("input.group")})
+	}, model.BatchConfig{MaxSize: 1, MaxInterval: &interval, GroupKey: pointerForBatch("input.routing.group")})
 	// worker, err 接收 workerConn.NewWorker 的返回值，同时保存错误供紧接着的分支检查；失败时不继续使用结果
 	worker, err := workerConn.NewWorker("bounded-batch-worker", client.WithWorkflows(definition))
 	if err != nil {
@@ -92,8 +93,8 @@ func TestBatchShutdownBudget(t *testing.T) {
 		ctx,
 		definition.GetName(),
 		[]client.RunManyInput{
-			{Input: map[string]string{"group": "one"}},
-			{Input: map[string]string{"group": "two"}},
+			{Input: model.Input{Value: map[string]string{"group": "one"}, Routing: map[string]any{"group": "one"}}},
+			{Input: model.Input{Value: map[string]string{"group": "two"}, Routing: map[string]any{"group": "two"}}},
 		},
 	)
 	if err != nil {
@@ -160,7 +161,7 @@ func TestBatchShutdownBudget(t *testing.T) {
 	data, _ := json.MarshalIndent(
 		map[string]any{
 			"status":      "PASSED",
-			"sdk_version": wego.Version, "protocol_version": 4,
+			"sdk_version": wego.Version, "protocol_version": wire.Version,
 			"server_version": info.Version,
 			"mq":             "postgresql",
 			"records":        report.Records,

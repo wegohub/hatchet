@@ -55,7 +55,7 @@ func gateFixture(t *testing.T, definition ports.Definition) (*gatedRunner, *gate
 // gateAction 为相同 TaskRunID 构造明确的 retry 代次，输入为受控 JSON
 func gateAction(epoch int32) *v0.Action {
 	return &v0.Action{StepRunId: "task", WorkflowRunId: "run", WorkerId: "worker", ActionId: "fixture:invoke",
-		RetryCount: epoch, ActionType: v0.ActionTypeStartStepRun, ActionPayload: []byte(`{"input":{"n":1}}`)}
+		RetryCount: epoch, ActionType: v0.ActionTypeStartStepRun, ActionPayload: []byte(`{"input":{"_wego":{"version":6,"response":"wego"},"value":{"n":1}}}`)}
 }
 
 // nextGateEvent 等待事实屏障，上报缺失会在测试预算内失败

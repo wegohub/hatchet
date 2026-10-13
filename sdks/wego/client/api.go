@@ -3,6 +3,9 @@ package client
 import (
 	"context"
 
+	"github.com/hatchet-dev/hatchet/sdks/wego/internal/rpc"
+	"google.golang.org/grpc"
+
 	core "github.com/hatchet-dev/hatchet/sdks/wego/internal/client"
 	"github.com/hatchet-dev/hatchet/sdks/wego/model"
 	"github.com/hatchet-dev/hatchet/sdks/wego/runtime"
@@ -91,3 +94,6 @@ func WithRunMetadata(values map[string]string) RunOption {
 func WithDesiredWorkerLabels(labels map[string]*model.DesiredWorkerLabel) RunOption {
 	return core.WithDesiredWorkerLabels(labels)
 }
+
+// WithRunOptions 将原生运行选项用于生成的 gRPC 客户端；选项在构造时冻结。
+func WithRunOptions(options ...RunOption) grpc.CallOption { return rpc.NewRunCallOption(options...) }

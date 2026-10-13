@@ -21,6 +21,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/hatchet-dev/hatchet/sdks/wego/internal/binding"
 	"github.com/hatchet-dev/hatchet/sdks/wego/internal/callctx"
 	"github.com/hatchet-dev/hatchet/sdks/wego/internal/ports"
 	"github.com/hatchet-dev/hatchet/sdks/wego/internal/spec"
@@ -68,15 +69,20 @@ func p0Backend(t *testing.T) (*Backend, spec.Runtime, context.Context) {
 // 人工动作验证协议防御，不冒充引擎自然重复；任务完成和 slot 释放仍由真实引擎负责
 func TestDurableStreamsGatedWorkerP0(t *testing.T) {
 	b, config, ctx := p0Backend(t)
-	codec, err := wire.NewFrameCodec(nil, 4<<20, 4<<20)
+	codec, err := wire.NewFrameCodec(spec.Runtime{}, 4<<20, 4<<20)
 	if err != nil {
 		t.Fatal(err)
 	}
-	digest, err := stream.InputDigest("/fixture/Probe", []json.RawMessage{json.RawMessage(`{"value":"one"}`)}, map[string]any{"cost": 1})
+	digest, err := wire.EventDigest(json.RawMessage(`{"value":"one"}`), map[string]any{"cost": 1})
 	if err != nil {
 		t.Fatal(err)
 	}
-	callInput := map[string]any{"version": 4, "method": "/fixture/Probe", "input_digest": digest, "key": config.Namespace + ".operation", "payload": map[string]any{"value": "one"}, "routing": map[string]any{"cost": 1}}
+	callInput := wire.NewEnvelope(ctx, "/fixture/Probe", "", json.RawMessage(`{"value":"one"}`), map[string]any{"cost": 1})
+	callInput.InputDigest, callInput.IdempotencyKey = digest, config.Namespace+".operation"
+	callInput, err = wire.Seal(ctx, callInput, spec.Runtime{}, 1024, 64<<10, 4<<20)
+	if err != nil {
+		t.Fatal(err)
+	}
 	claims := make(chan p0ClaimContext, 8)
 	firstStarted := make(chan model.TaskInfo, 1)
 	releaseFirst := make(chan struct{})
@@ -84,7 +90,7 @@ func TestDurableStreamsGatedWorkerP0(t *testing.T) {
 	releaseSecond := make(chan struct{})
 	// invocations 统计真正进入业务的执行，落选分发不得增加
 	var invocations atomic.Int32
-	definition := ports.Definition{Name: "reliable-probe", Policy: spec.Task{Retries: option.Some(1), IdempotencyExpression: "input.key", IdempotencyTTL: 24 * time.Hour}}
+	definition := ports.Definition{Name: binding.Name("/fixture/Probe"), RPCMethod: "/fixture/Probe", Policy: spec.Task{Retries: option.Some(1), IdempotencyExpression: "input._wego.idempotency_key", IdempotencyTTL: 24 * time.Hour}}
 	definition.BeforeStart = func(ctx context.Context, info ports.StartInfo) (ports.Admission, error) {
 		request := stream.ClaimRequest{Namespace: config.Namespace, TaskID: info.Task.TaskRunID, RunID: info.Task.RunID, Method: "/fixture/Probe",
 			WorkerKey: info.WorkerKey, Writer: uuid.NewString(), Epoch: int32(info.Task.RetryCount), InputDigest: digest}
@@ -220,6 +226,7 @@ func TestDurableStreamsGatedWorkerP0(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	task.Action = binding.Action(config.Namespace, "/fixture/Probe")
 	payload, _ := json.Marshal(map[string]any{"input": callInput})
 	loser.runner.handle(ctx, &v0.Action{ActionType: v0.ActionTypeStartStepRun, ActionId: task.Action, WorkerId: loser.ID(),
 		StepRunId: info.TaskRunID, WorkflowRunId: run.ID, RetryCount: 0, ActionPayload: payload})
@@ -310,19 +317,31 @@ func TestDurableStreamsGatedWorkerP0(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := stream.VerifyRunIdentity(persisted, "/fixture/Probe", digest); err != nil {
+	if err := stream.VerifyRunIdentity(persisted, digest); err != nil {
 		t.Fatal(err)
 	}
-	otherDigest, err := stream.InputDigest("/fixture/Probe", []json.RawMessage{json.RawMessage(`{"value":"two"}`)}, map[string]any{"cost": 1})
+	otherDigest, err := wire.EventDigest(json.RawMessage(`{"value":"two"}`), map[string]any{"cost": 1})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := stream.VerifyRunIdentity(persisted, "/fixture/Probe", otherDigest); status.Code(err) != codes.FailedPrecondition {
+	if err := stream.VerifyRunIdentity(persisted, otherDigest); status.Code(err) != codes.FailedPrecondition {
 		t.Fatalf("different input accepted after collision: %v", err)
 	}
 	// 批量部分冲突仍必须保留两项成功运行与原冲突 RunID
-	first, second := cloneMap(callInput), cloneMap(callInput)
-	first["key"], second["key"] = config.Namespace+".batch-a", config.Namespace+".batch-b"
+	first, err := wire.Open(ctx, "/fixture/Probe", callInput, spec.Runtime{}, 1024, 4<<20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second := first
+	first.IdempotencyKey, second.IdempotencyKey = config.Namespace+".batch-a", config.Namespace+".batch-b"
+	first, err = wire.Seal(ctx, first, spec.Runtime{}, 1024, 64<<10, 4<<20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err = wire.Seal(ctx, second, spec.Runtime{}, 1024, 64<<10, 4<<20)
+	if err != nil {
+		t.Fatal(err)
+	}
 	_, err = b.RunMany(ctx, definition.Name, []model.RunManyInput{{Input: first}, {Input: callInput}, {Input: second}})
 	// bulk 保留真实部分成功身份，不能将整批归类为无运行
 	var bulk *model.BulkIdempotencyCollisionError
@@ -363,7 +382,7 @@ func TestGatedFinalFailureAndCancellationP0(t *testing.T) {
 	for _, scenario := range []string{"status_details", "panic", "console_cancel", "timeout_without_end"} {
 		t.Run(scenario, func(t *testing.T) {
 			b, config, ctx := p0Backend(t)
-			codec, err := wire.NewFrameCodec(nil, 4<<20, 4<<20)
+			codec, err := wire.NewFrameCodec(spec.Runtime{}, 4<<20, 4<<20)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -411,7 +430,7 @@ func TestGatedFinalFailureAndCancellationP0(t *testing.T) {
 			if err := w.WaitReady(ctx); err != nil {
 				t.Fatal(err)
 			}
-			run, err := b.Run(ctx, definition.Name, map[string]any{}, model.RunOptions{})
+			run, err := b.Run(ctx, definition.Name, p0NativeInput(t, ctx, config, definition.Name), model.RunOptions{})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -501,7 +520,7 @@ func TestGatedRejectedAdmissionSlotsP0(t *testing.T) {
 	for _, scenario := range []string{"lost", "uncertain"} {
 		t.Run(scenario, func(t *testing.T) {
 			b, config, ctx := p0Backend(t)
-			codec, err := wire.NewFrameCodec(nil, 4<<20, 4<<20)
+			codec, err := wire.NewFrameCodec(spec.Runtime{}, 4<<20, 4<<20)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -543,7 +562,7 @@ func TestGatedRejectedAdmissionSlotsP0(t *testing.T) {
 			if err := w.WaitReady(ctx); err != nil {
 				t.Fatal(err)
 			}
-			run, err := b.Run(ctx, definition.Name, map[string]any{}, model.RunOptions{})
+			run, err := b.Run(ctx, definition.Name, p0NativeInput(t, ctx, config, definition.Name), model.RunOptions{})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -564,4 +583,14 @@ func TestGatedRejectedAdmissionSlotsP0(t *testing.T) {
 			t.Logf("verified admission=%s RunID=%s no handler, no successful result, slots released", scenario, run.ID)
 		})
 	}
+}
+
+// p0NativeInput 通过生产封包路径准备原生探针，故障注入不绕过协议 6 的业务解码。
+func p0NativeInput(t *testing.T, ctx context.Context, config spec.Runtime, name string) wire.Envelope {
+	t.Helper()
+	input, err := wire.EncodeValue(ctx, config, map[string]any{}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return input
 }

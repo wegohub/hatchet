@@ -19,6 +19,10 @@ type Definition struct {
 	RPCShape string
 	// RPCMode 固定流的 reliable/realtime 输出协议；unary 为空
 	RPCMode string
+	// InputType、OutputType 是注册声明的 protobuf 类型名；普通 JSON 类型不依赖 protobuf。
+	InputType string
+	// OutputType 约束 RPC 或原生 protobuf 返回值。
+	OutputType string
 	// Function 业务 handler 或验收片段的函数名
 	Function any
 	// Policy 任务级执行策略
@@ -123,7 +127,7 @@ type Execution interface {
 	// Stream 订阅运行输出或发布执行输出，传递字节与订阅错误
 	Stream(context.Context, []byte) error
 	// ParentOutput 按父任务名称解码已完成的父输出，避免把整个结果映射作为单个业务值
-	ParentOutput(string, any) error
+	ParentOutput(context.Context, string, any) error
 }
 
 // RPCInput 明确标记 RPC 输入，普通 JSON 对象不因 method 字段而改变调度
@@ -142,4 +146,10 @@ type WorkerIdentity interface {
 	WorkerKey() string
 	// InstanceName 返回完整展示名称，与寻址身份无关
 	InstanceName() string
+}
+
+// TargetValidator 在 codec I/O 前核验持久注册；测试替身可直接实现 Backend。
+type TargetValidator interface {
+	// ValidateTarget 检查当前协议、任务种类及 RPC 输入形态。
+	ValidateTarget(context.Context, string, string, string, ...string) error
 }

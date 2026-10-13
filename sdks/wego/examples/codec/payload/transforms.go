@@ -14,17 +14,32 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+const (
+	// GzipCodecID 标识 gzip 持久格式；配置和实现共用这个常量。
+	GzipCodecID = "gzip.v1"
+	// AESGCMCodecID 标识带随机 nonce 的 AES-256-GCM 格式，不包含当前密钥。
+	AESGCMCodecID = "aes256-gcm.v2"
+	// S3ObjectCodecID 标识带 SHA-256 校验的对象引用，不包含桶名或凭证。
+	S3ObjectCodecID = "s3-object.sha256.v1"
+)
+
+// DefaultEncodingThreshold 是压缩和对象卸载的默认发送阈值：256 KiB。
+const DefaultEncodingThreshold = 256 << 10
+
 // maxObjectBytes 限制每层变换的内存和对象大小；例如 9 MiB 输入不会上传到 S3
 const maxObjectBytes = 8 << 20
 
 // Gzip 压缩 ProtoJSON 输入和完整协议帧，解压必须遵守调用方预算
-type Gzip struct{}
+type Gzip struct {
+	// encoding 保存组件自己的发送策略；注册后不得修改。
+	encoding encodingConfig
+}
 
 // CodecID 是持久格式身份，不随消息内容变化
-func (*Gzip) CodecID() string { return "example.gzip.v1" }
+func (*Gzip) CodecID() string { return GzipCodecID }
 
 // Encode 完整关闭压缩器后返回字节，避免上传缺少尾部校验和的对象
-func (*Gzip) Encode(ctx context.Context, _ string, data []byte) ([]byte, error) {
+func (*Gzip) Encode(ctx context.Context, data []byte) ([]byte, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -44,12 +59,12 @@ func (*Gzip) Encode(ctx context.Context, _ string, data []byte) ([]byte, error) 
 }
 
 // Decode 使用示例的绝对上限；SDK 流路径通过 DecodeLimit 提供更小的预算
-func (p *Gzip) Decode(ctx context.Context, method string, data []byte) ([]byte, error) {
-	return p.DecodeLimit(ctx, method, data, maxObjectBytes)
+func (p *Gzip) Decode(ctx context.Context, data []byte) ([]byte, error) {
+	return p.DecodeLimit(ctx, data, maxObjectBytes)
 }
 
 // DecodeLimit 边解压边限制字节，例如压缩炸弹在 1 MiB 预算内停止读取
-func (*Gzip) DecodeLimit(ctx context.Context, _ string, data []byte, limit int) ([]byte, error) {
+func (*Gzip) DecodeLimit(ctx context.Context, data []byte, limit int) ([]byte, error) {
 	reader, err := gzip.NewReader(bytes.NewReader(data))
 	if err != nil {
 		return nil, status.Error(codes.DataLoss, "codec: invalid gzip payload")
@@ -58,7 +73,7 @@ func (*Gzip) DecodeLimit(ctx context.Context, _ string, data []byte, limit int) 
 	return readLimit(ctx, reader, limit)
 }
 
-// AESGCM 对字节加密并认证方法身份；实例持有不可变密钥，可被客户端和 Worker 并发使用
+// AESGCM 使用随机 nonce 和 nil AAD 认证业务字节；不可变密钥可被客户端和 Worker 并发使用
 // 此示例只使用一个密钥；实际轮换需在载荷中保存 key ID，并保留历史解密密钥
 type AESGCM struct {
 	// aead 保存复制后的密钥所创建的认证加密器，不公开原始密钥
@@ -82,11 +97,11 @@ func NewAESGCM(key []byte) (*AESGCM, error) {
 }
 
 // CodecID 只描述格式；随机 nonce 不影响两端的 codec profile
-func (*AESGCM) CodecID() string { return "example.aes256-gcm.v1" }
+func (*AESGCM) CodecID() string { return AESGCMCodecID }
 
 // Encode 将随机 nonce 前置于密文，例如同样的请求重复编码仍产生不同密文
 // 协议发布的重试必须复用 SDK 已冻结的完整编码字节，不能重新生成 nonce
-func (p *AESGCM) Encode(ctx context.Context, method string, data []byte) ([]byte, error) {
+func (p *AESGCM) Encode(ctx context.Context, data []byte) ([]byte, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -98,16 +113,16 @@ func (p *AESGCM) Encode(ctx context.Context, method string, data []byte) ([]byte
 	if _, err := rand.Read(nonce); err != nil {
 		return nil, err
 	}
-	return p.aead.Seal(nonce, nonce, data, []byte(method)), nil
+	return p.aead.Seal(nonce, nonce, data, nil), nil
 }
 
 // Decode 按默认预算还原密文
-func (p *AESGCM) Decode(ctx context.Context, method string, data []byte) ([]byte, error) {
-	return p.DecodeLimit(ctx, method, data, maxObjectBytes)
+func (p *AESGCM) Decode(ctx context.Context, data []byte) ([]byte, error) {
+	return p.DecodeLimit(ctx, data, maxObjectBytes)
 }
 
-// DecodeLimit 在分配明文前检查长度，再认证密文和方法；跨方法移用引用明确失败
-func (p *AESGCM) DecodeLimit(ctx context.Context, method string, data []byte, limit int) ([]byte, error) {
+// DecodeLimit 在分配明文前检查长度，再以用户密钥认证密文完整性
+func (p *AESGCM) DecodeLimit(ctx context.Context, data []byte, limit int) ([]byte, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -118,7 +133,7 @@ func (p *AESGCM) DecodeLimit(ctx context.Context, method string, data []byte, li
 	if limit < 1 || plainSize > min(limit, maxObjectBytes) {
 		return nil, status.Error(codes.ResourceExhausted, "codec: decrypted payload exceeds limit")
 	}
-	plain, err := p.aead.Open(nil, data[:p.aead.NonceSize()], data[p.aead.NonceSize():], []byte(method))
+	plain, err := p.aead.Open(nil, data[:p.aead.NonceSize()], data[p.aead.NonceSize():], nil)
 	if err != nil {
 		return nil, status.Error(codes.DataLoss, "codec: ciphertext authentication failed")
 	}
@@ -142,3 +157,6 @@ func readLimit(ctx context.Context, input io.Reader, limit int) ([]byte, error) 
 	}
 	return data, ctx.Err()
 }
+
+// EncodingThreshold 默认仅压缩至少 256 KiB 的输入。
+func (p *Gzip) EncodingThreshold() int { return p.encoding.threshold() }

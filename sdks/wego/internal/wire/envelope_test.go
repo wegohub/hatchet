@@ -13,6 +13,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	pb "github.com/hatchet-dev/hatchet/sdks/wego/examples/proto"
+	"github.com/hatchet-dev/hatchet/sdks/wego/internal/spec"
 	"github.com/hatchet-dev/hatchet/sdks/wego/model"
 )
 
@@ -21,7 +22,7 @@ func TestRoutingAndProtoJSONEnvelope(t *testing.T) {
 	// in 请求包含文本 protobuf、分组 one 和 Count=9，分别核对二进制往返与显式 routing 投影
 	in := &pb.Request{Message: "protobuf", GroupKey: "one", Count: 9}
 	// e, err 接收 context.Background 的返回值，同时保存错误供紧接着的分支检查；失败时不继续使用结果
-	e, err := Encode(context.Background(), "method", in, map[string]any{"group": "one"}, nil, 1024)
+	e, err := Encode(context.Background(), "method", in, map[string]any{"group": "one"}, spec.Runtime{}, 1024)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -41,11 +42,14 @@ func TestRoutingAndProtoJSONEnvelope(t *testing.T) {
 	}
 	// out 保存当前步骤的输出或解码目标，初始化后由当前调用填充；错误时不能使用其零值作为成功结果
 	var out pb.Request
-	if err = Decode(context.Background(), "method", e, &out, nil, 1024); err != nil || !proto.Equal(in, &out) {
+	if err = Decode(context.Background(), "method", e, &out, spec.Runtime{}, 1024); err != nil || !proto.Equal(in, &out) {
 		t.Fatalf("%v: %v", &out, err)
 	}
-	if payload, ok := stored["payload"].(map[string]any); !ok || payload["group_key"] != "one" {
-		t.Fatalf("ProtoJSON payload is not readable: %#v", stored["payload"])
+	if _, ok := stored["value"].(map[string]any); !ok {
+		t.Fatalf("plain business JSON must remain readable: %#v", stored["value"])
+	}
+	if routing, ok := stored["routing"].(map[string]any); !ok || routing["group"] != "one" {
+		t.Fatal("clear routing lost")
 	}
 }
 

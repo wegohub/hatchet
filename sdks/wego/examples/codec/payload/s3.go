@@ -65,6 +65,8 @@ func envDefault(key, fallback string) string {
 
 // Objects 将变换后的字节上传 S3 并返回有界引用，流控制帧和业务帧使用同一实现
 type Objects struct {
+	// encoding 保存组件自己的上传阈值，不影响历史对象读取。
+	encoding encodingConfig
 	// client 使用 AWS S3 SDK；endpoint 与 bucket 固定，不信任载荷中的外部地址
 	client *s3.Client
 	// httpClient 只属于此示例，结束时释放其空闲连接
@@ -89,7 +91,11 @@ type reference struct {
 
 // NewS3 使用 BaseEndpoint 和路径寻址连接 MinIO，检查或创建专用示例桶
 // 桶创建仅是示例初始化；实际应用可预先建桶并移除此处的创建权限
-func NewS3(ctx context.Context, config Config, prefix string) (*Objects, error) {
+func NewS3(ctx context.Context, config Config, prefix string, opts ...Option) (*Objects, error) {
+	encoding, err := configureEncoding(opts)
+	if err != nil {
+		return nil, err
+	}
 	endpoint, err := url.Parse(config.Endpoint)
 	if err != nil || endpoint == nil || endpoint.Host == "" || (endpoint.Scheme != "http" && endpoint.Scheme != "https") || endpoint.User != nil || endpoint.RawQuery != "" || endpoint.Fragment != "" || (endpoint.Path != "" && endpoint.Path != "/") {
 		return nil, status.Error(codes.InvalidArgument, "codec: invalid S3 endpoint")
@@ -112,7 +118,7 @@ func NewS3(ctx context.Context, config Config, prefix string) (*Objects, error) 
 		options.BaseEndpoint = aws.String(config.Endpoint)
 		options.UsePathStyle = true
 	})
-	objects := &Objects{client: client, httpClient: httpClient, bucket: config.Bucket, prefix: prefix}
+	objects := &Objects{encoding: encoding, client: client, httpClient: httpClient, bucket: config.Bucket, prefix: prefix}
 	budget, cancel := context.WithTimeout(ctx, ioBudget)
 	defer cancel()
 	if _, err := client.HeadBucket(budget, &s3.HeadBucketInput{Bucket: &config.Bucket}); err != nil {
@@ -135,10 +141,10 @@ func NewS3(ctx context.Context, config Config, prefix string) (*Objects, error) 
 func (p *Objects) Close() { p.httpClient.CloseIdleConnections() }
 
 // CodecID 标识引用格式，不包含随机对象名或凭证
-func (*Objects) CodecID() string { return "example.s3-object.sha256.v1" }
+func (*Objects) CodecID() string { return S3ObjectCodecID }
 
 // Encode 使用内容摘要命名对象并校验上传；同一冻结密文重复上传指向同一对象
-func (p *Objects) Encode(ctx context.Context, _ string, data []byte) ([]byte, error) {
+func (p *Objects) Encode(ctx context.Context, data []byte) ([]byte, error) {
 	if len(data) > maxObjectBytes {
 		return nil, status.Error(codes.ResourceExhausted, "codec: object exceeds limit")
 	}
@@ -158,8 +164,8 @@ func (p *Objects) Encode(ctx context.Context, _ string, data []byte) ([]byte, er
 }
 
 // Decode 以绝对预算下载对象；流协议调用 DecodeLimit 使用当前完整帧预算
-func (p *Objects) Decode(ctx context.Context, method string, data []byte) ([]byte, error) {
-	return p.DecodeLimit(ctx, method, data, maxObjectBytes)
+func (p *Objects) Decode(ctx context.Context, data []byte) ([]byte, error) {
+	return p.DecodeLimit(ctx, data, maxObjectBytes)
 }
 
 // parseReference 拒绝越界、未知字段和尾随 JSON；对象 key 必须和摘要严格对应
@@ -188,7 +194,7 @@ func (p *Objects) parseReference(data []byte, limit int) (reference, error) {
 }
 
 // DecodeLimit 对实际下载也做限制，再检查长度和 SHA256；不存在的历史引用不能当作空历史
-func (p *Objects) DecodeLimit(ctx context.Context, _ string, data []byte, limit int) ([]byte, error) {
+func (p *Objects) DecodeLimit(ctx context.Context, data []byte, limit int) ([]byte, error) {
 	ref, err := p.parseReference(data, limit)
 	if err != nil {
 		return nil, err
@@ -240,7 +246,7 @@ func (p *Objects) ObjectCount(ctx context.Context) (int, error) {
 
 // VerifyFailureCases 验证真实 S3 缺失对象、引用越界和预算拒绝；只清理独立探针对象
 func (p *Objects) VerifyFailureCases(ctx context.Context) (err error) {
-	probe, err := p.Encode(ctx, "probe", []byte("scoped-s3-budget-probe"))
+	probe, err := p.Encode(ctx, []byte("scoped-s3-budget-probe"))
 	if err != nil {
 		return err
 	}
@@ -255,21 +261,24 @@ func (p *Objects) VerifyFailureCases(ctx context.Context) (err error) {
 		_, cleanupErr := p.client.DeleteObject(budget, &s3.DeleteObjectInput{Bucket: &p.bucket, Key: &ref.Key})
 		err = errors.Join(err, cleanupErr)
 	}()
-	if _, err := p.DecodeLimit(ctx, "probe", probe, 4); status.Code(err) != codes.ResourceExhausted {
+	if _, err := p.DecodeLimit(ctx, probe, 4); status.Code(err) != codes.ResourceExhausted {
 		return fmt.Errorf("codec: expected bounded download refusal: %v", err)
 	}
 	// 坏引用的目录不被接受，即使该对象碰巧在同一个桶中存在
 	outside := ref
 	outside.Key = "other/" + ref.SHA256
 	invalid, _ := json.Marshal(outside)
-	if _, err := p.Decode(ctx, "probe", invalid); status.Code(err) != codes.DataLoss {
+	if _, err := p.Decode(ctx, invalid); status.Code(err) != codes.DataLoss {
 		return fmt.Errorf("codec: expected scoped reference refusal: %v", err)
 	}
 	// 生成确定不存在的合法引用，GET 应返回历史缺失，而不是成功的零字节消息
 	missing := reference{Version: 1, Key: p.prefix + strings.Repeat("0", 64), SHA256: strings.Repeat("0", 64), Size: 1}
 	missingBytes, _ := json.Marshal(missing)
-	if _, err := p.Decode(ctx, "probe", missingBytes); status.Code(err) != codes.DataLoss {
+	if _, err := p.Decode(ctx, missingBytes); status.Code(err) != codes.DataLoss {
 		return fmt.Errorf("codec: expected historical object missing: %v", err)
 	}
 	return nil
 }
+
+// EncodingThreshold 默认仅处理至少 256 KiB 的当前步骤输入。
+func (p *Objects) EncodingThreshold() int { return p.encoding.threshold() }

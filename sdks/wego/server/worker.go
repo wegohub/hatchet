@@ -108,16 +108,8 @@ func (s *Server) workerMethods() (map[string]binding.Method, error) {
 		}
 	}
 
-	// 禁用和策略均针对已注册方法；先发现配置错误，避免建立不必要的任务后端连接。
-	for method := range s.policy.DisabledMethods {
-		if _, ok := registered[method]; !ok {
-			return nil, fmt.Errorf("wego: disabling unknown Worker method %q", method)
-		}
-	}
-	for method := range s.policy.Methods {
-		if _, ok := registered[method]; !ok {
-			return nil, fmt.Errorf("wego: configuration for unknown method %s", method)
-		}
+	if err := s.validateWorkerMethodOptions(registered); err != nil {
+		return nil, err
 	}
 
 	methods := make(map[string]binding.Method)
@@ -152,4 +144,21 @@ func (s *Server) workerMethods() (map[string]binding.Method, error) {
 		return nil, fmt.Errorf("wego: no methods enabled for Worker; use runtime.WithDisableWorker for a network-only Server")
 	}
 	return methods, nil
+}
+
+// validateWorkerMethodOptions 检查配置指向真实注册的方法，拼写错误不能静默禁用或应用到其他 RPC。
+func (s *Server) validateWorkerMethodOptions(registered map[string]struct{}) error {
+	// 禁用和策略均针对已注册方法；先发现配置错误，避免建立不必要的任务后端连接。
+	for method := range s.policy.DisabledMethods {
+		if _, ok := registered[method]; !ok {
+			return fmt.Errorf("wego: disabling unknown Worker method %q", method)
+		}
+	}
+	for method := range s.policy.Methods {
+		if _, ok := registered[method]; !ok {
+			return fmt.Errorf("wego: configuration for unknown method %s", method)
+		}
+	}
+
+	return nil
 }

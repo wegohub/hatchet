@@ -1,19 +1,53 @@
 package model
 
 import (
+	"encoding/json"
+	"fmt"
+	"github.com/hatchet-dev/hatchet/sdks/wego/internal/message"
 	"time"
-
-	"google.golang.org/protobuf/proto"
 )
 
-// RPCInput 为 Cron、Schedule 和 Event 指定 RPC 方法与 protobuf 消息
-type RPCInput struct {
-	// Method 完整 RPC 方法名，例如 /wego.example.v1.UnaryGreeter/SayHello；调用目标已经为完整方法时可省略
-	Method string
-	// Message 业务 protobuf 消息，例如 Request{Message: "hello"}
-	Message proto.Message
-	// Routing 是本次触发的调度字段；nil 采用方法默认值，顶层键覆盖默认值
+// Input 为任务及触发器携带业务值与调度字段；业务 struct 的同名字段不会被解释为协议。
+type Input struct {
+	// Value 是 protobuf 消息或可序列化的 JSON 值。
+	Value any
+	// Routing 是显式供 CEL 使用的字段，独立于业务 codec。
 	Routing map[string]any
+}
+
+// MarshalJSON 为显式 Input 生成明文协议，值接收者支持直接 json.Marshal(Input{...})。
+// protobuf oneof 使用 ProtoJSON；不选择 Runtime，也不执行任何 codec I/O。
+func (i Input) MarshalJSON() ([]byte, error) {
+	value, _, err := message.Marshal(i.Value, 1<<20)
+	if err != nil {
+		return nil, err
+	}
+	header := map[string]any{"version": message.Version}
+	if !message.Portable(value) {
+		header["encoding"] = "base64"
+		value, err = json.Marshal([]byte(value))
+		if err != nil {
+			return nil, err
+		}
+	}
+	packet := struct {
+		// Header 只声明明文 Input 的版本和可选字节表示。
+		Header map[string]any `json:"_wego"`
+		// Value 已用 ProtoJSON 或 JSON 完成序列化。
+		Value json.RawMessage `json:"value"`
+		// Routing 独立承载服务端可计算字段。
+		Routing map[string]any `json:"routing,omitempty"`
+	}{header, value, i.Routing}
+	if len(i.Routing) > 0 {
+		data, err := json.Marshal(i.Routing)
+		if err != nil {
+			return nil, err
+		}
+		if !message.Portable(data) {
+			return nil, fmt.Errorf("wego: routing contains an unsafe JSON number")
+		}
+	}
+	return json.Marshal(packet)
 }
 
 // DefaultFilter 默认事件过滤器，包括条件、scope 和业务附加 payload
@@ -23,7 +57,7 @@ type DefaultFilter struct {
 	// Scope 事件或过滤器的隔离范围；例如 scope-a 与 scope-b 互不匹配
 	Scope string `json:"scope"`
 	// Payload 业务载荷；wire 中为 protobuf 字节，JSON 编码时自动转为 base64
-	Payload map[string]any `json:"payload,omitempty"`
+	Payload any `json:"payload,omitempty"`
 }
 
 // TaskInfo 是执行信息的快照，字段和嵌套值均为 wego 自有类型
@@ -60,18 +94,24 @@ type EventWait struct {
 	ConsiderEventsSince *time.Time
 }
 
-// RunOptions 单次任务提交选项，与注册定义的策略分别配置
+// RunOptions 对应官方 Go SDK 的运行选项字段，类型由 wego 自己定义。
 type RunOptions struct {
-	// Key 任务运行、幂等或限流使用的键
+	// Routing 保存单次提交的独立调度快照。
+	Routing map[string]any
+	// StreamIdempotencyKey 仅用于流任务的逻辑提交身份。
+	StreamIdempotencyKey string
+	// ValidationError 保存构造选项时的错误，提交前统一检查。
+	ValidationError error
+	// Key 稳定子调用键，例如 child-greet；用于父任务关联，不是提交幂等键。
 	Key *string
-	// Sticky 任务或调用的粘性调度配置；使关联执行优先或强制复用 Worker
+	// Sticky 请求子任务留在父 Worker，软硬约束由定义级 Sticky 策略决定。
 	Sticky *bool
-	// Priority 调度或驱逐优先级；指针或 Option 用于区分未设置与显式零值
+	// Priority 本次提交的调度优先级；nil 表示未覆盖，显式设置必须为 1–3，0 也会校验报错。
 	Priority *int
-	// Metadata 请求或运行 metadata；保留键值和多值语义
-	Metadata map[string]string
-	// Labels Worker 标签或运行亲和性条件；如 owner 标签要求会话路由到同一实例
-	Labels map[string]*DesiredWorkerLabel
+	// AdditionalMetadata 随运行保存的附加字段，例如 source=api；不同于 gRPC metadata。
+	AdditionalMetadata map[string]string
+	// DesiredWorkerLabels 本次提交的 Worker 标签约束，例如 region=local、Required=true。
+	DesiredWorkerLabels map[string]*DesiredWorkerLabel
 }
 
 // RunManyInput 批量提交中的一项输入及其独立选项

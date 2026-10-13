@@ -40,6 +40,10 @@ type bufferedOutput struct {
 
 // taskClientStream 将发送缓冲区在 CloseSend 时一次提交，两个方向独立串行访问
 type taskClientStream struct {
+	// runOptions 是构造时冻结的运行选项，与原生提交共用。
+	runOptions model.RunOptions
+	// ownsRun 仅新提交且确认归本调用时取消远端；恢复消费者不拥有任务。
+	ownsRun bool
 	// ctx 与 cancel 管理此客户端流所有 SDK goroutine
 	ctx context.Context
 	// cancel 在 EOF、错误或调用方取消时释放后台传输
@@ -72,12 +76,10 @@ type taskClientStream struct {
 	sendMu sync.Mutex
 	// recvMu 拒绝并发读取导致 checkpoint 次序不明确
 	recvMu sync.Mutex
-	// inputs 保存 codec 后独立快照
+	// inputs 保存编码后的业务快照，CloseSend 才对整批执行一次 codec。
 	inputs []json.RawMessage
-	// plains 保存提交前计算输入摘要所需的独立快照
-	plains []json.RawMessage
-	// inputBytes 和 encodedBytes 限制全部缓冲请求
-	inputBytes, encodedBytes int
+	// inputBytes 记录业务快照总量；数组标点及封包另行计费。
+	inputBytes int
 	// submitted 标记输入已经关闭，不允许继续 Send
 	submitted bool
 	// submitErr 保留 CloseSend 的唯一提交结果
@@ -142,12 +144,11 @@ type taskClientStream struct {
 
 // newTaskClient 验证标准生成描述与 codec，创建流时不向 broker 提交任何任务
 func newTaskClient(ctx context.Context, e *engine.Engine, desc *grpc.StreamDesc, method string, complete func(error), opts ...grpc.CallOption) (grpc.ClientStream, error) {
-	if desc == nil {
-		return nil, status.Error(codes.InvalidArgument, "wego: missing stream descriptor")
-	}
-	if err := binding.ValidateName(e.Config.Namespace, method); err != nil {
-		return nil, err
-	}
+	return buildTaskClient(ctx, e, desc, method, complete, false, opts...)
+}
+
+// clientMethodDescriptor 使用生成描述验证流方向，JSON 内容不能改变注册的 RPC 形态。
+func clientMethodDescriptor(method string, desc *grpc.StreamDesc) (protoreflect.MethodDescriptor, error) {
 	parts := strings.Split(method, "/")
 	descriptor, err := protoregistry.GlobalFiles.FindDescriptorByName(protoreflect.FullName(parts[1]))
 	if err != nil {
@@ -161,58 +162,72 @@ func newTaskClient(ctx context.Context, e *engine.Engine, desc *grpc.StreamDesc,
 	if m == nil || m.IsStreamingClient() != desc.ClientStreams || m.IsStreamingServer() != desc.ServerStreams {
 		return nil, status.Error(codes.InvalidArgument, "wego: stream descriptor mismatch")
 	}
-	o := e.Config.StreamOptionsFor(method)
-	// 标准调用限额作用于 protobuf 大小，实例限额仍另外校验实际 ProtoJSON 和 codec 字节
-	maxSend, maxRecv := 0, 0
-	for _, option := range opts {
-		switch value := option.(type) {
-		case grpc.MaxRecvMsgSizeCallOption:
-			if value.MaxRecvMsgSize <= 0 {
-				return nil, status.Error(codes.InvalidArgument, "wego: receive message limit must be positive")
-			}
-			if maxRecv == 0 || value.MaxRecvMsgSize < maxRecv {
-				maxRecv = value.MaxRecvMsgSize
-			}
-		case grpc.MaxSendMsgSizeCallOption:
-			if value.MaxSendMsgSize <= 0 {
-				return nil, status.Error(codes.InvalidArgument, "wego: send message limit must be positive")
-			}
-			if maxSend == 0 || value.MaxSendMsgSize < maxSend {
-				maxSend = value.MaxSendMsgSize
-			}
-		}
-	}
-	if err := o.Validate(); err != nil {
+	return m, nil
+}
+
+// clientFrameCodec 先检查流预算与所需传输能力，失败时不创建输入缓冲或订阅。
+func clientFrameCodec(e *engine.Engine, desc *grpc.StreamDesc, options spec.StreamOptions) (*wire.FrameCodec, error) {
+	if err := options.Validate(); err != nil {
 		return nil, err
 	}
-	codec, err := wire.NewFrameCodec(e.Config.Middleware, o.MaxFrameBytes, o.MaxEncodedMessageBytes, e.FrameObserver())
-	if err != nil {
-		return nil, err
-	}
-	if desc.ServerStreams && o.Mode == spec.Reliable {
+	if desc.ServerStreams && options.Mode == spec.Reliable {
 		if _, ok := e.Backend.(ports.DurableStreams); !ok {
 			return nil, status.Error(codes.Unimplemented, "wego: reliable streams unavailable")
 		}
 	}
-	override, err := callctx.Routing(ctx)
-	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "wego: routing: %v", err)
+	return wire.NewFrameCodec(e.Config, options.MaxFrameBytes, options.MaxEncodedMessageBytes, e.FrameObserver())
+}
+
+// buildTaskClient 复用传输装配；恢复只核验已有输入，不读取当前定义或生成新的调度配置。
+func buildTaskClient(ctx context.Context, e *engine.Engine, desc *grpc.StreamDesc, method string, complete func(error), resume bool, opts ...grpc.CallOption) (grpc.ClientStream, error) {
+	if desc == nil {
+		return nil, status.Error(codes.InvalidArgument, "wego: missing stream descriptor")
 	}
-	routing, err := e.Config.Routing(method, override)
+	if err := binding.ValidateName(e.Config.Namespace, method); err != nil {
+		return nil, err
+	}
+	m, err := clientMethodDescriptor(method, desc)
 	if err != nil {
 		return nil, err
 	}
-	key := callctx.IdempotencyKey(ctx)
+	o := e.Config.StreamOptionsFor(method)
+	parsed, err := ParseCallOptions(opts, resume)
+	if err != nil {
+		return nil, err
+	}
+	maxSend, maxRecv := parsed.MaxSend, parsed.MaxRecv
+	if !resume {
+		ctx = ports.WithExpectedOutput(ctx, string(m.Output().FullName()))
+		ctx, err = ports.PrepareTarget(ctx, e.Backend, method, streamKind(desc), modeName(o.Mode), string(m.Input().FullName()))
+		if err != nil {
+			return nil, err
+		}
+	}
+	codec, err := clientFrameCodec(e, desc, o)
+	if err != nil {
+		return nil, err
+	}
+	routing := map[string]any{}
+	if !resume {
+		routing, err = e.Config.Routing(method, parsed.Run.Routing)
+	}
+	if err != nil {
+		return nil, err
+	}
+	key := parsed.Run.StreamIdempotencyKey
 	if key == "" {
 		key = uuid.NewString()
 	}
+	originalComplete := complete
+	complete = func(err error) { originalComplete(err); parsed.Finish(&err) }
 	ctx, cancel := context.WithCancel(ctx)
-	s := &taskClientStream{ctx: ctx, cancel: cancel, engine: e, desc: desc, method: method, inputType: m.Input().FullName(), outputType: m.Output().FullName(), options: o, codec: codec, opts: append([]grpc.CallOption(nil), opts...), routing: routing, operationKey: key, submission: uuid.NewString(), key: stream.IdempotencyKey(e.Config.Namespace, method, key), changed: make(chan struct{}), inputClosed: make(chan struct{}), complete: complete}
+	s := &taskClientStream{ctx: ctx, cancel: cancel, engine: e, desc: desc, method: method, inputType: m.Input().FullName(), outputType: m.Output().FullName(), options: o, codec: codec, opts: append([]grpc.CallOption(nil), opts...), routing: routing, operationKey: key, submission: uuid.NewString(), key: key, changed: make(chan struct{}), inputClosed: make(chan struct{}), complete: complete}
 	s.maxSend, s.maxRecv = maxSend, maxRecv
+	s.runOptions, s.ownsRun = parsed.Run, !resume
 	if desc.ServerStreams && o.Mode == spec.Reliable {
 		s.notices = make(chan ports.WorkerCancelNotice, 16)
 	}
-	s.ctx = callctx.WithConsumer(s.ctx, s.checkpoint)
+	s.ctx = callctx.WithConsumer(s.ctx, s.resumeToken)
 	go func() { <-ctx.Done(); s.finish(status.FromContextError(ctx.Err()).Err()) }()
 	return s, nil
 }
@@ -243,12 +258,12 @@ func (s *taskClientStream) SendMsg(value any) (err error) {
 	defer func() {
 		if status.Code(err) == codes.ResourceExhausted {
 			s.submitted, s.submitErr = true, err
-			s.inputs, s.plains = nil, nil
+			s.inputs = nil
 			close(s.inputClosed)
 			s.fail(err)
 		}
 	}()
-	if s.maxSend > 0 && proto.Size(message) > s.maxSend {
+	if s.maxSend >= 0 && proto.Size(message) > s.maxSend {
 		return status.Error(codes.ResourceExhausted, "wego: protobuf request exceeds call send limit")
 	}
 	if len(s.inputs) >= s.options.MaxInputMessages || !s.desc.ClientStreams && len(s.inputs) > 0 {
@@ -265,19 +280,8 @@ func (s *taskClientStream) SendMsg(value any) (err error) {
 	if logicalBytes > s.options.MaxInputBytes {
 		return status.Error(codes.ResourceExhausted, "wego: stream input bytes exceed limit")
 	}
-	budget, cancel := context.WithTimeout(s.ctx, s.options.DecodeTimeout)
-	defer cancel()
-	envelope, err := wire.EncodeSnapshot(budget, s.method, string(s.inputType), plain, nil, s.engine.Config.Middleware, s.options.MaxEncodedMessageBytes)
-	if err != nil {
-		return err
-	}
-	if s.encodedBytes+len(envelope.Payload)+1 > s.options.MaxEncodedInputBytes {
-		return status.Error(codes.ResourceExhausted, "wego: encoded stream input exceeds limit")
-	}
-	s.inputs = append(s.inputs, append(json.RawMessage(nil), envelope.Payload...))
-	s.plains = append(s.plains, plain)
+	s.inputs = append(s.inputs, plain)
 	s.inputBytes += len(plain)
-	s.encodedBytes += len(envelope.Payload) + 1
 	return nil
 }
 
@@ -302,16 +306,12 @@ func (s *taskClientStream) CloseSend() error {
 	// 空批次仍有 [] 两个字节；不能因没有 SendMsg 绕过逻辑输入预算
 	if s.desc.ClientStreams && s.inputBytes+2+max(0, len(s.inputs)-1) > s.options.MaxInputBytes {
 		s.submitErr = status.Error(codes.ResourceExhausted, "wego: complete logical input array exceeds limit")
-		s.inputs, s.plains = nil, nil
+		s.inputs = nil
 		s.fail(s.submitErr)
 		return s.submitErr
 	}
-	digest, err := stream.InputDigest(s.method, s.plains, s.routing)
-	if err != nil {
-		s.submitErr = err
-		s.fail(err)
-		return err
-	}
+	// err 保存封包及一次提交的失败，CloseSend 不进行部分提交。
+	var err error
 	// 空输入流明确编码为 []，不把 nil 编码成 null
 	payload := json.RawMessage("[]")
 	if s.desc.ClientStreams {
@@ -326,13 +326,22 @@ func (s *taskClientStream) CloseSend() error {
 		s.fail(err)
 		return err
 	}
-	envelope, err := wire.EncodeSnapshot(s.ctx, s.method, string(s.inputType), json.RawMessage("{}"), s.routing, nil, s.options.MaxEncodedInputBytes)
+	digest, err := wire.EventDigest(payload, s.routing)
 	if err != nil {
 		s.submitErr = err
 		s.fail(err)
 		return err
 	}
-	envelope.Payload, envelope.Stream, envelope.StreamMode, envelope.InputDigest, envelope.IdempotencyKey = payload, streamKind(s.desc), modeName(s.options.Mode), digest, s.key
+	envelope := wire.NewEnvelope(s.ctx, s.method, string(s.inputType), payload, s.routing)
+	envelope.Stream, envelope.StreamMode, envelope.InputDigest, envelope.IdempotencyKey = streamKind(s.desc), modeName(s.options.Mode), digest, s.key
+	budget, cancel := context.WithTimeout(s.ctx, s.engine.Config.PayloadLimits.EncodeTimeout)
+	envelope, err = wire.Seal(budget, envelope, s.engine.Config, s.options.MaxInputBytes, s.options.MaxInputBytes+(64<<10), s.options.MaxEncodedInputBytes)
+	cancel()
+	if err != nil {
+		s.submitErr = err
+		s.fail(err)
+		return err
+	}
 	data, err := json.Marshal(envelope)
 	if err != nil || len(data) > s.options.MaxEncodedInputBytes {
 		s.submitErr = status.Error(codes.ResourceExhausted, "wego: complete stream envelope exceeds limit")
@@ -341,7 +350,7 @@ func (s *taskClientStream) CloseSend() error {
 	}
 	// JSON 快照、输入摘要及随机 key 到此冻结；重试不能重新运行业务 codec
 	ref, err := s.submit(envelope)
-	s.inputs, s.plains = nil, nil
+	s.inputs = nil
 	if err != nil {
 		s.submitErr = err
 		s.fail(err)
@@ -349,10 +358,42 @@ func (s *taskClientStream) CloseSend() error {
 	}
 	s.mu.Lock()
 	s.runID = ref.ID
-	s.state = stream.State{RunID: ref.ID, Method: s.method, InputDigest: digest}
+	s.state = stream.State{RunID: ref.ID, Method: s.method, InputDigest: stream.ExecutionDigest(s.engine.Config.Namespace, s.method, digest)}
 	s.mu.Unlock()
 	s.startObservers(ref)
 	return nil
+}
+
+// attachExistingStream 以实际运行版本核对绑定与输入，再以观察者身份消费；取消不能终止原调用。
+func (s *taskClientStream) attachExistingStream(budget context.Context, runID string, envelope wire.Envelope) (ports.Run, error) {
+	reader, ok := s.engine.Backend.(ports.RunInputReader)
+	lookup, lookupOK := s.engine.Backend.(ports.RunLookup)
+	if !ok || !lookupOK {
+		return ports.Run{}, status.Error(codes.Unimplemented, "wego: run recovery unavailable")
+	}
+	if validator, ok := s.engine.Backend.(ports.RunTargetValidator); ok {
+		if err := validator.ValidateRunTarget(budget, runID, s.method, ports.RPCContract{Shape: streamKind(s.desc), Mode: modeName(s.options.Mode), InputType: string(s.inputType), OutputType: string(s.outputType)}); err != nil {
+			return ports.Run{}, err
+		}
+	}
+	input, err := reader.RunInput(budget, runID)
+	if err != nil {
+		return ports.Run{}, err
+	}
+	if err := verifyStoredStream(budget, s.engine, input, s.method, envelope.InputDigest); err != nil {
+		return ports.Run{}, err
+	}
+	// 同方法不能用另一种流方向或传输模式恢复，实时输出也不能假装可回放
+	var previous wire.Envelope
+	if err := json.Unmarshal(input, &previous); err != nil || previous.StreamMode != envelope.StreamMode {
+		return ports.Run{}, status.Error(codes.FailedPrecondition, "wego: persisted stream shape or mode differs")
+	}
+	if s.desc.ServerStreams && s.options.Mode == spec.Realtime {
+		return ports.Run{}, &model.SubmissionError{Err: status.Error(codes.FailedPrecondition, "wego: existing realtime output cannot be replayed"), RunID: runID, OperationKey: s.operationKey}
+	}
+	s.ownsRun = false
+	_, ref, err := lookup.LookupRun(budget, runID)
+	return ref, err
 }
 
 // submit 对不明确提交复用相同 envelope；幂等冲突先核对历史输入再恢复观察
@@ -369,34 +410,18 @@ func (s *taskClientStream) submit(envelope wire.Envelope) (ref ports.Run, err er
 		if budget.Err() != nil {
 			return ports.Run{}, status.FromContextError(budget.Err()).Err()
 		}
-		ref, err := s.engine.Backend.Run(budget, s.method, envelope, model.RunOptions{Metadata: map[string]string{"wego_submission": s.submission}})
+		opts := spec.CloneRunOptions(s.runOptions)
+		if opts.AdditionalMetadata == nil {
+			opts.AdditionalMetadata = map[string]string{}
+		}
+		opts.AdditionalMetadata["wego_submission"] = s.submission
+		ref, err := s.engine.Backend.Run(budget, s.method, envelope, opts)
 		if err == nil {
 			return ref, nil
 		}
 		collision := new(model.IdempotencyCollisionError)
 		if errors.As(err, &collision) {
-			reader, ok := s.engine.Backend.(ports.RunInputReader)
-			lookup, lookupOK := s.engine.Backend.(ports.RunLookup)
-			if !ok || !lookupOK {
-				return ports.Run{}, status.Error(codes.Unimplemented, "wego: run recovery unavailable")
-			}
-			input, err := reader.RunInput(budget, collision.ExistingRunID)
-			if err != nil {
-				return ports.Run{}, err
-			}
-			if err := stream.VerifyRunIdentity(input, s.method, envelope.InputDigest); err != nil {
-				return ports.Run{}, err
-			}
-			// 同方法不能用另一种流方向或传输模式恢复，实时输出也不能假装可回放
-			var previous wire.Envelope
-			if err := json.Unmarshal(input, &previous); err != nil || previous.Stream != envelope.Stream || previous.StreamMode != envelope.StreamMode {
-				return ports.Run{}, status.Error(codes.FailedPrecondition, "wego: persisted stream shape or mode differs")
-			}
-			if s.desc.ServerStreams && s.options.Mode == spec.Realtime {
-				return ports.Run{}, &model.SubmissionError{Err: status.Error(codes.FailedPrecondition, "wego: existing realtime output cannot be replayed"), RunID: collision.ExistingRunID, OperationKey: s.operationKey}
-			}
-			_, ref, err := lookup.LookupRun(budget, collision.ExistingRunID)
-			return ref, err
+			return s.attachExistingStream(budget, collision.ExistingRunID, envelope)
 		}
 		code := status.Code(err)
 		uncertain = uncertain || code == codes.Unavailable || code == codes.DeadlineExceeded || code == codes.Unknown || code == codes.Canceled

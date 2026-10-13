@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -13,11 +15,15 @@ import (
 	"time"
 
 	"github.com/hatchet-dev/hatchet/sdks/wego/log"
+	"github.com/hatchet-dev/hatchet/sdks/wego/model"
+	"github.com/hatchet-dev/hatchet/sdks/wego/worker"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 
 	"github.com/hatchet-dev/hatchet/sdks/wego"
+	"github.com/hatchet-dev/hatchet/sdks/wego/examples/codec/payload"
 	pb "github.com/hatchet-dev/hatchet/sdks/wego/examples/proto"
+	"github.com/hatchet-dev/hatchet/sdks/wego/middleware"
 	"github.com/hatchet-dev/hatchet/sdks/wego/runtime"
 	"github.com/hatchet-dev/hatchet/sdks/wego/server"
 	"github.com/hatchet-dev/hatchet/sdks/wego/task"
@@ -42,6 +48,7 @@ type greeter struct {
 func (obj *greeter) SayHello(ctx context.Context, request *pb.Request) (*pb.Reply, error) {
 	// info, _ 读取实际执行身份，例如 RunID 与 WorkerID；普通网络 context 没有任务身份
 	info, _ := task.Info(ctx)
+	return nil, errors.New("test error")
 	return &pb.Reply{
 		Message:    "Processed: " + request.Message + "| " + obj.instanceName,
 		RunId:      info.RunID,
@@ -130,11 +137,58 @@ func (obj *greeter) ChatHellos(stream grpc.BidiStreamingServer[pb.Request, pb.Re
 // runSingle 阻塞运行指定展示名称的 Server，上下文取消后排空当前实例。
 func runSingle(ctx context.Context, instanceName string) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
-
+	// key 与 Conn 使用同一份私有环境配置；启动前验证密钥长度。
+	key, keyErr := hex.DecodeString(os.Getenv("WEGO_CODEC_AES_KEY"))
+	if keyErr != nil || len(key) != 32 {
+		log.Error(ctx, "WEGO_CODEC_AES_KEY requires a 32-byte hex key")
+		return
+	}
+	// encrypted 只处理 value，使用随机 nonce 和 nil AAD。
+	encrypted, codecErr := payload.NewAESGCM(key)
+	if codecErr != nil {
+		log.Error(ctx, "initialize AES codec", "error", codecErr)
+		return
+	}
+	// objects 通过 AWS S3 SDK 连接本机 MinIO；每个 Server 独立拥有 HTTP 连接。
+	objects, codecErr := payload.NewS3(ctx, payload.ConfigFromEnv(), "feature/", payload.WithThreshold(1))
+	if codecErr != nil {
+		log.Error(ctx, "initialize S3 codec", "error", codecErr)
+		return
+	}
+	// compressed 在组件构造时配置压缩阈值，注册后发送策略不可变。
+	compressed, codecErr := payload.NewZstd(payload.WithThreshold(1))
+	if codecErr != nil {
+		objects.Close()
+		logger.ErrorContext(ctx, "initialize zstd codec", "error", codecErr)
+		return
+	}
+	// gzipCodec 显式配置组件阈值，当前仅注册为历史消息的解码能力。
+	gzipCodec, codecErr := payload.NewGzip(payload.WithThreshold(1))
+	if codecErr != nil {
+		objects.Close()
+		log.Error(ctx, "initialize gzip codec", "error", codecErr)
+		return
+	}
+	// 排空结束后只关闭连接，历史结果和流仍可能引用已上传对象。
+	defer objects.Close()
 	// 实例化server
 	s := wego.NewServer(
 		server.WithRuntime(
 			runtime.WithLogger(logger),
+			// 业务值压缩、加密后上传 MinIO；routing 保持明文供 CEL 调度。
+			runtime.WithMiddleware(
+				middleware.WithPayload(gzipCodec),
+				middleware.WithPayload(compressed),
+				middleware.WithPayload(encrypted),
+				middleware.WithPayload(objects),
+			),
+			// 显式选择 zstd→AES-GCM→S3；gzip 仅作为已注册的解码能力
+			runtime.WithEncodingCodecs(
+				payload.ZstdCodecID,
+				payload.AESGCMCodecID,
+				payload.S3ObjectCodecID,
+			),
+
 			runtime.WithToken(os.Getenv("HATCHET_CLIENT_TOKEN")),
 			runtime.WithAddress(os.Getenv("HATCHET_BROKER_ADDR")),
 			runtime.WithServerURL(os.Getenv("HATCHET_SERVER_ADDR")),
@@ -142,6 +196,39 @@ func runSingle(ctx context.Context, instanceName string) {
 			runtime.WithSlots(10),
 			runtime.WithDurableSlots(10),
 			runtime.WithInstanceName(instanceName),
+		),
+		server.WithWorker(
+			worker.WithTask(
+				pb.Greeter_SayHello_FullMethodName,
+				// 默认会注册同名的event key
+				//task.WithEvents("say/hello:invoke"),
+				task.WithDefaultFilters(
+					// 静态filter, 可通过
+					task.DefaultFilter{
+						//Scope:      fmt.Sprintf("test-feature:%s", instanceName),
+						Scope:      "test-feature",
+						Expression: `input.routing.message == payload.routing.target_msg`,
+						Payload: model.Input{
+							// 如果Expression匹配
+							Routing: map[string]any{
+								"target_msg": "hello-filter",
+							},
+							// 就把value带到worker, 通过 task.Info(ctx).FilterPayload 读取
+							Value: map[string]any{
+								"channel":   "email",
+								"recipient": "alerts@example.com",
+							},
+						},
+					},
+				),
+				// 配置重试次数
+				task.WithRetries(3),
+				// 重试指数退避, 以2为底，最多10s
+				task.WithRetryBackoff(2, 10),
+				// 配合：
+				// 1. 绕过重试逻辑: hatchet.NewNonRetryableError(errors.New("intentional failure"))
+				// 2. 自定义重试等待时间: hatchet.NewRetryAfterError(2*time.Second, errors.New("upstream rate limited"))
+			),
 		),
 	)
 

@@ -1,8 +1,16 @@
-# wego SDK 0.2.9
+# wego SDK 0.4.10
 
 wego 把标准 Go gRPC handler 和 protobuf 客户端桩接入 Hatchet standalone 任务。`Conn` 实现 `grpc.ClientConnInterface`，`Server` 实现 `grpc.ServiceRegistrar`；公开 API、回调值和错误链不暴露 Hatchet 类型。
 
-本版采用协议 **4**，只依赖未经修改的官方 Hatchet **v0.110.5**。0.2.0 的 18 项质量门禁、28 个源文件/74 个构造片段及完整验收记录见 [历史验收报告](docs/design/acceptance-report.md)。0.2.1 增加真实 MinIO codec 示例，使用 AWS S3 SDK；部署与运行见 [codec 示例](examples/codec/README.md)，0.2.1 的验证见 [专项报告](docs/design/minio-codec-report.md)。
+本版采用协议 **5**，只依赖未经修改的官方 Hatchet **v0.110.5**。0.2.0 的 18 项质量门禁、28 个源文件/74 个构造片段及完整验收记录见 [历史验收报告](docs/design/acceptance-report.md)。0.2.1 增加真实 MinIO codec 示例，使用 AWS S3 SDK；部署与运行见 [codec 示例](examples/codec/README.md)，0.2.1 的验证见 [专项报告](docs/design/minio-codec-report.md)。
+
+0.3.0 的 19 项质量门禁及官方镜像真实验收全部通过，见 [0.3.0 验收报告](docs/design/v0.3.0-acceptance-report.md)。升级需协调客户端和 Worker，先排空协议 4 的任务。
+
+0.4.0 使用协议 6 的 `_wego/value/routing` 输入，支持 Console 和官方 SDK 的原生业务 JSON；SDK 调用显式使用 wego 响应契约。codec 只处理业务 value，不使用 AAD；流协议帧仍整体变换。完整格式与迁移步骤见 [协议 6](docs/design/v0.4.0.md)。
+
+0.3.2 将 Cron 和 Schedule 的 `Priority` 改为 `int32`：`0` 表示未指定，`1–3` 为低、中、高优先级，其他值在提交前报错。无需取地址，协议仍为 5。
+
+0.3.1 将标签比较器、并发策略和限流周期改为值类型，直接填写 `model.LabelEqual`、`model.GroupRoundRobin`、`model.Minute` 即可。标签比较器省略时为相等；策略和周期空值表示未指定。协议仍为 5，源码调用需移除这三个字段的取地址操作；检查结果见 [枚举配置专项报告](docs/design/v0.3.1-enum-report.md)。
 
 0.2.2 增加租户 Durable Streams 开启脚本，运行后隐藏输入 token；数据库配置及用法见 [本机部署说明](deployment/compose/README.md)。
 
@@ -31,8 +39,8 @@ conn, err := client.New(client.WithRuntime(cfg...))
 // 处理 err；ctx 应有符合业务需要的 deadline。
 defer conn.Close()
 rpc := pb.NewGreeterClient(conn)
-ctx = client.WithRouting(ctx, map[string]any{"group":"group-a"})
-out, err := rpc.SayHello(ctx, request)
+opts := []client.RunOption{client.WithRouting(map[string]any{"group":"group-a"})}
+out, err := rpc.SayHello(ctx, request, client.WithRunOptions(opts...))
 ```
 
 网络入口直接执行同一 handler；`runtime.WithDisableWorker()` 关闭 Server 的任务入口，纯网络模式无需 token。`server.WithGRPC` 透传原生 gRPC 选项；`WithWorker` 仅配置任务策略。
@@ -43,7 +51,7 @@ out, err := rpc.SayHello(ctx, request)
 
 namespace 默认空。Worker 默认名称为 `<namespace>-<hostname>-<随机 worker_key 前12位>`，`WithInstanceName` 覆盖展示名称。worker_key 按 SDK 实例生成，重连保持、重启变化，不允许业务指定。RPC workflow 为 `<namespace>-<完整 protobuf 服务名>-<方法名>`，副本共享定义及版本；停止 Worker 不自动删除或暂停定义。
 
-完整注册、durable、三种流、恢复和通知用法见 [worker.md](docs/design/worker.md)；模块边界及质量门禁见 [module.md](docs/design/module.md)，设计约束见 [v0.2.0.md](docs/design/v0.2.0.md)。[acceptance.json](examples/acceptance.json) 映射 28 个官方源文件中的全部 74 个 standalone 构造片段及辅助演示。
+完整注册、durable、三种流、恢复和通知用法见 [worker.md](docs/design/worker.md)；模块边界及质量门禁见 [module.md](docs/design/module.md)，统一消息设计及阶段状态见 [v0.3.0.md](docs/design/v0.3.0.md)。[acceptance.json](examples/acceptance.json) 映射 28 个官方源文件中的全部 74 个 standalone 构造片段及辅助演示。
 
 ## 统一日志
 
@@ -79,10 +87,12 @@ go func() {
 - Worker bidi 使用整批输入、流式输出。交互式双向通信使用网络 gRPC 入口。
 - server/bidi 默认 Reliable，使用持久输出、CLAIM 竞争及最终清单核验；部署必须启用 Durable Streams。SDK 不直接修改数据库或静默降级。
 - `runtime.WithStreamMode(fullMethod, runtime.Realtime)` 显式使用 PutStream。该路径不能持久回放，官方订阅没有就绪 ACK，输出缺失或断流明确报错。
-- `client.WithIdempotencyKey` 指定业务保存的逻辑调用键；`client.StreamCheckpoint` 只在成功交付输出后推进，`conn.ResumeStream` 从已有运行继续消费，不追加输入。
+- `client.WithStreamIdempotencyKey` 指定流调用的提交幂等键，仅用于三种流；普通任务使用定义级 `task.WithIdempotency`。`client.StreamResumeToken` 读取 Client 的消费恢复凭证，只在成功交付输出后推进，`conn.ResumeStream` 从已有运行继续消费，不追加输入。
 - `task.Checkpoint` 返回本次接管前的有限历史；有历史的 handler 必须读到 EOF 后恢复业务进度，再发送新输出。外部副作用及业务消费幂等由应用负责。
 
-业务请求为 ProtoJSON，CEL 使用显式 `input.routing.*`。routing 不经过载荷变换；所有流帧，包括 CLAIM、HEADERS、DATA、结束、JOIN、事件和取消，统一经过有界 codec。不明确发布结果复用同一 producer、序号和已编码字节。
+所有任务业务输入和输出均封包：protobuf 使用 ProtoJSON，普通 Go 值使用 JSON；业务字节统一 base64 承载并执行 codec。任务类型由注册绑定与调用地址确定，普通任务也可以使用 protobuf。CEL 使用显式 `input.routing.*`。routing 不经过载荷变换；所有流帧，包括 CLAIM、HEADERS、DATA、结束、JOIN、事件和取消，统一经过有界 codec。不明确发布结果复用同一 producer、序号和已编码字节。
+
+调用命名沿用官方 Go SDK 的 `WithRunKey`、`WithRunSticky`、`WithRunPriority`、`WithRunMetadata`、`WithDesiredWorkerLabels`；后两者对应自有 `RunOptions.AdditionalMetadata`、`DesiredWorkerLabels`。`client.WithRouting` 与 `runtime.WithRoutingDefaults` 适用于普通任务和 RPC；生成客户端通过 `client.WithRunOptions(opts...)` 使用同一组 RunOption。routing 按默认值、`model.Input.Routing`、调用选项依次覆盖顶层键。Cron、Schedule 和 Event 使用 `model.Input{Value: input, Routing: fields}`；事件默认值通过 `WithEventRoutingDefaults` 配置，Filter CEL 读取 `payload.routing.*`。
 
 默认单条业务消息 1 MiB、输入总量 4 MiB、最多 4096 条输入、输出预取 64 条/4 MiB；按方法配置 `WithStreamOptions`。整帧、后端完整请求、对象下载、解压、扫描、恢复和 I/O 分别有预算，超限整批失败，不提交部分输入。
 
@@ -102,7 +112,7 @@ GOWORK=off go -C sdks/wego test -race ./...
 python3 sdks/wego/scripts/acceptance.py
 ```
 
-完整运行器验证公开 API/动态类型隔离、导入/源码边界、中文注释、生成复现、race、两类协议 fuzz、官方回归和全部真实引擎场景；全部必需项通过才生成当前版本的完成报告。生成工具固定 protoc 29.6、protoc-gen-go v1.36.12、protoc-gen-go-grpc v1.5.1，仅生成 wego 协议与业务桩。
+完整运行器验证公开 API/动态类型隔离、导入/源码边界、中文注释、生成复现、race、三类协议 fuzz、官方回归和全部真实引擎场景；全部必需项通过才生成当前版本的完成报告。生成工具固定 protoc 29.6、protoc-gen-go v1.36.12、protoc-gen-go-grpc v1.5.1，仅生成 wego 协议与业务桩。
 
 测试使用唯一 namespace，记录实际命令、身份、断言和清理，不记录凭证。业务定义及触发器清理；运行历史、持久 topic、引擎 Worker 记录和明确保留的协议探针定义由官方保留策略管理。CI 的 [compose](tests/compose.yml) 使用 PostgreSQL MQ，显式设置 `SERVER_SECURITY_CHECK_ENABLED=false`。
 
@@ -114,13 +124,13 @@ Embedded 仅由 `wego_embedded` tag 启用，使用独立进程、测试库和�
 
 Server 使用阻塞的 `Serve`，应用通过 `Stop` 或 `GracefulStop` 显式关闭；进程信号由应用自行处理。Conn 和原生 Worker 保留带调用方预算的关闭入口；默认独立清理预算 30 秒，Stop 能中断排空。排空期间保留事件订阅，确认输出、结果和日志后再关闭订阅、flush telemetry 和关闭连接。
 
-RPC、同步 Run、`RunRef.Result(ctx)` 的 context 取消会请求取消共享运行；其他观察者也会看到取消。RunNoWait/RunMany 的 context 只控制提交，成功返回后的运行使用显式 Cancel。提交响应丢失时返回可诊断的提交错误及可恢复身份，不能把未知结果当成没有提交。
+RPC 与同步 Run 取消会请求取消本次拥有的运行。`RunRef.Result(ctx)` 和 `ResumeStream` 只停止当前观察；`RunRef.Cancel(ctx)` 显式取消共享运行。RunNoWait/RunMany 的 context 只控制提交，不固化执行 deadline。提交响应丢失时返回可诊断的提交错误及可恢复身份，不能把未知结果当成没有提交。
 
 `conn.Workers().SendEvent` 定向通知实例，`BroadcastEvent` 通知同 tenant/namespace 当前已加入的 Worker；成功表示持久发布，不表示业务回调已处理。JOIN、有限重连及内部取消不占 slots；业务回调使用独立有界队列。
 
 Trace provider 和 metrics registry 属于实例，不替换全局 OTel provider，metrics 默认关闭。协议指标只使用 method/mode/outcome 标签，运行身份通过日志/trace 关联。借用连接与应用提供的 exporter/存储由其所有者关闭。
 
-升级前排空协议 3 的任务，协调客户端和 Worker 升级，并更新 workflow、Cron、Schedule、Event 引用；本版不转换历史运行或自动删除旧定义。Go SDK 的后续 Streams 更新通过私有 backend 适配，须重新核验 producer/seq/cursor/错误与连接生命周期契约。
+升级前排空协议 4 的任务，协调客户端和 Worker 升级，并更新 workflow、Cron、Schedule、Event 引用；本版不转换历史运行或自动删除旧定义。Go SDK 的后续 Streams 更新通过私有 backend 适配，须重新核验 producer/seq/cursor/错误与连接生命周期契约。
 
 覆盖率、复杂度和性能基线可在独立 SDK 模块运行：
 

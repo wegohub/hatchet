@@ -1,0 +1,4332 @@
+{
+  "sdk_version": "0.3.3",
+  "protocol_version": 5,
+  "status": "PASSED",
+  "date": "2026-10-12T19:06:15.250507+08:00",
+  "server_version": "v0.110.5",
+  "engine_digest": "sha256:185c4311d23fad2faecd5fdd771369a369f33cbfa0e9f4083a952c4fe1c15808",
+  "dashboard_digest": "sha256:d1a8e8ef1c0ad4e8083b93ef98a1dbd8e2519d5a4537dc1a9562f5e8e8086680",
+  "minio_image": "wego-minio:RELEASE.2025-10-15T17-29-55Z",
+  "minio_image_id": "sha256:c875bbc66ec5439458885dc385d3a5bf116607166aeaed575f028017ca3423d3",
+  "mq": "postgresql",
+  "commands": {
+    "unit": "python3 sdks/wego/scripts/unit.py",
+    "race": "python3 sdks/wego/scripts/unit.py -race",
+    "vet": "GOWORK=off go -C sdks/wego vet ./...",
+    "released_dependency": "python3 sdks/wego/scripts/check-released.py",
+    "quality": "GOWORK=off go -C sdks/wego test ./tests/quality",
+    "upstream": "go test ./sdks/go/... ./pkg/client/... ./pkg/worker/...",
+    "feature_compile": "GOWORK=off go -C sdks/wego test -c -o .test-results/v0.3.3-feature-client.test ./tests/feature/client",
+    "fuzz_frame": "GOWORK=off go -C sdks/wego test ./internal/wire -run '^$' -fuzz '^FuzzFrameCodecDecode$' -fuzztime=10s",
+    "fuzz_payload": "GOWORK=off go -C sdks/wego test ./internal/wire -run '^$' -fuzz '^FuzzUnifiedPayload$' -fuzztime=10s",
+    "fuzz_state": "GOWORK=off go -C sdks/wego test ./internal/stream -run '^$' -fuzz '^FuzzLogInterpreter$' -fuzztime=10s",
+    "engine": "python3 sdks/wego/scripts/local-test.py env GOWORK=off go -C sdks/wego test -json -tags=e2e ./tests/e2e/... -timeout 30m",
+    "targeted_race": "python3 sdks/wego/scripts/local-test.py env GOWORK=off go -C sdks/wego test -race -tags=e2e ./tests/e2e -run '^(TestRPCEventsCodecIDs|TestRPCRealtimeEvents|TestUnifiedMessages|TestUnifiedCallOptions|TestMinIOCodec)$' -timeout 8m",
+    "protocol_engine": "python3 sdks/wego/scripts/local-test.py env GOWORK=off WEGO_P0_FAULT_FIXTURES=1 go -C sdks/wego test -race -tags=e2e ./internal/backend -timeout 10m",
+    "embedded": "python3 sdks/wego/scripts/local-test.py env GOWORK=off go -C sdks/wego test -tags=e2e,wego_embedded ./tests/e2e/... -run '^TestEmbedded$' -timeout 10m"
+  },
+  "gate_status": {
+    "unit": "PASSED",
+    "race": "PASSED",
+    "vet": "PASSED",
+    "released_dependency": "PASSED",
+    "quality": "PASSED",
+    "upstream": "PASSED",
+    "feature_compile": "PASSED",
+    "fuzz_frame": "PASSED",
+    "fuzz_payload": "PASSED",
+    "fuzz_state": "PASSED",
+    "engine": "PASSED",
+    "targeted_race": "PASSED",
+    "protocol_engine": "PASSED",
+    "embedded": "PASSED"
+  },
+  "source_boundary": "only sdks/wego/**; Hatchet source and root dependencies unchanged",
+  "e2e_tests": [
+    {
+      "test": "TestBatchShutdownBudget",
+      "status": "pass",
+      "seconds": 7.84
+    },
+    {
+      "test": "TestDisabledWorkerMethods",
+      "status": "pass",
+      "seconds": 6.13
+    },
+    {
+      "test": "TestDurablePendingMemoRecovery",
+      "status": "pass",
+      "seconds": 94.02
+    },
+    {
+      "test": "TestReviewDurableRemoteChildOutput",
+      "status": "pass",
+      "seconds": 8
+    },
+    {
+      "test": "TestDurableRestart",
+      "status": "pass",
+      "seconds": 47.57
+    },
+    {
+      "test": "TestExamples",
+      "status": "pass",
+      "seconds": 550.7
+    },
+    {
+      "test": "TestLoggingShutdown",
+      "status": "pass",
+      "seconds": 4.46
+    },
+    {
+      "test": "TestMinIOCodec",
+      "status": "pass",
+      "seconds": 15.76
+    },
+    {
+      "test": "TestStreamPerformanceBaseline",
+      "status": "pass",
+      "seconds": 7.89
+    },
+    {
+      "test": "TestResultCancellationIsObservationOnly",
+      "status": "pass",
+      "seconds": 6.98
+    },
+    {
+      "test": "TestReviewHeterogeneousStreamOwners",
+      "status": "pass",
+      "seconds": 5.66
+    },
+    {
+      "test": "TestReviewSameNameWorkerInstances",
+      "status": "pass",
+      "seconds": 3.71
+    },
+    {
+      "test": "TestRPCEventsCodecIDs",
+      "status": "pass",
+      "seconds": 27.67
+    },
+    {
+      "test": "TestRPCRealtimeEvents",
+      "status": "pass",
+      "seconds": 8.4
+    },
+    {
+      "test": "TestIndependentReviewDurableSharedResult",
+      "status": "pass",
+      "seconds": 6.13
+    },
+    {
+      "test": "TestReviewStreamingCost",
+      "status": "pass",
+      "seconds": 2.81
+    },
+    {
+      "test": "TestReviewConcurrentStreamingCost",
+      "status": "pass",
+      "seconds": 5.25
+    },
+    {
+      "test": "TestStreamFaults",
+      "status": "pass",
+      "seconds": 50.11
+    },
+    {
+      "test": "TestRealtimeStreams",
+      "status": "pass",
+      "seconds": 4.9
+    },
+    {
+      "test": "TestReliableStreamRecovery",
+      "status": "pass",
+      "seconds": 8.3
+    },
+    {
+      "test": "TestStreamWorkerRestart",
+      "status": "pass",
+      "seconds": 24.12
+    },
+    {
+      "test": "TestStreamAmbiguousSubmissionCancellation",
+      "status": "pass",
+      "seconds": 0.73
+    },
+    {
+      "test": "TestTriggerPriorityPresence",
+      "status": "pass",
+      "seconds": 0.45
+    },
+    {
+      "test": "TestUnifiedMessages",
+      "status": "pass",
+      "seconds": 21.17
+    },
+    {
+      "test": "TestUnifiedCallOptions",
+      "status": "pass",
+      "seconds": 5.41
+    },
+    {
+      "test": "TestWorkerEvents",
+      "status": "pass",
+      "seconds": 5.08
+    }
+  ],
+  "e2e_subtests_passed": 81,
+  "e2e_failed_or_skipped": 0,
+  "e2e_seconds": 930.175,
+  "official_sources": {
+    "sdks/go/examples/batch_assign/main.go": {
+      "fragments": [
+        {
+          "id": "sdks/go/examples/batch_assign/main.go::main::batch-simple",
+          "required_assertions": [
+            {
+              "scenario": "batch",
+              "id": "a5964017b94ed74a36282908",
+              "assertion": "batch simple aggregation and result mapping"
+            }
+          ],
+          "function": "main",
+          "constructor": "NewStandaloneBatchTask",
+          "task": "batch-simple",
+          "line": 45
+        },
+        {
+          "id": "sdks/go/examples/batch_assign/main.go::main::batch-keyed",
+          "required_assertions": [
+            {
+              "scenario": "batch",
+              "id": "d589ba52d67469728adfc34c",
+              "assertion": "batch keyed aggregation and result mapping"
+            }
+          ],
+          "function": "main",
+          "constructor": "NewStandaloneBatchTask",
+          "task": "batch-keyed",
+          "line": 61
+        },
+        {
+          "id": "sdks/go/examples/batch_assign/main.go::main::batch-broadcast",
+          "required_assertions": [
+            {
+              "scenario": "batch",
+              "id": "f10f1d88c81387f5087285c4",
+              "assertion": "batch broadcast aggregation and result mapping"
+            }
+          ],
+          "function": "main",
+          "constructor": "NewStandaloneBatchTask",
+          "task": "batch-broadcast",
+          "line": 88
+        }
+      ],
+      "scenarios": [
+        "batch"
+      ],
+      "status": "PASSED"
+    },
+    "sdks/go/examples/child-workflows/main.go": {
+      "fragments": [
+        {
+          "id": "sdks/go/examples/child-workflows/main.go::Parent::parent-task",
+          "required_assertions": [
+            {
+              "scenario": "child-workflows",
+              "id": "63bbab2e2d509188f0e11ed7",
+              "assertion": "sequential children preserve identity"
+            },
+            {
+              "scenario": "child-workflows",
+              "id": "ab16a74a19109ea11f5f19b7",
+              "assertion": "parallel children preserve identity"
+            }
+          ],
+          "function": "Parent",
+          "constructor": "NewStandaloneTask",
+          "task": "parent-task",
+          "line": 24
+        },
+        {
+          "id": "sdks/go/examples/child-workflows/main.go::Child::child-task",
+          "required_assertions": [
+            {
+              "scenario": "child-workflows",
+              "id": "63bbab2e2d509188f0e11ed7",
+              "assertion": "sequential children preserve identity"
+            },
+            {
+              "scenario": "child-workflows",
+              "id": "ab16a74a19109ea11f5f19b7",
+              "assertion": "parallel children preserve identity"
+            }
+          ],
+          "function": "Child",
+          "constructor": "NewStandaloneTask",
+          "task": "child-task",
+          "line": 69
+        }
+      ],
+      "scenarios": [
+        "child-workflows"
+      ],
+      "status": "PASSED"
+    },
+    "sdks/go/examples/concurrency/main.go": {
+      "fragments": [
+        {
+          "id": "sdks/go/examples/concurrency/main.go::ConcurrencyRoundRobin::simple-concurrency",
+          "required_assertions": [
+            {
+              "scenario": "concurrency",
+              "id": "8320c746bd609115adbcbb26",
+              "assertion": "concurrency round-robin"
+            }
+          ],
+          "function": "ConcurrencyRoundRobin",
+          "constructor": "NewStandaloneTask",
+          "task": "simple-concurrency",
+          "line": 27
+        },
+        {
+          "id": "sdks/go/examples/concurrency/main.go::MultipleConcurrencyKeys::multi-concurrency",
+          "required_assertions": [
+            {
+              "scenario": "concurrency",
+              "id": "f59c2a4a9aa02818741c982c",
+              "assertion": "concurrency multiple-keys"
+            }
+          ],
+          "function": "MultipleConcurrencyKeys",
+          "constructor": "NewStandaloneTask",
+          "task": "multi-concurrency",
+          "line": 50
+        },
+        {
+          "id": "sdks/go/examples/concurrency/main.go::ConcurrencyCancelInProgress::cancel-in-progress",
+          "required_assertions": [
+            {
+              "scenario": "concurrency",
+              "id": "7f8c6f594502c5c328813481",
+              "assertion": "cancel strategy CANCEL_IN_PROGRESS"
+            }
+          ],
+          "function": "ConcurrencyCancelInProgress",
+          "constructor": "NewStandaloneTask",
+          "task": "cancel-in-progress",
+          "line": 79
+        },
+        {
+          "id": "sdks/go/examples/concurrency/main.go::ConcurrencyCancelNewest::cancel-newest",
+          "required_assertions": [
+            {
+              "scenario": "concurrency",
+              "id": "d4db3da9426c8f54139f5ca1",
+              "assertion": "cancel strategy CANCEL_NEWEST"
+            }
+          ],
+          "function": "ConcurrencyCancelNewest",
+          "constructor": "NewStandaloneTask",
+          "task": "cancel-newest",
+          "line": 102
+        },
+        {
+          "id": "sdks/go/examples/concurrency/main.go::ConcurrencyCancelQueuedExceptNewest::cancel-queued-except-newest",
+          "required_assertions": [
+            {
+              "scenario": "concurrency",
+              "id": "04360045eb70ef2d0cb6b651",
+              "assertion": "cancel strategy CANCEL_QUEUED_EXCEPT_NEWEST"
+            }
+          ],
+          "function": "ConcurrencyCancelQueuedExceptNewest",
+          "constructor": "NewStandaloneTask",
+          "task": "cancel-queued-except-newest",
+          "line": 125
+        },
+        {
+          "id": "sdks/go/examples/concurrency/main.go::ConcurrencyCancelQueuedExceptOldest::cancel-queued-except-oldest",
+          "required_assertions": [
+            {
+              "scenario": "concurrency",
+              "id": "3077d4591dd79ee4b6e73ffd",
+              "assertion": "cancel strategy CANCEL_QUEUED_EXCEPT_OLDEST"
+            }
+          ],
+          "function": "ConcurrencyCancelQueuedExceptOldest",
+          "constructor": "NewStandaloneTask",
+          "task": "cancel-queued-except-oldest",
+          "line": 148
+        },
+        {
+          "id": "sdks/go/examples/concurrency/main.go::SharedConcurrencyStrategy::sync-crm",
+          "required_assertions": [
+            {
+              "scenario": "concurrency",
+              "id": "490b3009c27635029f7f483a",
+              "assertion": "shared strategy across two workflows"
+            }
+          ],
+          "function": "SharedConcurrencyStrategy",
+          "constructor": "NewStandaloneTask",
+          "task": "sync-crm",
+          "line": 183
+        },
+        {
+          "id": "sdks/go/examples/concurrency/main.go::SharedConcurrencyStrategy::generate-report",
+          "required_assertions": [
+            {
+              "scenario": "concurrency",
+              "id": "490b3009c27635029f7f483a",
+              "assertion": "shared strategy across two workflows"
+            }
+          ],
+          "function": "SharedConcurrencyStrategy",
+          "constructor": "NewStandaloneTask",
+          "task": "generate-report",
+          "line": 190
+        },
+        {
+          "id": "sdks/go/examples/concurrency/main.go::DynamicMaxRuns::dynamic-concurrency",
+          "required_assertions": [
+            {
+              "scenario": "concurrency",
+              "id": "d4792e72313b28a94293b382",
+              "assertion": "concurrency dynamic"
+            }
+          ],
+          "function": "DynamicMaxRuns",
+          "constructor": "NewStandaloneTask",
+          "task": "dynamic-concurrency",
+          "line": 210
+        }
+      ],
+      "scenarios": [
+        "concurrency"
+      ],
+      "status": "PASSED"
+    },
+    "sdks/go/examples/cron/main.go": {
+      "fragments": [
+        {
+          "id": "sdks/go/examples/cron/main.go::main::cleanup-temp-files",
+          "required_assertions": [
+            {
+              "scenario": "cron",
+              "id": "5874421d6cd5821da10d9bfd",
+              "assertion": "all five expressions registered; real minute trigger with protobuf input"
+            }
+          ],
+          "function": "main",
+          "constructor": "NewStandaloneTask",
+          "task": "cleanup-temp-files",
+          "line": 31
+        },
+        {
+          "id": "sdks/go/examples/cron/main.go::main::check-system-health",
+          "required_assertions": [
+            {
+              "scenario": "cron",
+              "id": "5874421d6cd5821da10d9bfd",
+              "assertion": "all five expressions registered; real minute trigger with protobuf input"
+            }
+          ],
+          "function": "main",
+          "constructor": "NewStandaloneTask",
+          "task": "check-system-health",
+          "line": 50
+        },
+        {
+          "id": "sdks/go/examples/cron/main.go::main::generate-report",
+          "required_assertions": [
+            {
+              "scenario": "cron",
+              "id": "5874421d6cd5821da10d9bfd",
+              "assertion": "all five expressions registered; real minute trigger with protobuf input"
+            }
+          ],
+          "function": "main",
+          "constructor": "NewStandaloneTask",
+          "task": "generate-report",
+          "line": 65
+        },
+        {
+          "id": "sdks/go/examples/cron/main.go::main::monitor-business-systems",
+          "required_assertions": [
+            {
+              "scenario": "cron",
+              "id": "5874421d6cd5821da10d9bfd",
+              "assertion": "all five expressions registered; real minute trigger with protobuf input"
+            }
+          ],
+          "function": "main",
+          "constructor": "NewStandaloneTask",
+          "task": "monitor-business-systems",
+          "line": 80
+        }
+      ],
+      "scenarios": [
+        "cron"
+      ],
+      "status": "PASSED"
+    },
+    "sdks/go/examples/durable/event/main.go": {
+      "fragments": [
+        {
+          "id": "sdks/go/examples/durable/event/main.go::main::durable-event-task",
+          "required_assertions": [
+            {
+              "scenario": "durable-event",
+              "id": "e443c26ef6d5afed88bf2d1c",
+              "assertion": "durable event basic and Now"
+            },
+            {
+              "scenario": "durable-event",
+              "id": "8736354110286f5f65323b1a",
+              "assertion": "durable event filter and Now"
+            },
+            {
+              "scenario": "durable-event",
+              "id": "d55745a4d0d15a6cd6708ebc",
+              "assertion": "durable event lookback and Now"
+            }
+          ],
+          "function": "main",
+          "constructor": "NewStandaloneDurableTask",
+          "task": "durable-event-task",
+          "line": 28
+        }
+      ],
+      "scenarios": [
+        "durable-event"
+      ],
+      "status": "PASSED"
+    },
+    "sdks/go/examples/durable/eviction/main.go": {
+      "fragments": [
+        {
+          "id": "sdks/go/examples/durable/eviction/main.go::main::evictable-sleep",
+          "required_assertions": [
+            {
+              "scenario": "eviction",
+              "id": "100747bceeacc790fd9cec74",
+              "assertion": "durable ttl-sleep resumed without resetting wait"
+            }
+          ],
+          "function": "main",
+          "constructor": "NewStandaloneDurableTask",
+          "task": "evictable-sleep",
+          "line": 38
+        },
+        {
+          "id": "sdks/go/examples/durable/eviction/main.go::main::evictable-wait-for-event",
+          "required_assertions": [
+            {
+              "scenario": "eviction",
+              "id": "f1a310e2073201f13532b0d3",
+              "assertion": "durable ttl-event resumed without resetting wait"
+            }
+          ],
+          "function": "main",
+          "constructor": "NewStandaloneDurableTask",
+          "task": "evictable-wait-for-event",
+          "line": 51
+        },
+        {
+          "id": "sdks/go/examples/durable/eviction/main.go::main::non-evictable-sleep",
+          "required_assertions": [
+            {
+              "scenario": "eviction",
+              "id": "7eb70443bb5c7080016f4cc2",
+              "assertion": "durable disabled resumed without resetting wait"
+            }
+          ],
+          "function": "main",
+          "constructor": "NewStandaloneDurableTask",
+          "task": "non-evictable-sleep",
+          "line": 69
+        },
+        {
+          "id": "sdks/go/examples/durable/eviction/main.go::main::capacity-evictable-sleep",
+          "required_assertions": [
+            {
+              "scenario": "eviction",
+              "id": "c1a45c27509b4d53caabd12e",
+              "assertion": "durable capacity resumed without resetting wait"
+            }
+          ],
+          "function": "main",
+          "constructor": "NewStandaloneDurableTask",
+          "task": "capacity-evictable-sleep",
+          "line": 87
+        }
+      ],
+      "scenarios": [
+        "eviction"
+      ],
+      "status": "PASSED"
+    },
+    "sdks/go/examples/durable/eviction/trigger/main.go": {
+      "fragments": [
+        {
+          "id": "sdks/go/examples/durable/eviction/trigger/main.go::main::evictable-sleep",
+          "required_assertions": [
+            {
+              "scenario": "eviction",
+              "id": "100747bceeacc790fd9cec74",
+              "assertion": "durable ttl-sleep resumed without resetting wait"
+            }
+          ],
+          "function": "main",
+          "constructor": "NewStandaloneDurableTask",
+          "task": "evictable-sleep",
+          "line": 20
+        }
+      ],
+      "scenarios": [
+        "eviction"
+      ],
+      "status": "PASSED"
+    },
+    "sdks/go/examples/durable/sleep/main.go": {
+      "fragments": [
+        {
+          "id": "sdks/go/examples/durable/sleep/main.go::main::long-running-task",
+          "required_assertions": [
+            {
+              "scenario": "durable-sleep",
+              "id": "c22816cdcc65c8c20dd9229e",
+              "assertion": "real durable Sleep and memoized Now"
+            }
+          ],
+          "function": "main",
+          "constructor": "NewStandaloneDurableTask",
+          "task": "long-running-task",
+          "line": 29
+        }
+      ],
+      "scenarios": [
+        "durable-sleep"
+      ],
+      "status": "PASSED"
+    },
+    "sdks/go/examples/embedded/main.go": {
+      "fragments": [
+        {
+          "id": "sdks/go/examples/embedded/main.go::run::greet",
+          "required_assertions": [
+            {
+              "scenario": "embedded",
+              "id": "87825ad3f77c324e9b69f0b2",
+              "assertion": "embedded migration, protobuf invocation, shutdown and database deletion"
+            }
+          ],
+          "function": "run",
+          "constructor": "NewStandaloneTask",
+          "task": "greet",
+          "line": 74
+        }
+      ],
+      "scenarios": [
+        "embedded"
+      ],
+      "status": "PASSED",
+      "evidence": "wego_embedded_1791801768038958000.json"
+    },
+    "sdks/go/examples/events/main.go": {
+      "fragments": [
+        {
+          "id": "sdks/go/examples/events/main.go::main::process-user-event",
+          "required_assertions": [
+            {
+              "scenario": "events",
+              "id": "d3555d14d6b4fdaaefa4a281",
+              "assertion": "event triggers protobuf RPC and result lookup"
+            }
+          ],
+          "function": "main",
+          "constructor": "NewStandaloneTask",
+          "task": "process-user-event",
+          "line": 31
+        }
+      ],
+      "scenarios": [
+        "events"
+      ],
+      "status": "PASSED"
+    },
+    "sdks/go/examples/idempotency/worker.go": {
+      "fragments": [
+        {
+          "id": "sdks/go/examples/idempotency/worker.go::IdempotentTask::idempotent-task",
+          "required_assertions": [
+            {
+              "scenario": "idempotency",
+              "id": "0db024136f3923d2041ea5e0",
+              "assertion": "idempotency status=false"
+            },
+            {
+              "scenario": "idempotency",
+              "id": "389421f3de2f4e4647b9d42b",
+              "assertion": "idempotency key released after completion=false or TTL expiry"
+            }
+          ],
+          "function": "IdempotentTask",
+          "constructor": "NewStandaloneTask",
+          "task": "idempotent-task",
+          "line": 20
+        },
+        {
+          "id": "sdks/go/examples/idempotency/worker.go::IdempotentStatusBasedTask::idempotent-status-based-task",
+          "required_assertions": [
+            {
+              "scenario": "idempotency",
+              "id": "0dbf083fa3c10ef74a0a4507",
+              "assertion": "idempotency status=true"
+            },
+            {
+              "scenario": "idempotency",
+              "id": "053abd6a0a9e0734bb3f7b50",
+              "assertion": "idempotency key released after completion=true or TTL expiry"
+            }
+          ],
+          "function": "IdempotentStatusBasedTask",
+          "constructor": "NewStandaloneTask",
+          "task": "idempotent-status-based-task",
+          "line": 38
+        }
+      ],
+      "scenarios": [
+        "idempotency"
+      ],
+      "status": "PASSED"
+    },
+    "sdks/go/examples/logs_test/main.go": {
+      "fragments": [
+        {
+          "id": "sdks/go/examples/logs_test/main.go::main::logs-test",
+          "required_assertions": [
+            {
+              "scenario": "logs",
+              "id": "3b3d6a7fc7615b8e923d3fcb",
+              "assertion": "reported logs and since query"
+            }
+          ],
+          "function": "main",
+          "constructor": "NewStandaloneTask",
+          "task": "logs-test",
+          "line": 33
+        }
+      ],
+      "scenarios": [
+        "logs"
+      ],
+      "status": "PASSED"
+    },
+    "sdks/go/examples/migration-guides/mergent.go": {
+      "fragments": [
+        {
+          "id": "sdks/go/examples/migration-guides/mergent.go::ImageProcessor::image-processor",
+          "required_assertions": [
+            {
+              "scenario": "mergent",
+              "id": "3946ee097fc53ebd4280e5cc",
+              "assertion": "image processor nested protobuf result"
+            },
+            {
+              "scenario": "mergent",
+              "id": "2c8298d324c9fb7f9e6b73ee",
+              "assertion": "scheduled image processor invocation"
+            }
+          ],
+          "function": "ImageProcessor",
+          "constructor": "NewStandaloneTask",
+          "task": "image-processor",
+          "line": 66
+        }
+      ],
+      "scenarios": [
+        "mergent"
+      ],
+      "status": "PASSED"
+    },
+    "sdks/go/examples/migration-guides/temporal.go": {
+      "fragments": [
+        {
+          "id": "sdks/go/examples/migration-guides/temporal.go::NewChargeOrder::charge-order",
+          "required_assertions": [
+            {
+              "scenario": "temporal",
+              "id": "ea37c7dffb062ad536e51a74",
+              "assertion": "/wego.example.v1.Temporal/Charge business result"
+            }
+          ],
+          "function": "NewChargeOrder",
+          "constructor": "NewStandaloneTask",
+          "task": "charge-order",
+          "line": 237
+        },
+        {
+          "id": "sdks/go/examples/migration-guides/temporal.go::NewValidateOrder::validate-order",
+          "required_assertions": [
+            {
+              "scenario": "temporal",
+              "id": "8060a8c476683054070fbb79",
+              "assertion": "/wego.example.v1.Temporal/Validate business result"
+            }
+          ],
+          "function": "NewValidateOrder",
+          "constructor": "NewStandaloneTask",
+          "task": "validate-order",
+          "line": 255
+        },
+        {
+          "id": "sdks/go/examples/migration-guides/temporal.go::NewFulfillOrder::fulfill-order",
+          "required_assertions": [
+            {
+              "scenario": "temporal",
+              "id": "2eb4751b563c88ea5022def2",
+              "assertion": "/wego.example.v1.Temporal/Fulfill business result"
+            }
+          ],
+          "function": "NewFulfillOrder",
+          "constructor": "NewStandaloneTask",
+          "task": "fulfill-order",
+          "line": 269
+        },
+        {
+          "id": "sdks/go/examples/migration-guides/temporal.go::NewProcessOrder::ProcessOrder",
+          "required_assertions": [
+            {
+              "scenario": "temporal",
+              "id": "32266bbb5b067de836c5e2b9",
+              "assertion": "durable process order reused Now and completed child RunIDs"
+            }
+          ],
+          "function": "NewProcessOrder",
+          "constructor": "NewStandaloneDurableTask",
+          "task": "ProcessOrder",
+          "line": 286
+        },
+        {
+          "id": "sdks/go/examples/migration-guides/temporal.go::NewSendWelcomeEmail::send-welcome-email",
+          "required_assertions": [
+            {
+              "scenario": "temporal",
+              "id": "560ecb4cd30c74fbc4338493",
+              "assertion": "/wego.example.v1.Temporal/Welcome business result"
+            }
+          ],
+          "function": "NewSendWelcomeEmail",
+          "constructor": "NewStandaloneTask",
+          "task": "send-welcome-email",
+          "line": 316
+        },
+        {
+          "id": "sdks/go/examples/migration-guides/temporal.go::NewSendFollowupEmail::send-followup-email",
+          "required_assertions": [
+            {
+              "scenario": "temporal",
+              "id": "6189d07a647ceedc08d03c70",
+              "assertion": "/wego.example.v1.Temporal/Followup business result"
+            }
+          ],
+          "function": "NewSendFollowupEmail",
+          "constructor": "NewStandaloneTask",
+          "task": "send-followup-email",
+          "line": 329
+        },
+        {
+          "id": "sdks/go/examples/migration-guides/temporal.go::NewOnboardingFlow::OnboardingFlow",
+          "required_assertions": [
+            {
+              "scenario": "temporal",
+              "id": "3129dbdd23e3603fe05a8490",
+              "assertion": "durable onboarding sends two emails around sleep"
+            }
+          ],
+          "function": "NewOnboardingFlow",
+          "constructor": "NewStandaloneDurableTask",
+          "task": "OnboardingFlow",
+          "line": 344
+        },
+        {
+          "id": "sdks/go/examples/migration-guides/temporal.go::NewChargeOrderWithRetries::charge-order-with-retries",
+          "required_assertions": [
+            {
+              "scenario": "temporal",
+              "id": "3f3dd93a1435e5270a9d10fd",
+              "assertion": "/wego.example.v1.Temporal/ChargeWithRetries business result"
+            }
+          ],
+          "function": "NewChargeOrderWithRetries",
+          "constructor": "NewStandaloneTask",
+          "task": "charge-order-with-retries",
+          "line": 398
+        },
+        {
+          "id": "sdks/go/examples/migration-guides/temporal.go::NewDailyDigest::DailyDigest",
+          "required_assertions": [
+            {
+              "scenario": "temporal",
+              "id": "93e2c44a76ef426a40e8220e",
+              "assertion": "/wego.example.v1.Temporal/Digest business result"
+            }
+          ],
+          "function": "NewDailyDigest",
+          "constructor": "NewStandaloneDurableTask",
+          "task": "DailyDigest",
+          "line": 436
+        },
+        {
+          "id": "sdks/go/examples/migration-guides/temporal.go::NewApprovalFlow::ApprovalFlow",
+          "required_assertions": [
+            {
+              "scenario": "temporal",
+              "id": "fc127e93e797a4b2b1f27cfa",
+              "assertion": "correlated approval event"
+            }
+          ],
+          "function": "NewApprovalFlow",
+          "constructor": "NewStandaloneDurableTask",
+          "task": "ApprovalFlow",
+          "line": 462
+        },
+        {
+          "id": "sdks/go/examples/migration-guides/temporal.go::NewProcessItem::process-item",
+          "required_assertions": [
+            {
+              "scenario": "temporal",
+              "id": "630dc133d07318606564798f",
+              "assertion": "durable concurrent child fanout"
+            }
+          ],
+          "function": "NewProcessItem",
+          "constructor": "NewStandaloneTask",
+          "task": "process-item",
+          "line": 489
+        },
+        {
+          "id": "sdks/go/examples/migration-guides/temporal.go::NewShipOrderItems::ShipOrderItems",
+          "required_assertions": [
+            {
+              "scenario": "temporal",
+              "id": "630dc133d07318606564798f",
+              "assertion": "durable concurrent child fanout"
+            }
+          ],
+          "function": "NewShipOrderItems",
+          "constructor": "NewStandaloneDurableTask",
+          "task": "ShipOrderItems",
+          "line": 505
+        },
+        {
+          "id": "sdks/go/examples/migration-guides/temporal.go::NewWeeklyReport::weekly-report",
+          "required_assertions": [
+            {
+              "scenario": "temporal",
+              "id": "0770d3d664950dd88ee56a32",
+              "assertion": "runtime weekly cron and one-shot report schedule"
+            }
+          ],
+          "function": "NewWeeklyReport",
+          "constructor": "NewStandaloneTask",
+          "task": "weekly-report",
+          "line": 549
+        },
+        {
+          "id": "sdks/go/examples/migration-guides/temporal.go::NewFlowControlledTasks::SyncCustomer",
+          "required_assertions": [
+            {
+              "scenario": "temporal",
+              "id": "41d379ed85edb7cd04118ff3",
+              "assertion": "/wego.example.v1.Temporal/SyncRecords business result"
+            }
+          ],
+          "function": "NewFlowControlledTasks",
+          "constructor": "NewStandaloneTask",
+          "task": "SyncCustomer",
+          "line": 607
+        },
+        {
+          "id": "sdks/go/examples/migration-guides/temporal.go::NewFlowControlledTasks::call-model",
+          "required_assertions": [
+            {
+              "scenario": "temporal",
+              "id": "33d4d704d595b202055c7eae",
+              "assertion": "/wego.example.v1.Temporal/CallModel business result"
+            }
+          ],
+          "function": "NewFlowControlledTasks",
+          "constructor": "NewStandaloneTask",
+          "task": "call-model",
+          "line": 626
+        },
+        {
+          "id": "sdks/go/examples/migration-guides/temporal.go::NewLoggedChargeOrder::charge-order-logged",
+          "required_assertions": [
+            {
+              "scenario": "temporal",
+              "id": "6ea866dc2ebf8c1166c7eacc",
+              "assertion": "/wego.example.v1.Temporal/LoggedCharge business result"
+            }
+          ],
+          "function": "NewLoggedChargeOrder",
+          "constructor": "NewStandaloneTask",
+          "task": "charge-order-logged",
+          "line": 717
+        }
+      ],
+      "scenarios": [
+        "temporal",
+        "concurrency",
+        "rate-limiting",
+        "logs",
+        "cron"
+      ],
+      "status": "PASSED"
+    },
+    "sdks/go/examples/on-event/main.go": {
+      "fragments": [
+        {
+          "id": "sdks/go/examples/on-event/main.go::Lower::lower",
+          "required_assertions": [
+            {
+              "scenario": "on-event",
+              "id": "891baab90319df73718d2ad9",
+              "assertion": "filter rejects and accepts events with payload"
+            }
+          ],
+          "function": "Lower",
+          "constructor": "NewStandaloneTask",
+          "task": "lower",
+          "line": 31
+        },
+        {
+          "id": "sdks/go/examples/on-event/main.go::LowerWithFilter::lower",
+          "required_assertions": [
+            {
+              "scenario": "on-event",
+              "id": "891baab90319df73718d2ad9",
+              "assertion": "filter rejects and accepts events with payload"
+            }
+          ],
+          "function": "LowerWithFilter",
+          "constructor": "NewStandaloneTask",
+          "task": "lower",
+          "line": 55
+        },
+        {
+          "id": "sdks/go/examples/on-event/main.go::Upper::upper",
+          "required_assertions": [
+            {
+              "scenario": "on-event",
+              "id": "891baab90319df73718d2ad9",
+              "assertion": "filter rejects and accepts events with payload"
+            }
+          ],
+          "function": "Upper",
+          "constructor": "NewStandaloneTask",
+          "task": "upper",
+          "line": 72
+        }
+      ],
+      "scenarios": [
+        "on-event"
+      ],
+      "status": "PASSED"
+    },
+    "sdks/go/examples/opentelemetry_instrumentation/main.go": {
+      "fragments": [
+        {
+          "id": "sdks/go/examples/opentelemetry_instrumentation/main.go::main::otel-send-notification",
+          "required_assertions": [
+            {
+              "scenario": "observability",
+              "id": "89ef1b825f5a249faf011885",
+              "assertion": "trace propagation, task attributes, two exporters, Jaeger, metrics, unchanged global provider"
+            },
+            {
+              "scenario": "observability",
+              "id": "d7b389fae085acdf50d30e8f",
+              "assertion": "traced DAG parallel payment/inventory and ten concurrent child notifications plus second standalone"
+            }
+          ],
+          "function": "main",
+          "constructor": "NewStandaloneTask",
+          "task": "otel-send-notification",
+          "line": 77
+        },
+        {
+          "id": "sdks/go/examples/opentelemetry_instrumentation/main.go::main::otel-other-task",
+          "required_assertions": [
+            {
+              "scenario": "observability",
+              "id": "89ef1b825f5a249faf011885",
+              "assertion": "trace propagation, task attributes, two exporters, Jaeger, metrics, unchanged global provider"
+            },
+            {
+              "scenario": "observability",
+              "id": "d7b389fae085acdf50d30e8f",
+              "assertion": "traced DAG parallel payment/inventory and ten concurrent child notifications plus second standalone"
+            }
+          ],
+          "function": "main",
+          "constructor": "NewStandaloneTask",
+          "task": "otel-other-task",
+          "line": 100
+        }
+      ],
+      "scenarios": [
+        "observability"
+      ],
+      "status": "PASSED"
+    },
+    "sdks/go/examples/panic-handler/main.go": {
+      "fragments": [
+        {
+          "id": "sdks/go/examples/panic-handler/main.go::main::panic-handler-task",
+          "required_assertions": [
+            {
+              "scenario": "panic-handler",
+              "id": "213cff335aa78b77028bbbb3",
+              "assertion": "panic handler and subsequent successful call"
+            }
+          ],
+          "function": "main",
+          "constructor": "NewStandaloneTask",
+          "task": "panic-handler-task",
+          "line": 16
+        }
+      ],
+      "scenarios": [
+        "panic-handler"
+      ],
+      "status": "PASSED"
+    },
+    "sdks/go/examples/rate-limiting/main.go": {
+      "fragments": [
+        {
+          "id": "sdks/go/examples/rate-limiting/main.go::main::task1",
+          "required_assertions": [
+            {
+              "scenario": "rate-limiting",
+              "id": "178c4aca48973fb1e94e256c",
+              "assertion": "static/dynamic per-second rate limit"
+            }
+          ],
+          "function": "main",
+          "constructor": "NewStandaloneTask",
+          "task": "task1",
+          "line": 40
+        },
+        {
+          "id": "sdks/go/examples/rate-limiting/main.go::main::task2",
+          "required_assertions": [
+            {
+              "scenario": "rate-limiting",
+              "id": "178c4aca48973fb1e94e256c",
+              "assertion": "static/dynamic per-second rate limit"
+            }
+          ],
+          "function": "main",
+          "constructor": "NewStandaloneTask",
+          "task": "task2",
+          "line": 57
+        }
+      ],
+      "scenarios": [
+        "rate-limiting"
+      ],
+      "status": "PASSED"
+    },
+    "sdks/go/examples/retries/main.go": {
+      "fragments": [
+        {
+          "id": "sdks/go/examples/retries/main.go::Retries::retries-task",
+          "required_assertions": [
+            {
+              "scenario": "retries",
+              "id": "5a97655c93e99ecb63345010",
+              "assertion": "always-fails attempts and policy"
+            }
+          ],
+          "function": "Retries",
+          "constructor": "NewStandaloneTask",
+          "task": "retries-task",
+          "line": 18
+        },
+        {
+          "id": "sdks/go/examples/retries/main.go::RetriesWithCount::fail-twice-task",
+          "required_assertions": [
+            {
+              "scenario": "retries",
+              "id": "2760c3eab8d04f06f1d98aa9",
+              "assertion": "count attempts and policy"
+            }
+          ],
+          "function": "RetriesWithCount",
+          "constructor": "NewStandaloneTask",
+          "task": "fail-twice-task",
+          "line": 34
+        },
+        {
+          "id": "sdks/go/examples/retries/main.go::WithBackoff::with-backoff-task",
+          "required_assertions": [
+            {
+              "scenario": "retries",
+              "id": "c6888d73422719f41cc9ba2b",
+              "assertion": "backoff attempts and policy"
+            }
+          ],
+          "function": "WithBackoff",
+          "constructor": "NewStandaloneTask",
+          "task": "with-backoff-task",
+          "line": 59
+        },
+        {
+          "id": "sdks/go/examples/retries/main.go::NonRetryableError::non-retryable-task",
+          "required_assertions": [
+            {
+              "scenario": "retries",
+              "id": "62dceff45086f74be5f6851a",
+              "assertion": "nonretryable attempts and policy"
+            }
+          ],
+          "function": "NonRetryableError",
+          "constructor": "NewStandaloneTask",
+          "task": "non-retryable-task",
+          "line": 73
+        }
+      ],
+      "scenarios": [
+        "retries"
+      ],
+      "status": "PASSED"
+    },
+    "sdks/go/examples/runtime-affinity/main.go": {
+      "fragments": [
+        {
+          "id": "sdks/go/examples/runtime-affinity/main.go::main::affinity-example-task",
+          "required_assertions": [
+            {
+              "scenario": "runtime-affinity",
+              "id": "4bfc48ad57c66466aac5abd3",
+              "assertion": "required affinity alpha; sticky=false"
+            },
+            {
+              "scenario": "runtime-affinity",
+              "id": "1b348f6eb9fdcf437dbba92d",
+              "assertion": "required affinity beta; sticky=false"
+            }
+          ],
+          "function": "main",
+          "constructor": "NewStandaloneTask",
+          "task": "affinity-example-task",
+          "line": 30
+        }
+      ],
+      "scenarios": [
+        "runtime-affinity"
+      ],
+      "status": "PASSED"
+    },
+    "sdks/go/examples/sdk-migration/main.go": {
+      "fragments": [
+        {
+          "id": "sdks/go/examples/sdk-migration/main.go::main::simple-task",
+          "required_assertions": [
+            {
+              "scenario": "sdk-migration",
+              "id": "9a52fc89d46143321504ada5",
+              "assertion": "standard generated unary stub"
+            },
+            {
+              "scenario": "sdk-migration",
+              "id": "9e85cff10ec1571e9e6b184b",
+              "assertion": "RunNoWait and result decoding"
+            },
+            {
+              "scenario": "sdk-migration",
+              "id": "50aae116d2176ce99086c558",
+              "assertion": "RunMany input/result mapping"
+            }
+          ],
+          "function": "main",
+          "constructor": "NewStandaloneTask",
+          "task": "simple-task",
+          "line": 26
+        }
+      ],
+      "scenarios": [
+        "sdk-migration"
+      ],
+      "status": "PASSED"
+    },
+    "sdks/go/examples/sdk-migration/v1.go": {
+      "fragments": [
+        {
+          "id": "sdks/go/examples/sdk-migration/v1.go::V1::simple-workflow",
+          "required_assertions": [
+            {
+              "scenario": "sdk-migration-v1",
+              "id": "d3555d14d6b4fdaaefa4a281",
+              "assertion": "event triggers protobuf RPC and result lookup"
+            }
+          ],
+          "function": "V1",
+          "constructor": "NewStandaloneTask",
+          "task": "simple-workflow",
+          "line": 24
+        }
+      ],
+      "scenarios": [
+        "sdk-migration-v1"
+      ],
+      "status": "PASSED"
+    },
+    "sdks/go/examples/simple/main.go": {
+      "fragments": [
+        {
+          "id": "sdks/go/examples/simple/main.go::main::process-message",
+          "required_assertions": [
+            {
+              "scenario": "simple",
+              "id": "9a52fc89d46143321504ada5",
+              "assertion": "standard generated unary stub"
+            },
+            {
+              "scenario": "simple",
+              "id": "9e85cff10ec1571e9e6b184b",
+              "assertion": "RunNoWait and result decoding"
+            },
+            {
+              "scenario": "simple",
+              "id": "50aae116d2176ce99086c558",
+              "assertion": "RunMany input/result mapping"
+            }
+          ],
+          "function": "main",
+          "constructor": "NewStandaloneTask",
+          "task": "process-message",
+          "line": 28
+        }
+      ],
+      "scenarios": [
+        "simple",
+        "child-workflows"
+      ],
+      "status": "PASSED"
+    },
+    "sdks/go/examples/slot-cost/main.go": {
+      "fragments": [
+        {
+          "id": "sdks/go/examples/slot-cost/main.go::main::omega",
+          "required_assertions": [
+            {
+              "scenario": "slot-cost",
+              "id": "d39e3af992ae5e0312705928",
+              "assertion": "slot costs 5 and 1 share capacity 10"
+            }
+          ],
+          "function": "main",
+          "constructor": "NewStandaloneTask",
+          "task": "omega",
+          "line": 17
+        },
+        {
+          "id": "sdks/go/examples/slot-cost/main.go::main::weenie",
+          "required_assertions": [
+            {
+              "scenario": "slot-cost",
+              "id": "d39e3af992ae5e0312705928",
+              "assertion": "slot costs 5 and 1 share capacity 10"
+            }
+          ],
+          "function": "main",
+          "constructor": "NewStandaloneTask",
+          "task": "weenie",
+          "line": 22
+        }
+      ],
+      "scenarios": [
+        "slot-cost"
+      ],
+      "status": "PASSED"
+    },
+    "sdks/go/examples/sticky-workers/main.go": {
+      "fragments": [
+        {
+          "id": "sdks/go/examples/sticky-workers/main.go::Child::child-task",
+          "required_assertions": [
+            {
+              "scenario": "sticky-workers",
+              "id": "c6e6f95c211a5cf02d3ed74e",
+              "assertion": "required affinity alpha; sticky=true"
+            },
+            {
+              "scenario": "sticky-workers",
+              "id": "1237812b070a109b157b470c",
+              "assertion": "required affinity beta; sticky=true"
+            },
+            {
+              "scenario": "sticky-workers",
+              "id": "c1f41bfe6e88f0a23daf9310",
+              "assertion": "two-worker sticky DAG executes independent tasks on one worker"
+            }
+          ],
+          "function": "Child",
+          "constructor": "NewStandaloneTask",
+          "task": "child-task",
+          "line": 60
+        },
+        {
+          "id": "sdks/go/examples/sticky-workers/main.go::Sticky::sticky-task",
+          "required_assertions": [
+            {
+              "scenario": "sticky-workers",
+              "id": "c6e6f95c211a5cf02d3ed74e",
+              "assertion": "required affinity alpha; sticky=true"
+            },
+            {
+              "scenario": "sticky-workers",
+              "id": "1237812b070a109b157b470c",
+              "assertion": "required affinity beta; sticky=true"
+            },
+            {
+              "scenario": "sticky-workers",
+              "id": "c1f41bfe6e88f0a23daf9310",
+              "assertion": "two-worker sticky DAG executes independent tasks on one worker"
+            }
+          ],
+          "function": "Sticky",
+          "constructor": "NewStandaloneTask",
+          "task": "sticky-task",
+          "line": 69
+        }
+      ],
+      "scenarios": [
+        "sticky-workers"
+      ],
+      "status": "PASSED"
+    },
+    "sdks/go/examples/streaming/shared/task.go": {
+      "fragments": [
+        {
+          "id": "sdks/go/examples/streaming/shared/task.go::StreamingWorkflow::stream-example",
+          "required_assertions": [
+            {
+              "scenario": "streaming",
+              "id": "0b8210fdfd345ee4703366cb",
+              "assertion": "protobuf output chunks forwarded to HTTP in order and final result confirmed"
+            }
+          ],
+          "function": "StreamingWorkflow",
+          "constructor": "NewStandaloneTask",
+          "task": "stream-example",
+          "line": 52
+        }
+      ],
+      "scenarios": [
+        "streaming"
+      ],
+      "status": "PASSED"
+    },
+    "sdks/go/examples/stubs/stub-workflow.go": {
+      "fragments": [
+        {
+          "id": "sdks/go/examples/stubs/stub-workflow.go::StubWorkflow::stub-workflow",
+          "required_assertions": [
+            {
+              "scenario": "stubs",
+              "id": "caa72aae9ab765f10fecc00d",
+              "assertion": "definition template registered and decoded"
+            }
+          ],
+          "function": "StubWorkflow",
+          "constructor": "NewStandaloneTask",
+          "task": "stub-workflow",
+          "line": 20
+        }
+      ],
+      "scenarios": [
+        "stubs"
+      ],
+      "status": "PASSED"
+    },
+    "sdks/go/examples/webhooks/main.go": {
+      "fragments": [
+        {
+          "id": "sdks/go/examples/webhooks/main.go::main::handle-stripe-payment",
+          "required_assertions": [
+            {
+              "scenario": "webhooks",
+              "id": "c5ef59c36843a56bdad84107",
+              "assertion": "controlled HTTP webhook stripe:payment_intent.succeeded payload and result"
+            }
+          ],
+          "function": "main",
+          "constructor": "NewStandaloneTask",
+          "task": "handle-stripe-payment",
+          "line": 31
+        },
+        {
+          "id": "sdks/go/examples/webhooks/main.go::main::handle-github-pr",
+          "required_assertions": [
+            {
+              "scenario": "webhooks",
+              "id": "34f15dc5fe06655f28d933ee",
+              "assertion": "controlled HTTP webhook github:pull_request:opened payload and result"
+            }
+          ],
+          "function": "main",
+          "constructor": "NewStandaloneTask",
+          "task": "handle-github-pr",
+          "line": 62
+        },
+        {
+          "id": "sdks/go/examples/webhooks/main.go::main::handle-slack-mention",
+          "required_assertions": [
+            {
+              "scenario": "webhooks",
+              "id": "7f265915ea175e6ac65ba39a",
+              "assertion": "controlled HTTP webhook slack:event:app_mention payload and result"
+            }
+          ],
+          "function": "main",
+          "constructor": "NewStandaloneTask",
+          "task": "handle-slack-mention",
+          "line": 91
+        },
+        {
+          "id": "sdks/go/examples/webhooks/main.go::main::handle-slack-command",
+          "required_assertions": [
+            {
+              "scenario": "webhooks",
+              "id": "81328d19df6dc7131635aaed",
+              "assertion": "controlled HTTP webhook slack:command:/deploy payload and result"
+            }
+          ],
+          "function": "main",
+          "constructor": "NewStandaloneTask",
+          "task": "handle-slack-command",
+          "line": 113
+        },
+        {
+          "id": "sdks/go/examples/webhooks/main.go::main::handle-slack-interaction",
+          "required_assertions": [
+            {
+              "scenario": "webhooks",
+              "id": "499dab04a0ac7f667e35621d",
+              "assertion": "controlled HTTP webhook slack:interaction:block_actions payload and result"
+            }
+          ],
+          "function": "main",
+          "constructor": "NewStandaloneTask",
+          "task": "handle-slack-interaction",
+          "line": 143
+        }
+      ],
+      "scenarios": [
+        "webhooks"
+      ],
+      "status": "PASSED"
+    }
+  },
+  "scenario_status": {
+    "batch": "PASSED",
+    "child-workflows": "PASSED",
+    "concurrency": "PASSED",
+    "cron": "PASSED",
+    "dual-entry": "PASSED",
+    "durable-event": "PASSED",
+    "durable-sleep": "PASSED",
+    "events": "PASSED",
+    "eviction": "PASSED",
+    "grpc-streams": "PASSED",
+    "idempotency": "PASSED",
+    "logs": "PASSED",
+    "mergent": "PASSED",
+    "middleware": "PASSED",
+    "observability": "PASSED",
+    "on-event": "PASSED",
+    "panic-handler": "PASSED",
+    "rate-limiting": "PASSED",
+    "retries": "PASSED",
+    "runtime-affinity": "PASSED",
+    "sdk-migration": "PASSED",
+    "sdk-migration-v1": "PASSED",
+    "shutdown": "PASSED",
+    "simple": "PASSED",
+    "slot-cost": "PASSED",
+    "sticky-workers": "PASSED",
+    "streaming": "PASSED",
+    "stubs": "PASSED",
+    "temporal": "PASSED",
+    "webhooks": "PASSED"
+  },
+  "scenario_records": [
+    {
+      "scenario": "batch",
+      "test_scenario": "batch",
+      "namespace": "wego_accept_batch_1791802153967153000_",
+      "assertion": "batch simple aggregation and result mapping",
+      "assertion_id": "a5964017b94ed74a36282908",
+      "run_id": "a175ee9c-2f08-4c14-a567-4b6e2fa5378d",
+      "at": "2026-10-12T10:49:22.886994Z"
+    },
+    {
+      "scenario": "batch",
+      "test_scenario": "batch",
+      "namespace": "wego_accept_batch_1791802153967153000_",
+      "assertion": "batch simple aggregation and result mapping",
+      "assertion_id": "a5964017b94ed74a36282908",
+      "run_id": "753a8fb9-3af0-4cb6-8405-77be855b0d42",
+      "at": "2026-10-12T10:49:23.914542Z"
+    },
+    {
+      "scenario": "batch",
+      "test_scenario": "batch",
+      "namespace": "wego_accept_batch_1791802153967153000_",
+      "assertion": "batch simple aggregation and result mapping",
+      "assertion_id": "a5964017b94ed74a36282908",
+      "run_id": "b31989a4-1b37-4db0-9812-275ba6dd264d",
+      "at": "2026-10-12T10:49:24.934114Z"
+    },
+    {
+      "scenario": "batch",
+      "test_scenario": "batch",
+      "namespace": "wego_accept_batch_1791802153967153000_",
+      "assertion": "batch keyed aggregation and result mapping",
+      "assertion_id": "d589ba52d67469728adfc34c",
+      "run_id": "eaea303b-e522-4353-832c-951f4d8d200e",
+      "at": "2026-10-12T10:49:27.886279Z"
+    },
+    {
+      "scenario": "batch",
+      "test_scenario": "batch",
+      "namespace": "wego_accept_batch_1791802153967153000_",
+      "assertion": "batch keyed aggregation and result mapping",
+      "assertion_id": "d589ba52d67469728adfc34c",
+      "run_id": "fda1690f-05b1-4210-a4c7-b88281d4a533",
+      "at": "2026-10-12T10:49:27.902488Z"
+    },
+    {
+      "scenario": "batch",
+      "test_scenario": "batch",
+      "namespace": "wego_accept_batch_1791802153967153000_",
+      "assertion": "batch keyed aggregation and result mapping",
+      "assertion_id": "d589ba52d67469728adfc34c",
+      "run_id": "b23eb4cb-2670-43dc-96b4-d7b292f62499",
+      "at": "2026-10-12T10:49:28.931861Z"
+    },
+    {
+      "scenario": "batch",
+      "test_scenario": "batch",
+      "namespace": "wego_accept_batch_1791802153967153000_",
+      "assertion": "batch keyed aggregation and result mapping",
+      "assertion_id": "d589ba52d67469728adfc34c",
+      "run_id": "b8f54d1a-f848-4200-83b6-ea3e9a174e74",
+      "at": "2026-10-12T10:49:29.943074Z"
+    },
+    {
+      "scenario": "batch",
+      "test_scenario": "batch",
+      "namespace": "wego_accept_batch_1791802153967153000_",
+      "assertion": "batch broadcast aggregation and result mapping",
+      "assertion_id": "f10f1d88c81387f5087285c4",
+      "run_id": "4319d15d-6c72-426a-ae85-fbf3ec3bff4d",
+      "at": "2026-10-12T10:49:33.415042Z"
+    },
+    {
+      "scenario": "batch",
+      "test_scenario": "batch",
+      "namespace": "wego_accept_batch_1791802153967153000_",
+      "assertion": "batch broadcast aggregation and result mapping",
+      "assertion_id": "f10f1d88c81387f5087285c4",
+      "run_id": "bf27e94b-89b8-48ed-93c7-fca6909988ed",
+      "at": "2026-10-12T10:49:34.440938Z"
+    },
+    {
+      "scenario": "batch",
+      "test_scenario": "batch",
+      "namespace": "wego_accept_batch_1791802153967153000_",
+      "assertion": "workflow resources deleted; run history retained",
+      "assertion_id": "bc61cfe35826be28b668b794",
+      "at": "2026-10-12T10:49:34.467191Z"
+    },
+    {
+      "scenario": "children",
+      "test_scenario": "child-workflows",
+      "namespace": "wego_accept_children_1791802174467292000_",
+      "assertion": "sequential children preserve identity",
+      "assertion_id": "63bbab2e2d509188f0e11ed7",
+      "run_id": "da8c9b11-f686-4647-b465-0c7557860ac7",
+      "worker_id": "fd1d563e-d549-4d2f-9e13-09ec77990160",
+      "at": "2026-10-12T10:49:39.138303Z"
+    },
+    {
+      "scenario": "children",
+      "test_scenario": "child-workflows",
+      "namespace": "wego_accept_children_1791802174467292000_",
+      "assertion": "parallel children preserve identity",
+      "assertion_id": "ab16a74a19109ea11f5f19b7",
+      "run_id": "a8c557ca-e692-4589-85d4-b08c13849b58",
+      "worker_id": "fd1d563e-d549-4d2f-9e13-09ec77990160",
+      "at": "2026-10-12T10:49:39.314264Z"
+    },
+    {
+      "scenario": "children",
+      "test_scenario": "child-workflows",
+      "namespace": "wego_accept_children_1791802174467292000_",
+      "assertion": "child error propagation",
+      "assertion_id": "72b3b46587b8b80a04064425",
+      "at": "2026-10-12T10:49:39.427529Z"
+    },
+    {
+      "scenario": "children",
+      "test_scenario": "child-workflows",
+      "namespace": "wego_accept_children_1791802174467292000_",
+      "assertion": "workflow resources deleted; run history retained",
+      "assertion_id": "bc61cfe35826be28b668b794",
+      "at": "2026-10-12T10:49:39.521185Z"
+    },
+    {
+      "scenario": "concurrency",
+      "test_scenario": "concurrency",
+      "namespace": "wego_accept_concurrency_1791802179521249000_",
+      "assertion": "concurrency round-robin",
+      "assertion_id": "8320c746bd609115adbcbb26",
+      "run_id": "4886c09c-0e31-4817-a9f9-89e8b33b1931",
+      "worker_id": "4652f642-7bf5-44f4-9d3b-213a072a1132",
+      "at": "2026-10-12T10:49:43.318684Z"
+    },
+    {
+      "scenario": "concurrency",
+      "test_scenario": "concurrency",
+      "namespace": "wego_accept_concurrency_1791802179521249000_",
+      "assertion": "concurrency round-robin",
+      "assertion_id": "8320c746bd609115adbcbb26",
+      "run_id": "ce03a184-abfa-4a47-a447-30ce4d6fb7d5",
+      "worker_id": "4652f642-7bf5-44f4-9d3b-213a072a1132",
+      "at": "2026-10-12T10:49:43.330773Z"
+    },
+    {
+      "scenario": "concurrency",
+      "test_scenario": "concurrency",
+      "namespace": "wego_accept_concurrency_1791802179521249000_",
+      "assertion": "concurrency round-robin",
+      "assertion_id": "8320c746bd609115adbcbb26",
+      "run_id": "e432217d-7633-43ba-ab8a-43d502b08595",
+      "worker_id": "4652f642-7bf5-44f4-9d3b-213a072a1132",
+      "at": "2026-10-12T10:49:45.895312Z"
+    },
+    {
+      "scenario": "concurrency",
+      "test_scenario": "concurrency",
+      "namespace": "wego_accept_concurrency_1791802179521249000_",
+      "assertion": "concurrency round-robin",
+      "assertion_id": "8320c746bd609115adbcbb26",
+      "run_id": "c1f94708-5009-4bf4-8405-7a637d469e5f",
+      "worker_id": "4652f642-7bf5-44f4-9d3b-213a072a1132",
+      "at": "2026-10-12T10:49:46.913195Z"
+    },
+    {
+      "scenario": "concurrency",
+      "test_scenario": "concurrency",
+      "namespace": "wego_accept_concurrency_1791802179521249000_",
+      "assertion": "concurrency round-robin",
+      "assertion_id": "8320c746bd609115adbcbb26",
+      "run_id": "78d9b9ef-645d-4297-9895-8ce7a9483e92",
+      "worker_id": "4652f642-7bf5-44f4-9d3b-213a072a1132",
+      "at": "2026-10-12T10:49:47.929594Z"
+    },
+    {
+      "scenario": "concurrency",
+      "test_scenario": "concurrency",
+      "namespace": "wego_accept_concurrency_1791802179521249000_",
+      "assertion": "concurrency round-robin",
+      "assertion_id": "8320c746bd609115adbcbb26",
+      "run_id": "9c4df2b7-8f6d-4314-8976-8443610d5c85",
+      "worker_id": "4652f642-7bf5-44f4-9d3b-213a072a1132",
+      "at": "2026-10-12T10:49:48.944542Z"
+    },
+    {
+      "scenario": "concurrency",
+      "test_scenario": "concurrency",
+      "namespace": "wego_accept_concurrency_1791802179521249000_",
+      "assertion": "workflow resources deleted; run history retained",
+      "assertion_id": "bc61cfe35826be28b668b794",
+      "at": "2026-10-12T10:49:48.969883Z"
+    },
+    {
+      "scenario": "concurrency",
+      "test_scenario": "concurrency",
+      "namespace": "wego_accept_concurrency_1791802188969887000_",
+      "assertion": "concurrency multiple-keys",
+      "assertion_id": "f59c2a4a9aa02818741c982c",
+      "run_id": "358bf5fc-2260-40d5-ab92-63b38853d691",
+      "worker_id": "a5f13f9c-c67d-4f9b-b243-6a7bcb130fd1",
+      "at": "2026-10-12T10:49:53.306418Z"
+    },
+    {
+      "scenario": "concurrency",
+      "test_scenario": "concurrency",
+      "namespace": "wego_accept_concurrency_1791802188969887000_",
+      "assertion": "concurrency multiple-keys",
+      "assertion_id": "f59c2a4a9aa02818741c982c",
+      "run_id": "9c422c14-b189-498a-ba4d-9c76c68fd6e3",
+      "worker_id": "a5f13f9c-c67d-4f9b-b243-6a7bcb130fd1",
+      "at": "2026-10-12T10:49:53.318329Z"
+    },
+    {
+      "scenario": "concurrency",
+      "test_scenario": "concurrency",
+      "namespace": "wego_accept_concurrency_1791802188969887000_",
+      "assertion": "concurrency multiple-keys",
+      "assertion_id": "f59c2a4a9aa02818741c982c",
+      "run_id": "97fb9d1b-fa1b-4285-8826-1a9dae31e89c",
+      "worker_id": "a5f13f9c-c67d-4f9b-b243-6a7bcb130fd1",
+      "at": "2026-10-12T10:49:55.093575Z"
+    },
+    {
+      "scenario": "concurrency",
+      "test_scenario": "concurrency",
+      "namespace": "wego_accept_concurrency_1791802188969887000_",
+      "assertion": "concurrency multiple-keys",
+      "assertion_id": "f59c2a4a9aa02818741c982c",
+      "run_id": "608bd060-906d-4060-9937-c7f821368082",
+      "worker_id": "a5f13f9c-c67d-4f9b-b243-6a7bcb130fd1",
+      "at": "2026-10-12T10:49:56.113633Z"
+    },
+    {
+      "scenario": "concurrency",
+      "test_scenario": "concurrency",
+      "namespace": "wego_accept_concurrency_1791802188969887000_",
+      "assertion": "concurrency multiple-keys",
+      "assertion_id": "f59c2a4a9aa02818741c982c",
+      "run_id": "9ce31e40-6828-4bfc-a457-013ca7017c97",
+      "worker_id": "a5f13f9c-c67d-4f9b-b243-6a7bcb130fd1",
+      "at": "2026-10-12T10:49:59.696972Z"
+    },
+    {
+      "scenario": "concurrency",
+      "test_scenario": "concurrency",
+      "namespace": "wego_accept_concurrency_1791802188969887000_",
+      "assertion": "concurrency multiple-keys",
+      "assertion_id": "f59c2a4a9aa02818741c982c",
+      "run_id": "4f342ad0-6d4b-4dc2-8a20-31300afbfe9c",
+      "worker_id": "a5f13f9c-c67d-4f9b-b243-6a7bcb130fd1",
+      "at": "2026-10-12T10:49:59.708274Z"
+    },
+    {
+      "scenario": "concurrency",
+      "test_scenario": "concurrency",
+      "namespace": "wego_accept_concurrency_1791802188969887000_",
+      "assertion": "workflow resources deleted; run history retained",
+      "assertion_id": "bc61cfe35826be28b668b794",
+      "at": "2026-10-12T10:49:59.730837Z"
+    },
+    {
+      "scenario": "concurrency",
+      "test_scenario": "concurrency",
+      "namespace": "wego_accept_concurrency_1791802199730840000_",
+      "assertion": "shared strategy across two workflows",
+      "assertion_id": "490b3009c27635029f7f483a",
+      "run_id": "965f0441-f3cf-4249-80c3-3f9585f48c7f",
+      "worker_id": "b2e2d7ef-a88f-4381-9639-a5743ee44046",
+      "at": "2026-10-12T10:50:03.31894Z"
+    },
+    {
+      "scenario": "concurrency",
+      "test_scenario": "concurrency",
+      "namespace": "wego_accept_concurrency_1791802199730840000_",
+      "assertion": "shared strategy across two workflows",
+      "assertion_id": "490b3009c27635029f7f483a",
+      "run_id": "8d09e864-b685-4010-bc2e-3eb7231e0dd6",
+      "worker_id": "b2e2d7ef-a88f-4381-9639-a5743ee44046",
+      "at": "2026-10-12T10:50:03.885651Z"
+    },
+    {
+      "scenario": "concurrency",
+      "test_scenario": "concurrency",
+      "namespace": "wego_accept_concurrency_1791802199730840000_",
+      "assertion": "workflow resources deleted; run history retained",
+      "assertion_id": "bc61cfe35826be28b668b794",
+      "at": "2026-10-12T10:50:03.997288Z"
+    },
+    {
+      "scenario": "concurrency",
+      "test_scenario": "concurrency",
+      "namespace": "wego_accept_concurrency_1791802203997290000_",
+      "assertion": "concurrency dynamic",
+      "assertion_id": "d4792e72313b28a94293b382",
+      "run_id": "c8f9edcf-9465-4a36-9ea6-091dc792ef60",
+      "worker_id": "78fafbb8-7c03-47bf-ba80-d2382f681003",
+      "at": "2026-10-12T10:50:08.359341Z"
+    },
+    {
+      "scenario": "concurrency",
+      "test_scenario": "concurrency",
+      "namespace": "wego_accept_concurrency_1791802203997290000_",
+      "assertion": "concurrency dynamic",
+      "assertion_id": "d4792e72313b28a94293b382",
+      "run_id": "14f3ab0c-d1b1-4ae9-b0f7-e654b1a4715a",
+      "worker_id": "78fafbb8-7c03-47bf-ba80-d2382f681003",
+      "at": "2026-10-12T10:50:09.373494Z"
+    },
+    {
+      "scenario": "concurrency",
+      "test_scenario": "concurrency",
+      "namespace": "wego_accept_concurrency_1791802203997290000_",
+      "assertion": "concurrency dynamic",
+      "assertion_id": "d4792e72313b28a94293b382",
+      "run_id": "cb2e72e4-9f6b-41e4-bbca-eedc31e888cf",
+      "worker_id": "78fafbb8-7c03-47bf-ba80-d2382f681003",
+      "at": "2026-10-12T10:50:10.508865Z"
+    },
+    {
+      "scenario": "concurrency",
+      "test_scenario": "concurrency",
+      "namespace": "wego_accept_concurrency_1791802203997290000_",
+      "assertion": "concurrency dynamic",
+      "assertion_id": "d4792e72313b28a94293b382",
+      "run_id": "159fc566-f5e6-46fa-995a-474b18adc515",
+      "worker_id": "78fafbb8-7c03-47bf-ba80-d2382f681003",
+      "at": "2026-10-12T10:50:11.532026Z"
+    },
+    {
+      "scenario": "concurrency",
+      "test_scenario": "concurrency",
+      "namespace": "wego_accept_concurrency_1791802203997290000_",
+      "assertion": "concurrency dynamic",
+      "assertion_id": "d4792e72313b28a94293b382",
+      "run_id": "b0c378fa-0e1b-493d-917a-3e0a6c3b5d9f",
+      "worker_id": "78fafbb8-7c03-47bf-ba80-d2382f681003",
+      "at": "2026-10-12T10:50:12.735027Z"
+    },
+    {
+      "scenario": "concurrency",
+      "test_scenario": "concurrency",
+      "namespace": "wego_accept_concurrency_1791802203997290000_",
+      "assertion": "concurrency dynamic",
+      "assertion_id": "d4792e72313b28a94293b382",
+      "run_id": "e630cde2-9b93-492b-9bc2-394b8377b20b",
+      "worker_id": "78fafbb8-7c03-47bf-ba80-d2382f681003",
+      "at": "2026-10-12T10:50:13.748589Z"
+    },
+    {
+      "scenario": "concurrency",
+      "test_scenario": "concurrency",
+      "namespace": "wego_accept_concurrency_1791802203997290000_",
+      "assertion": "workflow resources deleted; run history retained",
+      "assertion_id": "bc61cfe35826be28b668b794",
+      "at": "2026-10-12T10:50:13.772516Z"
+    },
+    {
+      "scenario": "concurrency",
+      "test_scenario": "concurrency",
+      "namespace": "wego_accept_concurrency_1791802213772518000_",
+      "assertion": "cancel strategy CANCEL_IN_PROGRESS",
+      "assertion_id": "7f8c6f594502c5c328813481",
+      "run_id": "9dc29b54-1f6f-4339-9d2a-0cb1a6057c62",
+      "at": "2026-10-12T10:50:24.718822Z"
+    },
+    {
+      "scenario": "concurrency",
+      "test_scenario": "concurrency",
+      "namespace": "wego_accept_concurrency_1791802213772518000_",
+      "assertion": "cancel strategy CANCEL_IN_PROGRESS",
+      "assertion_id": "7f8c6f594502c5c328813481",
+      "run_id": "346d8811-f490-4907-8af5-d67bae31bba6",
+      "at": "2026-10-12T10:50:25.723972Z"
+    },
+    {
+      "scenario": "concurrency",
+      "test_scenario": "concurrency",
+      "namespace": "wego_accept_concurrency_1791802213772518000_",
+      "assertion": "cancel strategy CANCEL_IN_PROGRESS",
+      "assertion_id": "7f8c6f594502c5c328813481",
+      "run_id": "014ae7c6-52fd-4f03-ad1f-ebcfde492baa",
+      "worker_id": "3dc1b3c7-0aef-4b5f-8a65-5e1a9427290c",
+      "at": "2026-10-12T10:50:26.745081Z"
+    },
+    {
+      "scenario": "concurrency",
+      "test_scenario": "concurrency",
+      "namespace": "wego_accept_concurrency_1791802213772518000_",
+      "assertion": "workflow resources deleted; run history retained",
+      "assertion_id": "bc61cfe35826be28b668b794",
+      "at": "2026-10-12T10:50:26.768735Z"
+    },
+    {
+      "scenario": "concurrency",
+      "test_scenario": "concurrency",
+      "namespace": "wego_accept_concurrency_1791802226768737000_",
+      "assertion": "cancel strategy CANCEL_NEWEST",
+      "assertion_id": "d4db3da9426c8f54139f5ca1",
+      "run_id": "202e5595-a003-4707-8f5c-06726b07fa63",
+      "worker_id": "ac7dcafa-60ee-4dc7-a22a-691c56cceff6",
+      "at": "2026-10-12T10:50:34.472134Z"
+    },
+    {
+      "scenario": "concurrency",
+      "test_scenario": "concurrency",
+      "namespace": "wego_accept_concurrency_1791802226768737000_",
+      "assertion": "cancel strategy CANCEL_NEWEST",
+      "assertion_id": "d4db3da9426c8f54139f5ca1",
+      "run_id": "d9fceb6d-0225-424e-90d9-9bda7526e497",
+      "at": "2026-10-12T10:50:35.522062Z"
+    },
+    {
+      "scenario": "concurrency",
+      "test_scenario": "concurrency",
+      "namespace": "wego_accept_concurrency_1791802226768737000_",
+      "assertion": "cancel strategy CANCEL_NEWEST",
+      "assertion_id": "d4db3da9426c8f54139f5ca1",
+      "run_id": "d4c0e157-ca4b-43f4-ba7d-ca9330573eac",
+      "at": "2026-10-12T10:50:36.525708Z"
+    },
+    {
+      "scenario": "concurrency",
+      "test_scenario": "concurrency",
+      "namespace": "wego_accept_concurrency_1791802226768737000_",
+      "assertion": "workflow resources deleted; run history retained",
+      "assertion_id": "bc61cfe35826be28b668b794",
+      "at": "2026-10-12T10:50:36.586565Z"
+    },
+    {
+      "scenario": "concurrency",
+      "test_scenario": "concurrency",
+      "namespace": "wego_accept_concurrency_1791802236586567000_",
+      "assertion": "cancel strategy CANCEL_QUEUED_EXCEPT_NEWEST",
+      "assertion_id": "04360045eb70ef2d0cb6b651",
+      "run_id": "fe112805-2c56-4d42-98a8-c025d9ec5135",
+      "worker_id": "d4fcba3e-6508-43f4-9f9e-43c3a3a0f8ea",
+      "at": "2026-10-12T10:50:38.63947Z"
+    },
+    {
+      "scenario": "concurrency",
+      "test_scenario": "concurrency",
+      "namespace": "wego_accept_concurrency_1791802236586567000_",
+      "assertion": "cancel strategy CANCEL_QUEUED_EXCEPT_NEWEST",
+      "assertion_id": "04360045eb70ef2d0cb6b651",
+      "run_id": "5548e104-f70c-4dac-9e1d-b010067706c6",
+      "at": "2026-10-12T10:50:39.648465Z"
+    },
+    {
+      "scenario": "concurrency",
+      "test_scenario": "concurrency",
+      "namespace": "wego_accept_concurrency_1791802236586567000_",
+      "assertion": "cancel strategy CANCEL_QUEUED_EXCEPT_NEWEST",
+      "assertion_id": "04360045eb70ef2d0cb6b651",
+      "run_id": "cb1f7cd8-fc54-4045-b328-67d3ce34e8c2",
+      "worker_id": "d4fcba3e-6508-43f4-9f9e-43c3a3a0f8ea",
+      "at": "2026-10-12T10:50:40.203578Z"
+    },
+    {
+      "scenario": "concurrency",
+      "test_scenario": "concurrency",
+      "namespace": "wego_accept_concurrency_1791802236586567000_",
+      "assertion": "workflow resources deleted; run history retained",
+      "assertion_id": "bc61cfe35826be28b668b794",
+      "at": "2026-10-12T10:50:40.302241Z"
+    },
+    {
+      "scenario": "concurrency",
+      "test_scenario": "concurrency",
+      "namespace": "wego_accept_concurrency_1791802240302243000_",
+      "assertion": "cancel strategy CANCEL_QUEUED_EXCEPT_OLDEST",
+      "assertion_id": "3077d4591dd79ee4b6e73ffd",
+      "run_id": "f9c4d088-3a23-4597-bd2e-84b7a04a9261",
+      "worker_id": "24d2b275-59b6-4d3c-9642-b6e7c70e5c9e",
+      "at": "2026-10-12T10:50:46.473033Z"
+    },
+    {
+      "scenario": "concurrency",
+      "test_scenario": "concurrency",
+      "namespace": "wego_accept_concurrency_1791802240302243000_",
+      "assertion": "cancel strategy CANCEL_QUEUED_EXCEPT_OLDEST",
+      "assertion_id": "3077d4591dd79ee4b6e73ffd",
+      "run_id": "446d49a8-6c4b-4820-aacf-2877a328b978",
+      "worker_id": "24d2b275-59b6-4d3c-9642-b6e7c70e5c9e",
+      "at": "2026-10-12T10:50:50.605154Z"
+    },
+    {
+      "scenario": "concurrency",
+      "test_scenario": "concurrency",
+      "namespace": "wego_accept_concurrency_1791802240302243000_",
+      "assertion": "cancel strategy CANCEL_QUEUED_EXCEPT_OLDEST",
+      "assertion_id": "3077d4591dd79ee4b6e73ffd",
+      "run_id": "0c0e3217-e813-40ca-9d80-9845f30062b2",
+      "at": "2026-10-12T10:50:51.614392Z"
+    },
+    {
+      "scenario": "concurrency",
+      "test_scenario": "concurrency",
+      "namespace": "wego_accept_concurrency_1791802240302243000_",
+      "assertion": "workflow resources deleted; run history retained",
+      "assertion_id": "bc61cfe35826be28b668b794",
+      "at": "2026-10-12T10:50:51.653194Z"
+    },
+    {
+      "scenario": "cron",
+      "test_scenario": "cron",
+      "namespace": "wego_accept_cron_1791802251653303000_",
+      "assertion": "all five expressions registered; real minute trigger with protobuf input",
+      "assertion_id": "5874421d6cd5821da10d9bfd",
+      "run_id": "785d9d5e-45b9-4b55-8f64-e391ae06d590",
+      "worker_id": "7ffea811-ac50-44db-abcd-5247efb8aff4",
+      "at": "2026-10-12T10:51:00.303295Z"
+    },
+    {
+      "scenario": "cron",
+      "test_scenario": "cron",
+      "namespace": "wego_accept_cron_1791802251653303000_",
+      "assertion": "real scheduled protobuf invocation",
+      "assertion_id": "cd0fce43f98238b6b7821828",
+      "run_id": "ab80a829-e66f-4df4-892e-14e8fb259498",
+      "worker_id": "7ffea811-ac50-44db-abcd-5247efb8aff4",
+      "at": "2026-10-12T10:51:03.768712Z"
+    },
+    {
+      "scenario": "cron",
+      "test_scenario": "cron",
+      "namespace": "wego_accept_cron_1791802251653303000_",
+      "assertion": "one-shot schedule removed after trigger",
+      "assertion_id": "85e76483f3c6820d75e973df",
+      "at": "2026-10-12T10:51:03.774673Z"
+    },
+    {
+      "scenario": "cron",
+      "test_scenario": "cron",
+      "namespace": "wego_accept_cron_1791802251653303000_",
+      "assertion": "workflow resources deleted; run history retained",
+      "assertion_id": "bc61cfe35826be28b668b794",
+      "at": "2026-10-12T10:51:03.834456Z"
+    },
+    {
+      "scenario": "dual-entry",
+      "test_scenario": "dual-entry",
+      "namespace": "wego_accept_dual_1791802263834536000_",
+      "assertion": "network gRPC directly executes shared handler without task identity",
+      "assertion_id": "b9793219b66c22fd5483edae",
+      "at": "2026-10-12T10:51:04.155659Z"
+    },
+    {
+      "scenario": "dual-entry",
+      "test_scenario": "dual-entry",
+      "namespace": "wego_accept_dual_1791802263834536000_",
+      "assertion": "Worker executes shared handler with RunID; disabled Conn still invokes tasks",
+      "assertion_id": "52b798721b7fb7950dd231a7",
+      "run_id": "b4a2c759-514c-46ce-84e8-f6b98295cdd6",
+      "worker_id": "8cccee46-a9bf-41e2-8597-1cf698715d8b",
+      "at": "2026-10-12T10:51:09.027502Z"
+    },
+    {
+      "scenario": "dual-entry",
+      "test_scenario": "dual-entry",
+      "namespace": "wego_accept_dual_1791802263834536000_",
+      "assertion": "workflow resources deleted; run history retained",
+      "assertion_id": "bc61cfe35826be28b668b794",
+      "at": "2026-10-12T10:51:09.138773Z"
+    },
+    {
+      "scenario": "durable-event",
+      "test_scenario": "durable-event",
+      "namespace": "wego_accept_durable-event_1791802269138941000_",
+      "assertion": "durable event basic and Now",
+      "assertion_id": "e443c26ef6d5afed88bf2d1c",
+      "run_id": "299fed8c-e365-4570-a996-0f62940c5c53",
+      "worker_id": "0a02295b-3144-4868-9e6f-5e6b6568425b",
+      "at": "2026-10-12T10:51:15.266797Z"
+    },
+    {
+      "scenario": "durable-event",
+      "test_scenario": "durable-event",
+      "namespace": "wego_accept_durable-event_1791802269138941000_",
+      "assertion": "durable event filter and Now",
+      "assertion_id": "8736354110286f5f65323b1a",
+      "run_id": "80be2374-ec49-4b56-8e6e-868efb6d557e",
+      "worker_id": "0a02295b-3144-4868-9e6f-5e6b6568425b",
+      "at": "2026-10-12T10:51:16.686406Z"
+    },
+    {
+      "scenario": "durable-event",
+      "test_scenario": "durable-event",
+      "namespace": "wego_accept_durable-event_1791802269138941000_",
+      "assertion": "durable event lookback and Now",
+      "assertion_id": "d55745a4d0d15a6cd6708ebc",
+      "run_id": "e192a219-5e22-4d24-b3a7-af4d50579c39",
+      "worker_id": "0a02295b-3144-4868-9e6f-5e6b6568425b",
+      "at": "2026-10-12T10:51:16.778662Z"
+    },
+    {
+      "scenario": "durable-event",
+      "test_scenario": "durable-event",
+      "namespace": "wego_accept_durable-event_1791802269138941000_",
+      "assertion": "workflow resources deleted; run history retained",
+      "assertion_id": "bc61cfe35826be28b668b794",
+      "at": "2026-10-12T10:51:16.80282Z"
+    },
+    {
+      "scenario": "durable-sleep",
+      "test_scenario": "durable-sleep",
+      "namespace": "wego_accept_durable-sleep_1791802276802926000_",
+      "assertion": "real durable Sleep and memoized Now",
+      "assertion_id": "c22816cdcc65c8c20dd9229e",
+      "run_id": "50d5bccb-2cf9-4645-b200-53633fcf157c",
+      "worker_id": "d16b7bb3-1608-4b90-8629-9ef7f30adcdd",
+      "at": "2026-10-12T10:51:19.928266Z"
+    },
+    {
+      "scenario": "durable-sleep",
+      "test_scenario": "durable-sleep",
+      "namespace": "wego_accept_durable-sleep_1791802276802926000_",
+      "assertion": "workflow resources deleted; run history retained",
+      "assertion_id": "bc61cfe35826be28b668b794",
+      "at": "2026-10-12T10:51:20.07075Z"
+    },
+    {
+      "scenario": "events",
+      "test_scenario": "events",
+      "namespace": "wego_accept_events_1791802280070783000_",
+      "assertion": "event triggers protobuf RPC and result lookup",
+      "assertion_id": "d3555d14d6b4fdaaefa4a281",
+      "run_id": "0266ecb9-87aa-46eb-be0b-87bc9cbfd590",
+      "worker_id": "b1817a7c-77b8-43ae-8303-2a3af3777cea",
+      "at": "2026-10-12T10:51:24.165278Z"
+    },
+    {
+      "scenario": "events",
+      "test_scenario": "events",
+      "namespace": "wego_accept_events_1791802280070783000_",
+      "assertion": "workflow resources deleted; run history retained",
+      "assertion_id": "bc61cfe35826be28b668b794",
+      "at": "2026-10-12T10:51:24.273572Z"
+    },
+    {
+      "scenario": "eviction",
+      "test_scenario": "eviction",
+      "namespace": "wego_accept_eviction_1791802284273612000_",
+      "assertion": "durable ttl-sleep resumed without resetting wait",
+      "assertion_id": "100747bceeacc790fd9cec74",
+      "run_id": "10468039-ebb3-4d3e-93da-a43e620bd43a",
+      "worker_id": "c7d7ca01-f334-47dc-8c1c-9e9a62fc68dc",
+      "at": "2026-10-12T10:51:39.726719Z"
+    },
+    {
+      "scenario": "eviction",
+      "test_scenario": "eviction",
+      "namespace": "wego_accept_eviction_1791802284273612000_",
+      "assertion": "workflow resources deleted; run history retained",
+      "assertion_id": "bc61cfe35826be28b668b794",
+      "at": "2026-10-12T10:51:39.751017Z"
+    },
+    {
+      "scenario": "eviction",
+      "test_scenario": "eviction",
+      "namespace": "wego_accept_eviction_1791802299751019000_",
+      "assertion": "durable ttl-event resumed without resetting wait",
+      "assertion_id": "f1a310e2073201f13532b0d3",
+      "run_id": "a6710625-a126-42b8-bcf4-87e17e8d39c1",
+      "worker_id": "00a53088-7964-4aa9-af3b-4ead5dbfe21b",
+      "at": "2026-10-12T10:51:46.544526Z"
+    },
+    {
+      "scenario": "eviction",
+      "test_scenario": "eviction",
+      "namespace": "wego_accept_eviction_1791802299751019000_",
+      "assertion": "workflow resources deleted; run history retained",
+      "assertion_id": "bc61cfe35826be28b668b794",
+      "at": "2026-10-12T10:51:46.605339Z"
+    },
+    {
+      "scenario": "eviction",
+      "test_scenario": "eviction",
+      "namespace": "wego_accept_eviction_1791802306605342000_",
+      "assertion": "durable disabled resumed without resetting wait",
+      "assertion_id": "7eb70443bb5c7080016f4cc2",
+      "run_id": "df9d2bb7-892f-4e74-a6a6-5df5e7724938",
+      "worker_id": "eb86b346-bca6-4372-98a1-a8e6c9fbd42f",
+      "at": "2026-10-12T10:51:55.936457Z"
+    },
+    {
+      "scenario": "eviction",
+      "test_scenario": "eviction",
+      "namespace": "wego_accept_eviction_1791802306605342000_",
+      "assertion": "workflow resources deleted; run history retained",
+      "assertion_id": "bc61cfe35826be28b668b794",
+      "at": "2026-10-12T10:51:56.006182Z"
+    },
+    {
+      "scenario": "eviction",
+      "test_scenario": "eviction",
+      "namespace": "wego_accept_eviction_1791802316006184000_",
+      "assertion": "durable capacity resumed without resetting wait",
+      "assertion_id": "c1a45c27509b4d53caabd12e",
+      "run_id": "6790a1a7-e123-4c25-a9b3-35a1c1c437ad",
+      "worker_id": "989bf2c7-d6ee-46ff-b546-3dcc1c21f52d",
+      "at": "2026-10-12T10:52:20.993376Z"
+    },
+    {
+      "scenario": "eviction",
+      "test_scenario": "eviction",
+      "namespace": "wego_accept_eviction_1791802316006184000_",
+      "assertion": "workflow resources deleted; run history retained",
+      "assertion_id": "bc61cfe35826be28b668b794",
+      "at": "2026-10-12T10:52:21.017989Z"
+    },
+    {
+      "scenario": "grpc-streams",
+      "test_scenario": "grpc-streams",
+      "namespace": "wego_accept_grpc-streams_1791802341018025000_",
+      "assertion": "client stream 0 messages, CloseAndRecv, trailers",
+      "assertion_id": "e31fb0a7a87b99eef67ad9f9",
+      "run_id": "1f318e10-b6b1-47c5-aa9d-420e2aab4198",
+      "worker_id": "fc53fe9b-0da3-40a1-bcce-583e514ef98c",
+      "at": "2026-10-12T10:52:24.003643Z"
+    },
+    {
+      "scenario": "grpc-streams",
+      "test_scenario": "grpc-streams",
+      "namespace": "wego_accept_grpc-streams_1791802341018025000_",
+      "assertion": "client stream 5 messages, CloseAndRecv, trailers",
+      "assertion_id": "a1c86760fbc045af23f0869a",
+      "run_id": "21c5bdc5-ad5c-4282-8f8e-2e42304fc367",
+      "worker_id": "fc53fe9b-0da3-40a1-bcce-583e514ef98c",
+      "at": "2026-10-12T10:52:24.078933Z"
+    },
+    {
+      "scenario": "grpc-streams",
+      "test_scenario": "grpc-streams",
+      "namespace": "wego_accept_grpc-streams_1791802341018025000_",
+      "assertion": "server stream 0 messages, window 2, slow consumer",
+      "assertion_id": "a30bdbacde315a0244a146e5",
+      "at": "2026-10-12T10:52:24.181517Z"
+    },
+    {
+      "scenario": "grpc-streams",
+      "test_scenario": "grpc-streams",
+      "namespace": "wego_accept_grpc-streams_1791802341018025000_",
+      "assertion": "server stream 5 messages, window 2, slow consumer",
+      "assertion_id": "5a722f9e287fcd470fdf26b1",
+      "run_id": "d070a638-1b51-4dae-9541-a252c6b9b563",
+      "worker_id": "fc53fe9b-0da3-40a1-bcce-583e514ef98c",
+      "at": "2026-10-12T10:52:24.348618Z"
+    },
+    {
+      "scenario": "grpc-streams",
+      "test_scenario": "grpc-streams",
+      "namespace": "wego_accept_grpc-streams_1791802341018025000_",
+      "assertion": "bidi batch input and streaming output with one business slot",
+      "assertion_id": "7e82d9453c996f3f200a1699",
+      "at": "2026-10-12T10:52:24.434701Z"
+    },
+    {
+      "scenario": "grpc-streams",
+      "test_scenario": "grpc-streams",
+      "namespace": "wego_accept_grpc-streams_1791802341018025000_",
+      "assertion": "bidi batch input and streaming output with one business slot",
+      "assertion_id": "7e82d9453c996f3f200a1699",
+      "run_id": "230f4bcb-1682-40fe-849f-006028c668d4",
+      "worker_id": "fc53fe9b-0da3-40a1-bcce-583e514ef98c",
+      "at": "2026-10-12T10:52:24.536235Z"
+    },
+    {
+      "scenario": "grpc-streams",
+      "test_scenario": "grpc-streams",
+      "namespace": "wego_accept_grpc-streams_1791802341018025000_",
+      "assertion": "early client-stream handler return",
+      "assertion_id": "48b1172b6d1b100de62f19ad",
+      "run_id": "cacaae03-591a-4798-bb2c-e99c4d8660ee",
+      "worker_id": "fc53fe9b-0da3-40a1-bcce-583e514ef98c",
+      "at": "2026-10-12T10:52:24.680944Z"
+    },
+    {
+      "scenario": "grpc-streams",
+      "test_scenario": "grpc-streams",
+      "namespace": "wego_accept_grpc-streams_1791802341018025000_",
+      "assertion": "stream outputs precede business status; cancellation terminates receive",
+      "assertion_id": "291176238a8484c02def9486",
+      "at": "2026-10-12T10:52:24.691157Z"
+    },
+    {
+      "scenario": "grpc-streams",
+      "test_scenario": "grpc-streams",
+      "namespace": "wego_accept_grpc-streams_1791802341018025000_",
+      "assertion": "workflow resources deleted; run history retained",
+      "assertion_id": "bc61cfe35826be28b668b794",
+      "at": "2026-10-12T10:52:24.841976Z"
+    },
+    {
+      "scenario": "idempotency",
+      "test_scenario": "idempotency",
+      "namespace": "wego_accept_idempotency_1791802344842037000_",
+      "assertion": "idempotency status=false",
+      "assertion_id": "0db024136f3923d2041ea5e0",
+      "run_id": "3761960d-c1fa-4e23-adb8-ff60426eed76",
+      "worker_id": "5c098a53-cd05-4928-b9c0-af3922798b48",
+      "at": "2026-10-12T10:52:28.955493Z"
+    },
+    {
+      "scenario": "idempotency",
+      "test_scenario": "idempotency",
+      "namespace": "wego_accept_idempotency_1791802344842037000_",
+      "assertion": "idempotency key released after completion=false or TTL expiry",
+      "assertion_id": "389421f3de2f4e4647b9d42b",
+      "run_id": "8f832b0c-98f9-4f07-80fb-b07ab0db1653",
+      "worker_id": "5c098a53-cd05-4928-b9c0-af3922798b48",
+      "at": "2026-10-12T10:53:27.286203Z"
+    },
+    {
+      "scenario": "idempotency",
+      "test_scenario": "idempotency",
+      "namespace": "wego_accept_idempotency_1791802344842037000_",
+      "assertion": "workflow resources deleted; run history retained",
+      "assertion_id": "bc61cfe35826be28b668b794",
+      "at": "2026-10-12T10:53:27.314517Z"
+    },
+    {
+      "scenario": "idempotency",
+      "test_scenario": "idempotency",
+      "namespace": "wego_accept_idempotency_1791802407314518000_",
+      "assertion": "idempotency status=true",
+      "assertion_id": "0dbf083fa3c10ef74a0a4507",
+      "run_id": "0f00c84e-1d17-4f52-ac45-a49e6510c900",
+      "worker_id": "78019c7d-d3e3-44da-816a-7caede7c4759",
+      "at": "2026-10-12T10:53:29.076869Z"
+    },
+    {
+      "scenario": "idempotency",
+      "test_scenario": "idempotency",
+      "namespace": "wego_accept_idempotency_1791802407314518000_",
+      "assertion": "idempotency key released after completion=true or TTL expiry",
+      "assertion_id": "053abd6a0a9e0734bb3f7b50",
+      "run_id": "5bcf904b-20e6-4254-8498-2912d314e983",
+      "worker_id": "78019c7d-d3e3-44da-816a-7caede7c4759",
+      "at": "2026-10-12T10:53:29.133056Z"
+    },
+    {
+      "scenario": "idempotency",
+      "test_scenario": "idempotency",
+      "namespace": "wego_accept_idempotency_1791802407314518000_",
+      "assertion": "workflow resources deleted; run history retained",
+      "assertion_id": "bc61cfe35826be28b668b794",
+      "at": "2026-10-12T10:53:29.25251Z"
+    },
+    {
+      "scenario": "logs",
+      "test_scenario": "logs",
+      "namespace": "wego_accept_logs_1791802409252583000_",
+      "assertion": "reported logs and since query",
+      "assertion_id": "3b3d6a7fc7615b8e923d3fcb",
+      "run_id": "8d4683b0-9597-4d7b-aa4e-a79318fb900d",
+      "worker_id": "b1e40b5c-bfdd-4b2b-92cd-265160c2afbd",
+      "at": "2026-10-12T10:53:35.573583Z"
+    },
+    {
+      "scenario": "logs",
+      "test_scenario": "logs",
+      "namespace": "wego_accept_logs_1791802409252583000_",
+      "assertion": "workflow resources deleted; run history retained",
+      "assertion_id": "bc61cfe35826be28b668b794",
+      "at": "2026-10-12T10:53:35.733466Z"
+    },
+    {
+      "scenario": "mergent",
+      "test_scenario": "mergent",
+      "namespace": "wego_accept_mergent_1791802415733516000_",
+      "assertion": "image processor nested protobuf result",
+      "assertion_id": "3946ee097fc53ebd4280e5cc",
+      "run_id": "be819fa5-df9f-4b0a-a087-056615b08dc7",
+      "worker_id": "a11a7cb3-d1d7-449d-9fa8-9100c8b3e1e6",
+      "at": "2026-10-12T10:53:39.287128Z"
+    },
+    {
+      "scenario": "mergent",
+      "test_scenario": "mergent",
+      "namespace": "wego_accept_mergent_1791802415733516000_",
+      "assertion": "scheduled image processor invocation",
+      "assertion_id": "2c8298d324c9fb7f9e6b73ee",
+      "run_id": "a60f9df3-5658-43f9-a437-a10cb72ae37b",
+      "worker_id": "a11a7cb3-d1d7-449d-9fa8-9100c8b3e1e6",
+      "at": "2026-10-12T10:53:43.200488Z"
+    },
+    {
+      "scenario": "mergent",
+      "test_scenario": "mergent",
+      "namespace": "wego_accept_mergent_1791802415733516000_",
+      "assertion": "one-shot schedule removed after trigger",
+      "assertion_id": "85e76483f3c6820d75e973df",
+      "at": "2026-10-12T10:53:43.202147Z"
+    },
+    {
+      "scenario": "mergent",
+      "test_scenario": "mergent",
+      "namespace": "wego_accept_mergent_1791802415733516000_",
+      "assertion": "workflow resources deleted; run history retained",
+      "assertion_id": "bc61cfe35826be28b668b794",
+      "at": "2026-10-12T10:53:43.225233Z"
+    },
+    {
+      "scenario": "middleware",
+      "test_scenario": "middleware",
+      "namespace": "wego_accept_middleware_1791802423225388000_",
+      "assertion": "gzip/AES-GCM/object storage roundtrip; scheduling routing retained",
+      "assertion_id": "40d06828f78b32dfe2628bc4",
+      "run_id": "0b5c6915-c729-4756-b9af-a55bf1d42e67",
+      "worker_id": "47a727fd-f363-4f73-b647-8b68eb3c85c7",
+      "at": "2026-10-12T10:53:48.064891Z"
+    },
+    {
+      "scenario": "middleware",
+      "test_scenario": "middleware",
+      "namespace": "wego_accept_middleware_1791802423225388000_",
+      "assertion": "gzip/AES-GCM/object storage roundtrip; scheduling routing retained",
+      "assertion_id": "40d06828f78b32dfe2628bc4",
+      "run_id": "90537c7b-d895-42c7-bc5a-08b6c4576d8a",
+      "worker_id": "47a727fd-f363-4f73-b647-8b68eb3c85c7",
+      "at": "2026-10-12T10:53:49.553751Z"
+    },
+    {
+      "scenario": "middleware",
+      "test_scenario": "middleware",
+      "namespace": "wego_accept_middleware_1791802423225388000_",
+      "assertion": "gzip/AES-GCM/object storage roundtrip; scheduling routing retained",
+      "assertion_id": "40d06828f78b32dfe2628bc4",
+      "run_id": "c7cfd563-8c0d-4d66-ab29-f7fc06bbadb8",
+      "worker_id": "47a727fd-f363-4f73-b647-8b68eb3c85c7",
+      "at": "2026-10-12T10:53:53.282631Z"
+    },
+    {
+      "scenario": "middleware",
+      "test_scenario": "middleware",
+      "namespace": "wego_accept_middleware_1791802423225388000_",
+      "assertion": "gzip/AES-GCM/object storage roundtrip; scheduling routing retained",
+      "assertion_id": "40d06828f78b32dfe2628bc4",
+      "run_id": "78ff7f64-4d85-48ce-b9cd-bf1e16d02562",
+      "worker_id": "47a727fd-f363-4f73-b647-8b68eb3c85c7",
+      "at": "2026-10-12T10:53:57.183023Z"
+    },
+    {
+      "scenario": "middleware",
+      "test_scenario": "middleware",
+      "namespace": "wego_accept_middleware_1791802423225388000_",
+      "assertion": "workflow resources deleted; run history retained",
+      "assertion_id": "bc61cfe35826be28b668b794",
+      "at": "2026-10-12T10:53:57.216356Z"
+    },
+    {
+      "scenario": "grpc-streams",
+      "test_scenario": "middleware",
+      "namespace": "wego_accept_grpc-streams_1791802437216359000_",
+      "assertion": "client stream 0 messages, CloseAndRecv, trailers",
+      "assertion_id": "e31fb0a7a87b99eef67ad9f9",
+      "run_id": "7b877867-ec25-4522-9ed3-321a00828d4f",
+      "worker_id": "9c49ec3e-54a4-41c0-8897-b27909e2c910",
+      "at": "2026-10-12T10:53:59.380444Z"
+    },
+    {
+      "scenario": "grpc-streams",
+      "test_scenario": "middleware",
+      "namespace": "wego_accept_grpc-streams_1791802437216359000_",
+      "assertion": "client stream 5 messages, CloseAndRecv, trailers",
+      "assertion_id": "a1c86760fbc045af23f0869a",
+      "run_id": "c5a0f7e3-1b95-4e2d-9a78-3b05a521de17",
+      "worker_id": "9c49ec3e-54a4-41c0-8897-b27909e2c910",
+      "at": "2026-10-12T10:53:59.488543Z"
+    },
+    {
+      "scenario": "grpc-streams",
+      "test_scenario": "middleware",
+      "namespace": "wego_accept_grpc-streams_1791802437216359000_",
+      "assertion": "server stream 0 messages, window 2, slow consumer",
+      "assertion_id": "a30bdbacde315a0244a146e5",
+      "at": "2026-10-12T10:53:59.570678Z"
+    },
+    {
+      "scenario": "grpc-streams",
+      "test_scenario": "middleware",
+      "namespace": "wego_accept_grpc-streams_1791802437216359000_",
+      "assertion": "server stream 5 messages, window 2, slow consumer",
+      "assertion_id": "5a722f9e287fcd470fdf26b1",
+      "run_id": "5729ff54-981c-4855-bc56-c049d1ed34d1",
+      "worker_id": "9c49ec3e-54a4-41c0-8897-b27909e2c910",
+      "at": "2026-10-12T10:53:59.731311Z"
+    },
+    {
+      "scenario": "grpc-streams",
+      "test_scenario": "middleware",
+      "namespace": "wego_accept_grpc-streams_1791802437216359000_",
+      "assertion": "bidi batch input and streaming output with one business slot",
+      "assertion_id": "7e82d9453c996f3f200a1699",
+      "at": "2026-10-12T10:53:59.816476Z"
+    },
+    {
+      "scenario": "grpc-streams",
+      "test_scenario": "middleware",
+      "namespace": "wego_accept_grpc-streams_1791802437216359000_",
+      "assertion": "bidi batch input and streaming output with one business slot",
+      "assertion_id": "7e82d9453c996f3f200a1699",
+      "run_id": "e0e1f913-364a-44bd-a5bc-01989968c766",
+      "worker_id": "9c49ec3e-54a4-41c0-8897-b27909e2c910",
+      "at": "2026-10-12T10:53:59.99508Z"
+    },
+    {
+      "scenario": "grpc-streams",
+      "test_scenario": "middleware",
+      "namespace": "wego_accept_grpc-streams_1791802437216359000_",
+      "assertion": "early client-stream handler return",
+      "assertion_id": "48b1172b6d1b100de62f19ad",
+      "run_id": "7765f59d-0912-4a0e-b24b-16bc25cb2893",
+      "worker_id": "9c49ec3e-54a4-41c0-8897-b27909e2c910",
+      "at": "2026-10-12T10:54:00.139237Z"
+    },
+    {
+      "scenario": "grpc-streams",
+      "test_scenario": "middleware",
+      "namespace": "wego_accept_grpc-streams_1791802437216359000_",
+      "assertion": "stream outputs precede business status; cancellation terminates receive",
+      "assertion_id": "291176238a8484c02def9486",
+      "at": "2026-10-12T10:54:00.147594Z"
+    },
+    {
+      "scenario": "grpc-streams",
+      "test_scenario": "middleware",
+      "namespace": "wego_accept_grpc-streams_1791802437216359000_",
+      "assertion": "workflow resources deleted; run history retained",
+      "assertion_id": "bc61cfe35826be28b668b794",
+      "at": "2026-10-12T10:54:00.260422Z"
+    },
+    {
+      "scenario": "observability",
+      "test_scenario": "observability",
+      "namespace": "wego_accept_observability_1791802440260791000_",
+      "assertion": "audit event triggered workflow with traced persistence",
+      "assertion_id": "b07274105fca5a9306cb0a2e",
+      "run_id": "786d359a-44f6-4468-bff4-3b0d233773a8",
+      "worker_id": "5eb3d103-7845-43ea-adda-b8148251fc41",
+      "at": "2026-10-12T10:54:06.804433Z"
+    },
+    {
+      "scenario": "observability",
+      "test_scenario": "observability",
+      "namespace": "wego_accept_observability_1791802440260791000_",
+      "assertion": "traced DAG parallel payment/inventory and ten concurrent child notifications plus second standalone",
+      "assertion_id": "d7b389fae085acdf50d30e8f",
+      "run_id": "829bdd90-9fe4-4b9c-a4c0-436d1bfe6360",
+      "at": "2026-10-12T10:54:06.804437Z"
+    },
+    {
+      "scenario": "observability",
+      "test_scenario": "observability",
+      "namespace": "wego_accept_observability_1791802440260791000_",
+      "assertion": "workflow resources deleted; run history retained",
+      "assertion_id": "bc61cfe35826be28b668b794",
+      "at": "2026-10-12T10:54:07.087334Z"
+    },
+    {
+      "scenario": "observability",
+      "test_scenario": "observability",
+      "namespace": "wego_accept_observability_1791802440260791000_",
+      "assertion": "trace propagation, task attributes, two exporters, Jaeger, metrics, unchanged global provider",
+      "assertion_id": "89ef1b825f5a249faf011885",
+      "run_id": "a858fcb0-156a-4bee-b565-129d22bb72de",
+      "worker_id": "18292958-cef7-4d28-b6f4-914cbb2ebae3",
+      "trace_id": "a69b523949e13ebd5d34897eebffc15b",
+      "at": "2026-10-12T10:54:07.392854Z"
+    },
+    {
+      "scenario": "filters",
+      "test_scenario": "on-event",
+      "namespace": "wego_accept_filters_1791802447393415000_",
+      "assertion": "filter rejects and accepts events with payload",
+      "assertion_id": "891baab90319df73718d2ad9",
+      "run_id": "7acdb2a2-7b84-471a-8802-7de81dae8719",
+      "worker_id": "956a650b-9ef3-475f-adbe-d75808a19904",
+      "at": "2026-10-12T10:54:08.320141Z"
+    },
+    {
+      "scenario": "filters",
+      "test_scenario": "on-event",
+      "namespace": "wego_accept_filters_1791802447393415000_",
+      "assertion": "filter create/get/update/list/delete",
+      "assertion_id": "30e01d1be8b7242ca8af6a59",
+      "at": "2026-10-12T10:54:08.34296Z"
+    },
+    {
+      "scenario": "filters",
+      "test_scenario": "on-event",
+      "namespace": "wego_accept_filters_1791802447393415000_",
+      "assertion": "workflow resources deleted; run history retained",
+      "assertion_id": "bc61cfe35826be28b668b794",
+      "at": "2026-10-12T10:54:08.408054Z"
+    },
+    {
+      "scenario": "panic",
+      "test_scenario": "panic-handler",
+      "namespace": "wego_accept_panic_1791802448408118000_",
+      "assertion": "panic handler and subsequent successful call",
+      "assertion_id": "213cff335aa78b77028bbbb3",
+      "run_id": "a21042fe-098f-4350-bcba-a244d51aed99",
+      "worker_id": "e1fdada2-ffec-4ff4-b5f7-0e8ecee9f9c2",
+      "at": "2026-10-12T10:54:14.045746Z"
+    },
+    {
+      "scenario": "panic",
+      "test_scenario": "panic-handler",
+      "namespace": "wego_accept_panic_1791802448408118000_",
+      "assertion": "workflow resources deleted; run history retained",
+      "assertion_id": "bc61cfe35826be28b668b794",
+      "at": "2026-10-12T10:54:14.139852Z"
+    },
+    {
+      "scenario": "rate-limiting",
+      "test_scenario": "rate-limiting",
+      "namespace": "wego_accept_rate-limiting_1791802454184982000_",
+      "assertion": "static/dynamic per-second rate limit",
+      "assertion_id": "178c4aca48973fb1e94e256c",
+      "run_id": "b065cd27-6438-4e07-801b-7a1d377e2957",
+      "worker_id": "7a8639af-b12c-4480-8872-9c88d2e365e0",
+      "at": "2026-10-12T10:54:19.73852Z"
+    },
+    {
+      "scenario": "rate-limiting",
+      "test_scenario": "rate-limiting",
+      "namespace": "wego_accept_rate-limiting_1791802454184982000_",
+      "assertion": "static/dynamic per-second rate limit",
+      "assertion_id": "178c4aca48973fb1e94e256c",
+      "run_id": "6a0bde0e-5f49-4b15-b883-e0e25d2dfd31",
+      "worker_id": "7a8639af-b12c-4480-8872-9c88d2e365e0",
+      "at": "2026-10-12T10:54:19.75562Z"
+    },
+    {
+      "scenario": "rate-limiting",
+      "test_scenario": "rate-limiting",
+      "namespace": "wego_accept_rate-limiting_1791802454184982000_",
+      "assertion": "static/dynamic per-second rate limit",
+      "assertion_id": "178c4aca48973fb1e94e256c",
+      "run_id": "27dbb281-a860-4768-8f62-4f42cab7d38b",
+      "worker_id": "7a8639af-b12c-4480-8872-9c88d2e365e0",
+      "at": "2026-10-12T10:54:20.8825Z"
+    },
+    {
+      "scenario": "rate-limiting",
+      "test_scenario": "rate-limiting",
+      "namespace": "wego_accept_rate-limiting_1791802454184982000_",
+      "assertion": "static/dynamic per-second rate limit",
+      "assertion_id": "178c4aca48973fb1e94e256c",
+      "run_id": "e72335e8-92ec-4a11-a586-ea36cd3edaf6",
+      "worker_id": "7a8639af-b12c-4480-8872-9c88d2e365e0",
+      "at": "2026-10-12T10:54:20.900305Z"
+    },
+    {
+      "scenario": "rate-limiting",
+      "test_scenario": "rate-limiting",
+      "namespace": "wego_accept_rate-limiting_1791802454184982000_",
+      "assertion": "static/dynamic per-second rate limit",
+      "assertion_id": "178c4aca48973fb1e94e256c",
+      "run_id": "a19a9090-95f2-42ac-ad21-6c6e7019db77",
+      "worker_id": "7a8639af-b12c-4480-8872-9c88d2e365e0",
+      "at": "2026-10-12T10:54:22.047001Z"
+    },
+    {
+      "scenario": "rate-limiting",
+      "test_scenario": "rate-limiting",
+      "namespace": "wego_accept_rate-limiting_1791802454184982000_",
+      "assertion": "static/dynamic per-second rate limit",
+      "assertion_id": "178c4aca48973fb1e94e256c",
+      "run_id": "664833bf-a6ab-46b3-8175-f4391ead1a3f",
+      "worker_id": "7a8639af-b12c-4480-8872-9c88d2e365e0",
+      "at": "2026-10-12T10:54:23.062947Z"
+    },
+    {
+      "scenario": "rate-limiting",
+      "test_scenario": "rate-limiting",
+      "namespace": "wego_accept_rate-limiting_1791802454184982000_",
+      "assertion": "static/dynamic per-second rate limit",
+      "assertion_id": "178c4aca48973fb1e94e256c",
+      "run_id": "4c94a438-37d3-453e-8e02-67f328dbd795",
+      "worker_id": "7a8639af-b12c-4480-8872-9c88d2e365e0",
+      "at": "2026-10-12T10:54:23.530295Z"
+    },
+    {
+      "scenario": "rate-limiting",
+      "test_scenario": "rate-limiting",
+      "namespace": "wego_accept_rate-limiting_1791802454184982000_",
+      "assertion": "static/dynamic per-second rate limit",
+      "assertion_id": "178c4aca48973fb1e94e256c",
+      "run_id": "808e8d29-b2b5-42ea-a144-11efb91bc8bf",
+      "worker_id": "7a8639af-b12c-4480-8872-9c88d2e365e0",
+      "at": "2026-10-12T10:54:23.541609Z"
+    },
+    {
+      "scenario": "rate-limiting",
+      "test_scenario": "rate-limiting",
+      "namespace": "wego_accept_rate-limiting_1791802454184982000_",
+      "assertion": "static/dynamic per-second rate limit",
+      "assertion_id": "178c4aca48973fb1e94e256c",
+      "run_id": "e21434f7-19d7-4c55-aede-1e3254d4588d",
+      "worker_id": "7a8639af-b12c-4480-8872-9c88d2e365e0",
+      "at": "2026-10-12T10:54:25.572306Z"
+    },
+    {
+      "scenario": "rate-limiting",
+      "test_scenario": "rate-limiting",
+      "namespace": "wego_accept_rate-limiting_1791802454184982000_",
+      "assertion": "static/dynamic per-second rate limit",
+      "assertion_id": "178c4aca48973fb1e94e256c",
+      "run_id": "a3745f3d-3774-4687-aeb4-6041e5f22c84",
+      "worker_id": "7a8639af-b12c-4480-8872-9c88d2e365e0",
+      "at": "2026-10-12T10:54:25.585713Z"
+    },
+    {
+      "scenario": "rate-limiting",
+      "test_scenario": "rate-limiting",
+      "namespace": "wego_accept_rate-limiting_1791802454184982000_",
+      "assertion": "static/dynamic per-second rate limit",
+      "assertion_id": "178c4aca48973fb1e94e256c",
+      "run_id": "37910a0d-03e4-4d77-9846-b62c0dd7ed2a",
+      "worker_id": "7a8639af-b12c-4480-8872-9c88d2e365e0",
+      "at": "2026-10-12T10:54:26.692841Z"
+    },
+    {
+      "scenario": "rate-limiting",
+      "test_scenario": "rate-limiting",
+      "namespace": "wego_accept_rate-limiting_1791802454184982000_",
+      "assertion": "static/dynamic per-second rate limit",
+      "assertion_id": "178c4aca48973fb1e94e256c",
+      "run_id": "301fa470-c18a-41be-b7c1-66da69502944",
+      "worker_id": "7a8639af-b12c-4480-8872-9c88d2e365e0",
+      "at": "2026-10-12T10:54:27.715653Z"
+    },
+    {
+      "scenario": "rate-limiting",
+      "test_scenario": "rate-limiting",
+      "namespace": "wego_accept_rate-limiting_1791802454184982000_",
+      "assertion": "workflow resources deleted; run history retained",
+      "assertion_id": "bc61cfe35826be28b668b794",
+      "at": "2026-10-12T10:54:27.739824Z"
+    },
+    {
+      "scenario": "retries",
+      "test_scenario": "retries",
+      "namespace": "wego_accept_retries_1791802467739885000_",
+      "assertion": "always-fails attempts and policy",
+      "assertion_id": "5a97655c93e99ecb63345010",
+      "at": "2026-10-12T10:54:37.384509Z"
+    },
+    {
+      "scenario": "retries",
+      "test_scenario": "retries",
+      "namespace": "wego_accept_retries_1791802467739885000_",
+      "assertion": "workflow resources deleted; run history retained",
+      "assertion_id": "bc61cfe35826be28b668b794",
+      "at": "2026-10-12T10:54:37.488898Z"
+    },
+    {
+      "scenario": "retries",
+      "test_scenario": "retries",
+      "namespace": "wego_accept_retries_1791802477488902000_",
+      "assertion": "count attempts and policy",
+      "assertion_id": "2760c3eab8d04f06f1d98aa9",
+      "run_id": "ecadb4cf-f03d-48f2-938b-54620cd8b57e",
+      "worker_id": "44fe33bb-2255-489d-8bff-52867b6d6d27",
+      "at": "2026-10-12T10:54:40.538692Z"
+    },
+    {
+      "scenario": "retries",
+      "test_scenario": "retries",
+      "namespace": "wego_accept_retries_1791802477488902000_",
+      "assertion": "workflow resources deleted; run history retained",
+      "assertion_id": "bc61cfe35826be28b668b794",
+      "at": "2026-10-12T10:54:40.634417Z"
+    },
+    {
+      "scenario": "retries",
+      "test_scenario": "retries",
+      "namespace": "wego_accept_retries_1791802480634419000_",
+      "assertion": "backoff attempts and policy",
+      "assertion_id": "c6888d73422719f41cc9ba2b",
+      "at": "2026-10-12T10:54:54.104562Z"
+    },
+    {
+      "scenario": "retries",
+      "test_scenario": "retries",
+      "namespace": "wego_accept_retries_1791802480634419000_",
+      "assertion": "workflow resources deleted; run history retained",
+      "assertion_id": "bc61cfe35826be28b668b794",
+      "at": "2026-10-12T10:54:54.196337Z"
+    },
+    {
+      "scenario": "retries",
+      "test_scenario": "retries",
+      "namespace": "wego_accept_retries_1791802494196338000_",
+      "assertion": "nonretryable attempts and policy",
+      "assertion_id": "62dceff45086f74be5f6851a",
+      "at": "2026-10-12T10:54:59.104734Z"
+    },
+    {
+      "scenario": "retries",
+      "test_scenario": "retries",
+      "namespace": "wego_accept_retries_1791802494196338000_",
+      "assertion": "workflow resources deleted; run history retained",
+      "assertion_id": "bc61cfe35826be28b668b794",
+      "at": "2026-10-12T10:54:59.20732Z"
+    },
+    {
+      "scenario": "runtime-affinity",
+      "test_scenario": "runtime-affinity",
+      "namespace": "wego_accept_runtime-affinity_1791802499207362000_",
+      "assertion": "required affinity alpha; sticky=false",
+      "assertion_id": "4bfc48ad57c66466aac5abd3",
+      "run_id": "fd6d77dd-009c-4e02-8ef0-f3bbd88383ce",
+      "worker_id": "a646feac-3eed-4cad-b4a8-49f8bd699925",
+      "at": "2026-10-12T10:55:04.078933Z"
+    },
+    {
+      "scenario": "runtime-affinity",
+      "test_scenario": "runtime-affinity",
+      "namespace": "wego_accept_runtime-affinity_1791802499207362000_",
+      "assertion": "required affinity beta; sticky=false",
+      "assertion_id": "1b348f6eb9fdcf437dbba92d",
+      "run_id": "e541356a-a779-4eed-930e-fb38bd76e36a",
+      "worker_id": "b311f27b-b4f1-4cc1-b82a-28852bece271",
+      "at": "2026-10-12T10:55:04.168699Z"
+    },
+    {
+      "scenario": "runtime-affinity",
+      "test_scenario": "runtime-affinity",
+      "namespace": "wego_accept_runtime-affinity_1791802499207362000_",
+      "assertion": "required affinity alpha; sticky=false",
+      "assertion_id": "4bfc48ad57c66466aac5abd3",
+      "run_id": "75644654-736a-45b4-92b6-9c371eef83fb",
+      "worker_id": "a646feac-3eed-4cad-b4a8-49f8bd699925",
+      "at": "2026-10-12T10:55:04.427154Z"
+    },
+    {
+      "scenario": "runtime-affinity",
+      "test_scenario": "runtime-affinity",
+      "namespace": "wego_accept_runtime-affinity_1791802499207362000_",
+      "assertion": "required affinity beta; sticky=false",
+      "assertion_id": "1b348f6eb9fdcf437dbba92d",
+      "run_id": "dc47520f-5730-457c-bc6f-4cc177ac29e9",
+      "worker_id": "b311f27b-b4f1-4cc1-b82a-28852bece271",
+      "at": "2026-10-12T10:55:04.497031Z"
+    },
+    {
+      "scenario": "runtime-affinity",
+      "test_scenario": "runtime-affinity",
+      "namespace": "wego_accept_runtime-affinity_1791802499207362000_",
+      "assertion": "required affinity alpha; sticky=false",
+      "assertion_id": "4bfc48ad57c66466aac5abd3",
+      "run_id": "269cf15e-8166-40e1-8cee-1d9c2387ccec",
+      "worker_id": "a646feac-3eed-4cad-b4a8-49f8bd699925",
+      "at": "2026-10-12T10:55:04.556752Z"
+    },
+    {
+      "scenario": "runtime-affinity",
+      "test_scenario": "runtime-affinity",
+      "namespace": "wego_accept_runtime-affinity_1791802499207362000_",
+      "assertion": "required affinity beta; sticky=false",
+      "assertion_id": "1b348f6eb9fdcf437dbba92d",
+      "run_id": "624723bd-a350-4175-b106-2b3d072cca78",
+      "worker_id": "b311f27b-b4f1-4cc1-b82a-28852bece271",
+      "at": "2026-10-12T10:55:04.60851Z"
+    },
+    {
+      "scenario": "runtime-affinity",
+      "test_scenario": "runtime-affinity",
+      "namespace": "wego_accept_runtime-affinity_1791802499207362000_",
+      "assertion": "required affinity alpha; sticky=false",
+      "assertion_id": "4bfc48ad57c66466aac5abd3",
+      "run_id": "0130e989-bb8e-47b9-8c01-f3b97e8be9df",
+      "worker_id": "a646feac-3eed-4cad-b4a8-49f8bd699925",
+      "at": "2026-10-12T10:55:04.660406Z"
+    },
+    {
+      "scenario": "runtime-affinity",
+      "test_scenario": "runtime-affinity",
+      "namespace": "wego_accept_runtime-affinity_1791802499207362000_",
+      "assertion": "required affinity beta; sticky=false",
+      "assertion_id": "1b348f6eb9fdcf437dbba92d",
+      "run_id": "82ad3f60-6ce8-4878-bc88-dc5d15fe7357",
+      "worker_id": "b311f27b-b4f1-4cc1-b82a-28852bece271",
+      "at": "2026-10-12T10:55:04.710501Z"
+    },
+    {
+      "scenario": "runtime-affinity",
+      "test_scenario": "runtime-affinity",
+      "namespace": "wego_accept_runtime-affinity_1791802499207362000_",
+      "assertion": "required affinity alpha; sticky=false",
+      "assertion_id": "4bfc48ad57c66466aac5abd3",
+      "run_id": "3d9c0260-f764-4dfa-a733-41ceacd867cb",
+      "worker_id": "a646feac-3eed-4cad-b4a8-49f8bd699925",
+      "at": "2026-10-12T10:55:04.760941Z"
+    },
+    {
+      "scenario": "runtime-affinity",
+      "test_scenario": "runtime-affinity",
+      "namespace": "wego_accept_runtime-affinity_1791802499207362000_",
+      "assertion": "required affinity beta; sticky=false",
+      "assertion_id": "1b348f6eb9fdcf437dbba92d",
+      "run_id": "1b3ebfaa-691a-424a-83d7-8ab5e68744da",
+      "worker_id": "b311f27b-b4f1-4cc1-b82a-28852bece271",
+      "at": "2026-10-12T10:55:04.815561Z"
+    },
+    {
+      "scenario": "runtime-affinity",
+      "test_scenario": "runtime-affinity",
+      "namespace": "wego_accept_runtime-affinity_1791802499207362000_",
+      "assertion": "required affinity alpha; sticky=false",
+      "assertion_id": "4bfc48ad57c66466aac5abd3",
+      "run_id": "8df38da6-ea4e-4357-a99a-9512a5155064",
+      "worker_id": "a646feac-3eed-4cad-b4a8-49f8bd699925",
+      "at": "2026-10-12T10:55:04.87187Z"
+    },
+    {
+      "scenario": "runtime-affinity",
+      "test_scenario": "runtime-affinity",
+      "namespace": "wego_accept_runtime-affinity_1791802499207362000_",
+      "assertion": "required affinity beta; sticky=false",
+      "assertion_id": "1b348f6eb9fdcf437dbba92d",
+      "run_id": "42e07455-963c-433c-aa3b-81925bdc8b4e",
+      "worker_id": "b311f27b-b4f1-4cc1-b82a-28852bece271",
+      "at": "2026-10-12T10:55:04.928993Z"
+    },
+    {
+      "scenario": "runtime-affinity",
+      "test_scenario": "runtime-affinity",
+      "namespace": "wego_accept_runtime-affinity_1791802499207362000_",
+      "assertion": "required affinity alpha; sticky=false",
+      "assertion_id": "4bfc48ad57c66466aac5abd3",
+      "run_id": "6ef3e11e-3c7e-4a1e-a07a-b45f4fb55766",
+      "worker_id": "a646feac-3eed-4cad-b4a8-49f8bd699925",
+      "at": "2026-10-12T10:55:04.982885Z"
+    },
+    {
+      "scenario": "runtime-affinity",
+      "test_scenario": "runtime-affinity",
+      "namespace": "wego_accept_runtime-affinity_1791802499207362000_",
+      "assertion": "required affinity beta; sticky=false",
+      "assertion_id": "1b348f6eb9fdcf437dbba92d",
+      "run_id": "5638fefb-5305-4088-9f21-4699f9e7b90c",
+      "worker_id": "b311f27b-b4f1-4cc1-b82a-28852bece271",
+      "at": "2026-10-12T10:55:05.04376Z"
+    },
+    {
+      "scenario": "runtime-affinity",
+      "test_scenario": "runtime-affinity",
+      "namespace": "wego_accept_runtime-affinity_1791802499207362000_",
+      "assertion": "required affinity alpha; sticky=false",
+      "assertion_id": "4bfc48ad57c66466aac5abd3",
+      "run_id": "19d567f7-6c52-4016-8f99-86b33fa88c79",
+      "worker_id": "a646feac-3eed-4cad-b4a8-49f8bd699925",
+      "at": "2026-10-12T10:55:05.105005Z"
+    },
+    {
+      "scenario": "runtime-affinity",
+      "test_scenario": "runtime-affinity",
+      "namespace": "wego_accept_runtime-affinity_1791802499207362000_",
+      "assertion": "required affinity beta; sticky=false",
+      "assertion_id": "1b348f6eb9fdcf437dbba92d",
+      "run_id": "a1551e04-8d09-4878-ba29-b80bc1ce2cd3",
+      "worker_id": "b311f27b-b4f1-4cc1-b82a-28852bece271",
+      "at": "2026-10-12T10:55:05.168538Z"
+    },
+    {
+      "scenario": "runtime-affinity",
+      "test_scenario": "runtime-affinity",
+      "namespace": "wego_accept_runtime-affinity_1791802499207362000_",
+      "assertion": "required affinity alpha; sticky=false",
+      "assertion_id": "4bfc48ad57c66466aac5abd3",
+      "run_id": "72b467d9-d4d1-40ba-8b41-71827150e15f",
+      "worker_id": "a646feac-3eed-4cad-b4a8-49f8bd699925",
+      "at": "2026-10-12T10:55:05.232456Z"
+    },
+    {
+      "scenario": "runtime-affinity",
+      "test_scenario": "runtime-affinity",
+      "namespace": "wego_accept_runtime-affinity_1791802499207362000_",
+      "assertion": "required affinity beta; sticky=false",
+      "assertion_id": "1b348f6eb9fdcf437dbba92d",
+      "run_id": "1873e530-55ef-4a31-9ffc-07eb6225fb9b",
+      "worker_id": "b311f27b-b4f1-4cc1-b82a-28852bece271",
+      "at": "2026-10-12T10:55:05.286355Z"
+    },
+    {
+      "scenario": "runtime-affinity",
+      "test_scenario": "runtime-affinity",
+      "namespace": "wego_accept_runtime-affinity_1791802499207362000_",
+      "assertion": "required affinity alpha; sticky=false",
+      "assertion_id": "4bfc48ad57c66466aac5abd3",
+      "run_id": "ac85ac86-ed75-49c7-bdfa-8c0e0a810cab",
+      "worker_id": "a646feac-3eed-4cad-b4a8-49f8bd699925",
+      "at": "2026-10-12T10:55:05.339762Z"
+    },
+    {
+      "scenario": "runtime-affinity",
+      "test_scenario": "runtime-affinity",
+      "namespace": "wego_accept_runtime-affinity_1791802499207362000_",
+      "assertion": "required affinity beta; sticky=false",
+      "assertion_id": "1b348f6eb9fdcf437dbba92d",
+      "run_id": "12eee436-02d8-4ef4-b220-016ae0cc3f6a",
+      "worker_id": "b311f27b-b4f1-4cc1-b82a-28852bece271",
+      "at": "2026-10-12T10:55:05.401153Z"
+    },
+    {
+      "scenario": "runtime-affinity",
+      "test_scenario": "runtime-affinity",
+      "namespace": "wego_accept_runtime-affinity_1791802499207362000_",
+      "assertion": "workflow resources deleted; run history retained",
+      "assertion_id": "bc61cfe35826be28b668b794",
+      "at": "2026-10-12T10:55:05.435476Z"
+    },
+    {
+      "scenario": "basic",
+      "test_scenario": "sdk-migration",
+      "namespace": "wego_accept_basic_1791802505435515000_",
+      "assertion": "standard generated unary stub",
+      "assertion_id": "9a52fc89d46143321504ada5",
+      "run_id": "93996fce-90f9-447f-a188-cfb765eb3bbd",
+      "worker_id": "93d8bb9c-5e03-4efb-92f7-9d75c3416225",
+      "at": "2026-10-12T10:55:09.385861Z"
+    },
+    {
+      "scenario": "basic",
+      "test_scenario": "sdk-migration",
+      "namespace": "wego_accept_basic_1791802505435515000_",
+      "assertion": "RunNoWait and result decoding",
+      "assertion_id": "9e85cff10ec1571e9e6b184b",
+      "run_id": "5e69dbff-389b-49a7-a438-36e49b2d9c03",
+      "worker_id": "93d8bb9c-5e03-4efb-92f7-9d75c3416225",
+      "at": "2026-10-12T10:55:09.436746Z"
+    },
+    {
+      "scenario": "basic",
+      "test_scenario": "sdk-migration",
+      "namespace": "wego_accept_basic_1791802505435515000_",
+      "assertion": "RunMany input/result mapping",
+      "assertion_id": "50aae116d2176ce99086c558",
+      "run_id": "d949a18a-8aa7-464a-97e0-ee829ce7b5b6",
+      "worker_id": "93d8bb9c-5e03-4efb-92f7-9d75c3416225",
+      "at": "2026-10-12T10:55:09.50024Z"
+    },
+    {
+      "scenario": "basic",
+      "test_scenario": "sdk-migration",
+      "namespace": "wego_accept_basic_1791802505435515000_",
+      "assertion": "RunMany input/result mapping",
+      "assertion_id": "50aae116d2176ce99086c558",
+      "run_id": "06ae6a63-4eeb-4d06-bbb9-15270138e9cf",
+      "worker_id": "93d8bb9c-5e03-4efb-92f7-9d75c3416225",
+      "at": "2026-10-12T10:55:09.520003Z"
+    },
+    {
+      "scenario": "basic",
+      "test_scenario": "sdk-migration",
+      "namespace": "wego_accept_basic_1791802505435515000_",
+      "assertion": "gRPC status details and error headers/trailers",
+      "assertion_id": "9a002f71ba47895445f7ddfc",
+      "at": "2026-10-12T10:55:09.580814Z"
+    },
+    {
+      "scenario": "basic",
+      "test_scenario": "sdk-migration",
+      "namespace": "wego_accept_basic_1791802505435515000_",
+      "assertion": "deadline cancellation",
+      "assertion_id": "53846c7dddb7e576fb1d80b1",
+      "at": "2026-10-12T10:55:09.748557Z"
+    },
+    {
+      "scenario": "basic",
+      "test_scenario": "sdk-migration",
+      "namespace": "wego_accept_basic_1791802505435515000_",
+      "assertion": "explicit cancellation",
+      "assertion_id": "20f55fa0d85ef209751cd0f8",
+      "at": "2026-10-12T10:55:09.748629Z"
+    },
+    {
+      "scenario": "basic",
+      "test_scenario": "sdk-migration",
+      "namespace": "wego_accept_basic_1791802505435515000_",
+      "assertion": "workflow resources deleted; run history retained",
+      "assertion_id": "bc61cfe35826be28b668b794",
+      "at": "2026-10-12T10:55:09.843615Z"
+    },
+    {
+      "scenario": "events",
+      "test_scenario": "sdk-migration-v1",
+      "namespace": "wego_accept_events_1791802509843688000_",
+      "assertion": "event triggers protobuf RPC and result lookup",
+      "assertion_id": "d3555d14d6b4fdaaefa4a281",
+      "run_id": "4a6e6d11-6a5d-4abe-a299-999ebdadab7c",
+      "worker_id": "290acce8-fd1a-4773-95c3-ff03a6e5bd71",
+      "at": "2026-10-12T10:55:13.97721Z"
+    },
+    {
+      "scenario": "events",
+      "test_scenario": "sdk-migration-v1",
+      "namespace": "wego_accept_events_1791802509843688000_",
+      "assertion": "workflow resources deleted; run history retained",
+      "assertion_id": "bc61cfe35826be28b668b794",
+      "at": "2026-10-12T10:55:14.050997Z"
+    },
+    {
+      "scenario": "shutdown",
+      "test_scenario": "shutdown",
+      "namespace": "wego_accept_shutdown_1791802514051040000_",
+      "assertion": "drain mode 1 waits result, rejects new calls, repeated/concurrent close",
+      "assertion_id": "46156d2e04c245c6b43c412c",
+      "run_id": "0728dd51-d505-4541-be52-700b4b8ba08e",
+      "worker_id": "65a84783-8904-400c-b32b-f8bfe6e8c17f",
+      "at": "2026-10-12T10:55:19.651361Z"
+    },
+    {
+      "scenario": "shutdown",
+      "test_scenario": "shutdown",
+      "namespace": "wego_accept_shutdown_1791802514051040000_",
+      "assertion": "workflow resources deleted; run history retained",
+      "assertion_id": "bc61cfe35826be28b668b794",
+      "at": "2026-10-12T10:55:19.744232Z"
+    },
+    {
+      "scenario": "shutdown",
+      "test_scenario": "shutdown",
+      "namespace": "wego_accept_shutdown_1791802519744234000_",
+      "assertion": "drain mode 0 waits result, rejects new calls, repeated/concurrent close",
+      "assertion_id": "47df36b796d76d2baa777c2a",
+      "run_id": "cd9003ca-028e-4993-a527-beb3a6a79168",
+      "worker_id": "94bf2702-44df-435e-925c-fda5c3d122eb",
+      "at": "2026-10-12T10:55:24.440414Z"
+    },
+    {
+      "scenario": "shutdown",
+      "test_scenario": "shutdown",
+      "namespace": "wego_accept_shutdown_1791802519744234000_",
+      "assertion": "workflow resources deleted; run history retained",
+      "assertion_id": "bc61cfe35826be28b668b794",
+      "at": "2026-10-12T10:55:24.506337Z"
+    },
+    {
+      "scenario": "shutdown",
+      "test_scenario": "shutdown",
+      "namespace": "wego_accept_shutdown_1791802524506383000_",
+      "assertion": "business worker drained after acknowledged persistent output",
+      "assertion_id": "ff93dbeeae385fe69ce592b3",
+      "run_id": "a104570a-d011-4750-b8a2-0bbbc24870ab",
+      "worker_id": "4f255035-7eb0-4741-8779-addced74157b",
+      "at": "2026-10-12T10:55:29.571957Z"
+    },
+    {
+      "scenario": "shutdown",
+      "test_scenario": "shutdown",
+      "namespace": "wego_accept_shutdown_1791802524506383000_",
+      "assertion": "workflow resources deleted; run history retained",
+      "assertion_id": "bc61cfe35826be28b668b794",
+      "at": "2026-10-12T10:55:29.652439Z"
+    },
+    {
+      "scenario": "basic",
+      "test_scenario": "simple",
+      "namespace": "wego_accept_basic_1791802529652508000_",
+      "assertion": "standard generated unary stub",
+      "assertion_id": "9a52fc89d46143321504ada5",
+      "run_id": "f34affd3-d584-44d8-bdb2-ef506ef7b7d2",
+      "worker_id": "908f371d-106e-43a7-8d52-3bf13d0c6f5f",
+      "at": "2026-10-12T10:55:34.19089Z"
+    },
+    {
+      "scenario": "basic",
+      "test_scenario": "simple",
+      "namespace": "wego_accept_basic_1791802529652508000_",
+      "assertion": "RunNoWait and result decoding",
+      "assertion_id": "9e85cff10ec1571e9e6b184b",
+      "run_id": "65a1f9ce-d8e7-4ab1-b604-b42d5a85852d",
+      "worker_id": "908f371d-106e-43a7-8d52-3bf13d0c6f5f",
+      "at": "2026-10-12T10:55:34.26093Z"
+    },
+    {
+      "scenario": "basic",
+      "test_scenario": "simple",
+      "namespace": "wego_accept_basic_1791802529652508000_",
+      "assertion": "RunMany input/result mapping",
+      "assertion_id": "50aae116d2176ce99086c558",
+      "run_id": "6467f9a9-ebc5-44f6-9180-24df7ac302ca",
+      "worker_id": "908f371d-106e-43a7-8d52-3bf13d0c6f5f",
+      "at": "2026-10-12T10:55:34.372384Z"
+    },
+    {
+      "scenario": "basic",
+      "test_scenario": "simple",
+      "namespace": "wego_accept_basic_1791802529652508000_",
+      "assertion": "RunMany input/result mapping",
+      "assertion_id": "50aae116d2176ce99086c558",
+      "run_id": "153d5ed8-90a3-4779-9025-2c7d146eeb86",
+      "worker_id": "908f371d-106e-43a7-8d52-3bf13d0c6f5f",
+      "at": "2026-10-12T10:55:35.388981Z"
+    },
+    {
+      "scenario": "basic",
+      "test_scenario": "simple",
+      "namespace": "wego_accept_basic_1791802529652508000_",
+      "assertion": "gRPC status details and error headers/trailers",
+      "assertion_id": "9a002f71ba47895445f7ddfc",
+      "at": "2026-10-12T10:55:35.458011Z"
+    },
+    {
+      "scenario": "basic",
+      "test_scenario": "simple",
+      "namespace": "wego_accept_basic_1791802529652508000_",
+      "assertion": "deadline cancellation",
+      "assertion_id": "53846c7dddb7e576fb1d80b1",
+      "at": "2026-10-12T10:55:35.622005Z"
+    },
+    {
+      "scenario": "basic",
+      "test_scenario": "simple",
+      "namespace": "wego_accept_basic_1791802529652508000_",
+      "assertion": "explicit cancellation",
+      "assertion_id": "20f55fa0d85ef209751cd0f8",
+      "at": "2026-10-12T10:55:35.622145Z"
+    },
+    {
+      "scenario": "basic",
+      "test_scenario": "simple",
+      "namespace": "wego_accept_basic_1791802529652508000_",
+      "assertion": "workflow resources deleted; run history retained",
+      "assertion_id": "bc61cfe35826be28b668b794",
+      "at": "2026-10-12T10:55:35.651716Z"
+    },
+    {
+      "scenario": "slot-cost",
+      "test_scenario": "slot-cost",
+      "namespace": "wego_accept_slot-cost_1791802535651777000_",
+      "assertion": "slot costs 5 and 1 share capacity 10",
+      "assertion_id": "d39e3af992ae5e0312705928",
+      "run_id": "24deef8b-71ba-495f-a068-1f05fe478da1",
+      "worker_id": "b6755822-20cf-47da-8769-2eddb385a74e",
+      "at": "2026-10-12T10:55:40.008496Z"
+    },
+    {
+      "scenario": "slot-cost",
+      "test_scenario": "slot-cost",
+      "namespace": "wego_accept_slot-cost_1791802535651777000_",
+      "assertion": "slot costs 5 and 1 share capacity 10",
+      "assertion_id": "d39e3af992ae5e0312705928",
+      "run_id": "10a90701-1e23-43e3-b8b6-04bec946c1ca",
+      "worker_id": "b6755822-20cf-47da-8769-2eddb385a74e",
+      "at": "2026-10-12T10:55:41.308727Z"
+    },
+    {
+      "scenario": "slot-cost",
+      "test_scenario": "slot-cost",
+      "namespace": "wego_accept_slot-cost_1791802535651777000_",
+      "assertion": "slot costs 5 and 1 share capacity 10",
+      "assertion_id": "d39e3af992ae5e0312705928",
+      "run_id": "f5ee358a-cc23-428e-bf96-7e94d3edffa4",
+      "worker_id": "b6755822-20cf-47da-8769-2eddb385a74e",
+      "at": "2026-10-12T10:55:42.324215Z"
+    },
+    {
+      "scenario": "slot-cost",
+      "test_scenario": "slot-cost",
+      "namespace": "wego_accept_slot-cost_1791802535651777000_",
+      "assertion": "slot costs 5 and 1 share capacity 10",
+      "assertion_id": "d39e3af992ae5e0312705928",
+      "run_id": "09d630e5-8801-43b9-9c26-f04353d77b2b",
+      "worker_id": "b6755822-20cf-47da-8769-2eddb385a74e",
+      "at": "2026-10-12T10:55:43.351739Z"
+    },
+    {
+      "scenario": "slot-cost",
+      "test_scenario": "slot-cost",
+      "namespace": "wego_accept_slot-cost_1791802535651777000_",
+      "assertion": "slot costs 5 and 1 share capacity 10",
+      "assertion_id": "d39e3af992ae5e0312705928",
+      "run_id": "87c19cb3-319f-4945-ad17-bf2d2723a219",
+      "worker_id": "b6755822-20cf-47da-8769-2eddb385a74e",
+      "at": "2026-10-12T10:55:44.371111Z"
+    },
+    {
+      "scenario": "slot-cost",
+      "test_scenario": "slot-cost",
+      "namespace": "wego_accept_slot-cost_1791802535651777000_",
+      "assertion": "workflow resources deleted; run history retained",
+      "assertion_id": "bc61cfe35826be28b668b794",
+      "at": "2026-10-12T10:55:44.393645Z"
+    },
+    {
+      "scenario": "sticky-workers",
+      "test_scenario": "sticky-workers",
+      "namespace": "wego_accept_sticky-workers_1791802544393716000_",
+      "assertion": "required affinity alpha; sticky=true",
+      "assertion_id": "c6e6f95c211a5cf02d3ed74e",
+      "run_id": "d93d6727-2cef-463e-b6ea-949c3e266920",
+      "worker_id": "192b02ad-b9ad-4e0c-90ab-5f9867acf694",
+      "at": "2026-10-12T10:55:49.355084Z"
+    },
+    {
+      "scenario": "sticky-workers",
+      "test_scenario": "sticky-workers",
+      "namespace": "wego_accept_sticky-workers_1791802544393716000_",
+      "assertion": "required affinity beta; sticky=true",
+      "assertion_id": "1237812b070a109b157b470c",
+      "run_id": "e8584c60-ff7d-4742-80d1-6031cb657371",
+      "worker_id": "07994515-86ed-4c4d-adb5-281dba46c5e3",
+      "at": "2026-10-12T10:55:49.687986Z"
+    },
+    {
+      "scenario": "sticky-workers",
+      "test_scenario": "sticky-workers",
+      "namespace": "wego_accept_sticky-workers_1791802544393716000_",
+      "assertion": "required affinity alpha; sticky=true",
+      "assertion_id": "c6e6f95c211a5cf02d3ed74e",
+      "run_id": "b91fc19f-e682-47fc-9912-3f5dd3add3b1",
+      "worker_id": "192b02ad-b9ad-4e0c-90ab-5f9867acf694",
+      "at": "2026-10-12T10:55:49.810733Z"
+    },
+    {
+      "scenario": "sticky-workers",
+      "test_scenario": "sticky-workers",
+      "namespace": "wego_accept_sticky-workers_1791802544393716000_",
+      "assertion": "required affinity beta; sticky=true",
+      "assertion_id": "1237812b070a109b157b470c",
+      "run_id": "2736edd7-95fe-4c75-9cc5-122baa7cc1d1",
+      "worker_id": "07994515-86ed-4c4d-adb5-281dba46c5e3",
+      "at": "2026-10-12T10:55:49.930404Z"
+    },
+    {
+      "scenario": "sticky-workers",
+      "test_scenario": "sticky-workers",
+      "namespace": "wego_accept_sticky-workers_1791802544393716000_",
+      "assertion": "required affinity alpha; sticky=true",
+      "assertion_id": "c6e6f95c211a5cf02d3ed74e",
+      "run_id": "dd6e05d0-10f5-4a23-8b8b-841a7f3d4399",
+      "worker_id": "192b02ad-b9ad-4e0c-90ab-5f9867acf694",
+      "at": "2026-10-12T10:55:50.043133Z"
+    },
+    {
+      "scenario": "sticky-workers",
+      "test_scenario": "sticky-workers",
+      "namespace": "wego_accept_sticky-workers_1791802544393716000_",
+      "assertion": "required affinity beta; sticky=true",
+      "assertion_id": "1237812b070a109b157b470c",
+      "run_id": "35482762-56ff-4587-8a45-fe37bb84f82e",
+      "worker_id": "07994515-86ed-4c4d-adb5-281dba46c5e3",
+      "at": "2026-10-12T10:55:50.157066Z"
+    },
+    {
+      "scenario": "sticky-workers",
+      "test_scenario": "sticky-workers",
+      "namespace": "wego_accept_sticky-workers_1791802544393716000_",
+      "assertion": "required affinity alpha; sticky=true",
+      "assertion_id": "c6e6f95c211a5cf02d3ed74e",
+      "run_id": "649eb6d6-a88e-481a-a77d-31e0eaf89bfa",
+      "worker_id": "192b02ad-b9ad-4e0c-90ab-5f9867acf694",
+      "at": "2026-10-12T10:55:50.266308Z"
+    },
+    {
+      "scenario": "sticky-workers",
+      "test_scenario": "sticky-workers",
+      "namespace": "wego_accept_sticky-workers_1791802544393716000_",
+      "assertion": "required affinity beta; sticky=true",
+      "assertion_id": "1237812b070a109b157b470c",
+      "run_id": "1a193d1c-8d3b-41a2-8fdb-3dbafc316ebc",
+      "worker_id": "07994515-86ed-4c4d-adb5-281dba46c5e3",
+      "at": "2026-10-12T10:55:50.370792Z"
+    },
+    {
+      "scenario": "sticky-workers",
+      "test_scenario": "sticky-workers",
+      "namespace": "wego_accept_sticky-workers_1791802544393716000_",
+      "assertion": "required affinity alpha; sticky=true",
+      "assertion_id": "c6e6f95c211a5cf02d3ed74e",
+      "run_id": "a6d47d3b-7013-46c0-a0d7-95fe197faaf6",
+      "worker_id": "192b02ad-b9ad-4e0c-90ab-5f9867acf694",
+      "at": "2026-10-12T10:55:50.477193Z"
+    },
+    {
+      "scenario": "sticky-workers",
+      "test_scenario": "sticky-workers",
+      "namespace": "wego_accept_sticky-workers_1791802544393716000_",
+      "assertion": "required affinity beta; sticky=true",
+      "assertion_id": "1237812b070a109b157b470c",
+      "run_id": "e59d7883-3e4a-4c3d-acad-d7e454f7214e",
+      "worker_id": "07994515-86ed-4c4d-adb5-281dba46c5e3",
+      "at": "2026-10-12T10:55:50.584485Z"
+    },
+    {
+      "scenario": "sticky-workers",
+      "test_scenario": "sticky-workers",
+      "namespace": "wego_accept_sticky-workers_1791802544393716000_",
+      "assertion": "required affinity alpha; sticky=true",
+      "assertion_id": "c6e6f95c211a5cf02d3ed74e",
+      "run_id": "612304a3-6d7d-4fdf-ac6c-82be14b56fda",
+      "worker_id": "192b02ad-b9ad-4e0c-90ab-5f9867acf694",
+      "at": "2026-10-12T10:55:50.691447Z"
+    },
+    {
+      "scenario": "sticky-workers",
+      "test_scenario": "sticky-workers",
+      "namespace": "wego_accept_sticky-workers_1791802544393716000_",
+      "assertion": "required affinity beta; sticky=true",
+      "assertion_id": "1237812b070a109b157b470c",
+      "run_id": "b07dfa99-6ad7-44e3-ae5a-848dd86577c6",
+      "worker_id": "07994515-86ed-4c4d-adb5-281dba46c5e3",
+      "at": "2026-10-12T10:55:50.802854Z"
+    },
+    {
+      "scenario": "sticky-workers",
+      "test_scenario": "sticky-workers",
+      "namespace": "wego_accept_sticky-workers_1791802544393716000_",
+      "assertion": "required affinity alpha; sticky=true",
+      "assertion_id": "c6e6f95c211a5cf02d3ed74e",
+      "run_id": "afdd40dd-7047-49a5-a163-fef9e63f1d01",
+      "worker_id": "192b02ad-b9ad-4e0c-90ab-5f9867acf694",
+      "at": "2026-10-12T10:55:50.91239Z"
+    },
+    {
+      "scenario": "sticky-workers",
+      "test_scenario": "sticky-workers",
+      "namespace": "wego_accept_sticky-workers_1791802544393716000_",
+      "assertion": "required affinity beta; sticky=true",
+      "assertion_id": "1237812b070a109b157b470c",
+      "run_id": "9f2fb39c-d27f-4ef7-8346-d84d2dc6dae7",
+      "worker_id": "07994515-86ed-4c4d-adb5-281dba46c5e3",
+      "at": "2026-10-12T10:55:51.018619Z"
+    },
+    {
+      "scenario": "sticky-workers",
+      "test_scenario": "sticky-workers",
+      "namespace": "wego_accept_sticky-workers_1791802544393716000_",
+      "assertion": "required affinity alpha; sticky=true",
+      "assertion_id": "c6e6f95c211a5cf02d3ed74e",
+      "run_id": "71ea4fde-572a-4db5-8ed2-3f1acc4cc55f",
+      "worker_id": "192b02ad-b9ad-4e0c-90ab-5f9867acf694",
+      "at": "2026-10-12T10:55:51.114868Z"
+    },
+    {
+      "scenario": "sticky-workers",
+      "test_scenario": "sticky-workers",
+      "namespace": "wego_accept_sticky-workers_1791802544393716000_",
+      "assertion": "required affinity beta; sticky=true",
+      "assertion_id": "1237812b070a109b157b470c",
+      "run_id": "4e069f1e-3ca7-4a5b-9c7a-c019ae5f9ede",
+      "worker_id": "07994515-86ed-4c4d-adb5-281dba46c5e3",
+      "at": "2026-10-12T10:55:51.2146Z"
+    },
+    {
+      "scenario": "sticky-workers",
+      "test_scenario": "sticky-workers",
+      "namespace": "wego_accept_sticky-workers_1791802544393716000_",
+      "assertion": "required affinity alpha; sticky=true",
+      "assertion_id": "c6e6f95c211a5cf02d3ed74e",
+      "run_id": "9fc72114-0f96-4258-8d0e-2005526cf864",
+      "worker_id": "192b02ad-b9ad-4e0c-90ab-5f9867acf694",
+      "at": "2026-10-12T10:55:51.326316Z"
+    },
+    {
+      "scenario": "sticky-workers",
+      "test_scenario": "sticky-workers",
+      "namespace": "wego_accept_sticky-workers_1791802544393716000_",
+      "assertion": "required affinity beta; sticky=true",
+      "assertion_id": "1237812b070a109b157b470c",
+      "run_id": "fde99f7d-2865-4bcf-8485-95849e7c6d32",
+      "worker_id": "07994515-86ed-4c4d-adb5-281dba46c5e3",
+      "at": "2026-10-12T10:55:51.430594Z"
+    },
+    {
+      "scenario": "sticky-workers",
+      "test_scenario": "sticky-workers",
+      "namespace": "wego_accept_sticky-workers_1791802544393716000_",
+      "assertion": "required affinity alpha; sticky=true",
+      "assertion_id": "c6e6f95c211a5cf02d3ed74e",
+      "run_id": "c3a60bb7-7685-48a3-8d3f-d8877232f5ab",
+      "worker_id": "192b02ad-b9ad-4e0c-90ab-5f9867acf694",
+      "at": "2026-10-12T10:55:51.533821Z"
+    },
+    {
+      "scenario": "sticky-workers",
+      "test_scenario": "sticky-workers",
+      "namespace": "wego_accept_sticky-workers_1791802544393716000_",
+      "assertion": "required affinity beta; sticky=true",
+      "assertion_id": "1237812b070a109b157b470c",
+      "run_id": "85b0e35c-26c5-4cde-a842-2709ac4dc5e3",
+      "worker_id": "07994515-86ed-4c4d-adb5-281dba46c5e3",
+      "at": "2026-10-12T10:55:51.640029Z"
+    },
+    {
+      "scenario": "sticky-workers",
+      "test_scenario": "sticky-workers",
+      "namespace": "wego_accept_sticky-workers_1791802544393716000_",
+      "assertion": "workflow resources deleted; run history retained",
+      "assertion_id": "bc61cfe35826be28b668b794",
+      "at": "2026-10-12T10:55:51.672644Z"
+    },
+    {
+      "scenario": "sticky-workers",
+      "test_scenario": "sticky-workers",
+      "namespace": "wego_accept_sticky-workers_1791802551672645000_",
+      "assertion": "two-worker sticky DAG executes independent tasks on one worker",
+      "assertion_id": "c1f41bfe6e88f0a23daf9310",
+      "run_id": "eb9f89e9-4b11-4680-aa4e-37faa8bfee02",
+      "worker_id": "b3306a8f-bb6d-438a-a1ed-aa377c477248",
+      "at": "2026-10-12T10:55:54.41587Z"
+    },
+    {
+      "scenario": "sticky-workers",
+      "test_scenario": "sticky-workers",
+      "namespace": "wego_accept_sticky-workers_1791802551672645000_",
+      "assertion": "two-worker sticky DAG executes independent tasks on one worker",
+      "assertion_id": "c1f41bfe6e88f0a23daf9310",
+      "run_id": "03a37847-a168-4f2d-b0fd-a4faabdad888",
+      "worker_id": "df999eff-5362-4802-bc05-344de429a610",
+      "at": "2026-10-12T10:55:54.467547Z"
+    },
+    {
+      "scenario": "sticky-workers",
+      "test_scenario": "sticky-workers",
+      "namespace": "wego_accept_sticky-workers_1791802551672645000_",
+      "assertion": "two-worker sticky DAG executes independent tasks on one worker",
+      "assertion_id": "c1f41bfe6e88f0a23daf9310",
+      "run_id": "e32b67a7-238f-44c3-9874-60c4cc8b6a6c",
+      "worker_id": "b3306a8f-bb6d-438a-a1ed-aa377c477248",
+      "at": "2026-10-12T10:55:54.516334Z"
+    },
+    {
+      "scenario": "sticky-workers",
+      "test_scenario": "sticky-workers",
+      "namespace": "wego_accept_sticky-workers_1791802551672645000_",
+      "assertion": "two-worker sticky DAG executes independent tasks on one worker",
+      "assertion_id": "c1f41bfe6e88f0a23daf9310",
+      "run_id": "7caa0885-0337-475a-8497-7534947c265b",
+      "worker_id": "df999eff-5362-4802-bc05-344de429a610",
+      "at": "2026-10-12T10:55:54.582312Z"
+    },
+    {
+      "scenario": "sticky-workers",
+      "test_scenario": "sticky-workers",
+      "namespace": "wego_accept_sticky-workers_1791802551672645000_",
+      "assertion": "two-worker sticky DAG executes independent tasks on one worker",
+      "assertion_id": "c1f41bfe6e88f0a23daf9310",
+      "run_id": "94fdd2f5-07da-4d52-b399-28e389019732",
+      "worker_id": "b3306a8f-bb6d-438a-a1ed-aa377c477248",
+      "at": "2026-10-12T10:55:54.652877Z"
+    },
+    {
+      "scenario": "sticky-workers",
+      "test_scenario": "sticky-workers",
+      "namespace": "wego_accept_sticky-workers_1791802551672645000_",
+      "assertion": "two-worker sticky DAG executes independent tasks on one worker",
+      "assertion_id": "c1f41bfe6e88f0a23daf9310",
+      "run_id": "9b7ea802-c83c-42b4-bebd-963bd090dfd4",
+      "worker_id": "df999eff-5362-4802-bc05-344de429a610",
+      "at": "2026-10-12T10:55:54.753646Z"
+    },
+    {
+      "scenario": "sticky-workers",
+      "test_scenario": "sticky-workers",
+      "namespace": "wego_accept_sticky-workers_1791802551672645000_",
+      "assertion": "two-worker sticky DAG executes independent tasks on one worker",
+      "assertion_id": "c1f41bfe6e88f0a23daf9310",
+      "run_id": "c85bdd99-535d-4c93-9b60-24426ef25041",
+      "worker_id": "b3306a8f-bb6d-438a-a1ed-aa377c477248",
+      "at": "2026-10-12T10:55:54.873461Z"
+    },
+    {
+      "scenario": "sticky-workers",
+      "test_scenario": "sticky-workers",
+      "namespace": "wego_accept_sticky-workers_1791802551672645000_",
+      "assertion": "two-worker sticky DAG executes independent tasks on one worker",
+      "assertion_id": "c1f41bfe6e88f0a23daf9310",
+      "run_id": "c5379081-f77c-4c1d-80b6-d70f58ff9e8c",
+      "worker_id": "df999eff-5362-4802-bc05-344de429a610",
+      "at": "2026-10-12T10:55:54.943654Z"
+    },
+    {
+      "scenario": "sticky-workers",
+      "test_scenario": "sticky-workers",
+      "namespace": "wego_accept_sticky-workers_1791802551672645000_",
+      "assertion": "workflow resources deleted; run history retained",
+      "assertion_id": "bc61cfe35826be28b668b794",
+      "at": "2026-10-12T10:55:55.03183Z"
+    },
+    {
+      "scenario": "streaming",
+      "test_scenario": "streaming",
+      "namespace": "wego_accept_streaming_1791802555031894000_",
+      "assertion": "protobuf output chunks forwarded to HTTP in order and final result confirmed",
+      "assertion_id": "0b8210fdfd345ee4703366cb",
+      "run_id": "8962606f-6ba5-4c16-baf0-9b89ff4cf47c",
+      "worker_id": "6e3e2d02-5c7a-4684-8c60-a3c2f50497ef",
+      "at": "2026-10-12T10:56:00.348477Z"
+    },
+    {
+      "scenario": "streaming",
+      "test_scenario": "streaming",
+      "namespace": "wego_accept_streaming_1791802555031894000_",
+      "assertion": "workflow resources deleted; run history retained",
+      "assertion_id": "bc61cfe35826be28b668b794",
+      "at": "2026-10-12T10:56:00.412774Z"
+    },
+    {
+      "scenario": "stubs",
+      "test_scenario": "stubs",
+      "namespace": "wego_accept_stubs_1791802560412865000_",
+      "assertion": "definition template registered and decoded",
+      "assertion_id": "caa72aae9ab765f10fecc00d",
+      "run_id": "1ee926a8-d64f-48f8-8c9a-09f241a95a7e",
+      "worker_id": "48040a44-4824-4c46-aba7-3932eb579ed3",
+      "at": "2026-10-12T10:56:04.115681Z"
+    },
+    {
+      "scenario": "stubs",
+      "test_scenario": "stubs",
+      "namespace": "wego_accept_stubs_1791802560412865000_",
+      "assertion": "workflow resources deleted; run history retained",
+      "assertion_id": "bc61cfe35826be28b668b794",
+      "at": "2026-10-12T10:56:04.225201Z"
+    },
+    {
+      "scenario": "temporal",
+      "test_scenario": "temporal",
+      "namespace": "wego_accept_temporal_1791802564263700000_",
+      "assertion": "/wego.example.v1.Temporal/Charge business result",
+      "assertion_id": "ea37c7dffb062ad536e51a74",
+      "run_id": "11ea753b-f708-4135-bf50-6fa4fe991ef4",
+      "worker_id": "91a06c4b-03ef-491e-ba3b-6dd4ea0639a2",
+      "at": "2026-10-12T10:56:08.998436Z"
+    },
+    {
+      "scenario": "temporal",
+      "test_scenario": "temporal",
+      "namespace": "wego_accept_temporal_1791802564263700000_",
+      "assertion": "/wego.example.v1.Temporal/Validate business result",
+      "assertion_id": "8060a8c476683054070fbb79",
+      "run_id": "68f42dc2-4bcc-4bf1-8977-7a84a1d6fc9e",
+      "worker_id": "91a06c4b-03ef-491e-ba3b-6dd4ea0639a2",
+      "at": "2026-10-12T10:56:09.068936Z"
+    },
+    {
+      "scenario": "temporal",
+      "test_scenario": "temporal",
+      "namespace": "wego_accept_temporal_1791802564263700000_",
+      "assertion": "/wego.example.v1.Temporal/Fulfill business result",
+      "assertion_id": "2eb4751b563c88ea5022def2",
+      "run_id": "86c9daad-05e5-4540-8a15-25407b138cf0",
+      "worker_id": "91a06c4b-03ef-491e-ba3b-6dd4ea0639a2",
+      "at": "2026-10-12T10:56:09.130729Z"
+    },
+    {
+      "scenario": "temporal",
+      "test_scenario": "temporal",
+      "namespace": "wego_accept_temporal_1791802564263700000_",
+      "assertion": "/wego.example.v1.Temporal/Welcome business result",
+      "assertion_id": "560ecb4cd30c74fbc4338493",
+      "run_id": "1202c55e-8dc0-448c-a0ba-bee2a161be58",
+      "worker_id": "91a06c4b-03ef-491e-ba3b-6dd4ea0639a2",
+      "at": "2026-10-12T10:56:09.19312Z"
+    },
+    {
+      "scenario": "temporal",
+      "test_scenario": "temporal",
+      "namespace": "wego_accept_temporal_1791802564263700000_",
+      "assertion": "/wego.example.v1.Temporal/Followup business result",
+      "assertion_id": "6189d07a647ceedc08d03c70",
+      "run_id": "5c06c47d-93da-4413-b85a-04c2a32832f7",
+      "worker_id": "91a06c4b-03ef-491e-ba3b-6dd4ea0639a2",
+      "at": "2026-10-12T10:56:09.248379Z"
+    },
+    {
+      "scenario": "temporal",
+      "test_scenario": "temporal",
+      "namespace": "wego_accept_temporal_1791802564263700000_",
+      "assertion": "/wego.example.v1.Temporal/Digest business result",
+      "assertion_id": "93e2c44a76ef426a40e8220e",
+      "run_id": "4efda9f3-6a0d-456a-90da-82068258958b",
+      "worker_id": "91a06c4b-03ef-491e-ba3b-6dd4ea0639a2",
+      "at": "2026-10-12T10:56:10.134704Z"
+    },
+    {
+      "scenario": "temporal",
+      "test_scenario": "temporal",
+      "namespace": "wego_accept_temporal_1791802564263700000_",
+      "assertion": "/wego.example.v1.Temporal/ChargeWithRetries business result",
+      "assertion_id": "3f3dd93a1435e5270a9d10fd",
+      "run_id": "c58210a4-ecb4-4d2b-8440-a0641b3c9890",
+      "worker_id": "91a06c4b-03ef-491e-ba3b-6dd4ea0639a2",
+      "at": "2026-10-12T10:56:18.594014Z"
+    },
+    {
+      "scenario": "temporal",
+      "test_scenario": "temporal",
+      "namespace": "wego_accept_temporal_1791802564263700000_",
+      "assertion": "/wego.example.v1.Temporal/Report business result",
+      "assertion_id": "196571e5b5c5d5a5d0db5b00",
+      "run_id": "775f3e56-a6f3-4075-9933-c6e82070f4eb",
+      "worker_id": "91a06c4b-03ef-491e-ba3b-6dd4ea0639a2",
+      "at": "2026-10-12T10:56:18.659512Z"
+    },
+    {
+      "scenario": "temporal",
+      "test_scenario": "temporal",
+      "namespace": "wego_accept_temporal_1791802564263700000_",
+      "assertion": "/wego.example.v1.Temporal/SyncRecords business result",
+      "assertion_id": "41d379ed85edb7cd04118ff3",
+      "run_id": "1dad354b-0b35-41ee-aa5d-c5f6f9604a29",
+      "worker_id": "91a06c4b-03ef-491e-ba3b-6dd4ea0639a2",
+      "at": "2026-10-12T10:56:19.224094Z"
+    },
+    {
+      "scenario": "temporal",
+      "test_scenario": "temporal",
+      "namespace": "wego_accept_temporal_1791802564263700000_",
+      "assertion": "/wego.example.v1.Temporal/CallModel business result",
+      "assertion_id": "33d4d704d595b202055c7eae",
+      "run_id": "ee071109-d36d-44db-9b06-a77b50df55d3",
+      "worker_id": "91a06c4b-03ef-491e-ba3b-6dd4ea0639a2",
+      "at": "2026-10-12T10:56:19.282618Z"
+    },
+    {
+      "scenario": "temporal",
+      "test_scenario": "temporal",
+      "namespace": "wego_accept_temporal_1791802564263700000_",
+      "assertion": "/wego.example.v1.Temporal/LoggedCharge business result",
+      "assertion_id": "6ea866dc2ebf8c1166c7eacc",
+      "run_id": "3d031853-d835-4e82-a597-0651a18464bd",
+      "worker_id": "91a06c4b-03ef-491e-ba3b-6dd4ea0639a2",
+      "at": "2026-10-12T10:56:19.33448Z"
+    },
+    {
+      "scenario": "temporal",
+      "test_scenario": "temporal",
+      "namespace": "wego_accept_temporal_1791802564263700000_",
+      "assertion": "durable process order reused Now and completed child RunIDs",
+      "assertion_id": "32266bbb5b067de836c5e2b9",
+      "run_id": "8f05ce50-7976-459b-ab29-d8ec96049bf2",
+      "worker_id": "91a06c4b-03ef-491e-ba3b-6dd4ea0639a2",
+      "at": "2026-10-12T10:56:58.007852Z"
+    },
+    {
+      "scenario": "temporal",
+      "test_scenario": "temporal",
+      "namespace": "wego_accept_temporal_1791802564263700000_",
+      "assertion": "durable onboarding sends two emails around sleep",
+      "assertion_id": "3129dbdd23e3603fe05a8490",
+      "run_id": "f6b46774-a6b0-4877-b891-852389092283",
+      "worker_id": "91a06c4b-03ef-491e-ba3b-6dd4ea0639a2",
+      "at": "2026-10-12T10:57:56.023696Z"
+    },
+    {
+      "scenario": "temporal",
+      "test_scenario": "temporal",
+      "namespace": "wego_accept_temporal_1791802564263700000_",
+      "assertion": "durable concurrent child fanout",
+      "assertion_id": "630dc133d07318606564798f",
+      "run_id": "4894ff7d-7dbb-4b2d-953a-9ff532840a6c",
+      "worker_id": "91a06c4b-03ef-491e-ba3b-6dd4ea0639a2",
+      "at": "2026-10-12T10:58:03.16433Z"
+    },
+    {
+      "scenario": "temporal",
+      "test_scenario": "temporal",
+      "namespace": "wego_accept_temporal_1791802564263700000_",
+      "assertion": "correlated approval event",
+      "assertion_id": "fc127e93e797a4b2b1f27cfa",
+      "run_id": "e2f7e22f-fe8f-456f-a823-ee41b0381d30",
+      "worker_id": "91a06c4b-03ef-491e-ba3b-6dd4ea0639a2",
+      "at": "2026-10-12T10:58:04.572954Z"
+    },
+    {
+      "scenario": "temporal",
+      "test_scenario": "temporal",
+      "namespace": "wego_accept_temporal_1791802564263700000_",
+      "assertion": "runtime weekly cron and one-shot report schedule",
+      "assertion_id": "0770d3d664950dd88ee56a32",
+      "run_id": "ce1dff21-ed6e-47cb-a55b-5d4b1ee61d71",
+      "worker_id": "91a06c4b-03ef-491e-ba3b-6dd4ea0639a2",
+      "at": "2026-10-12T10:58:16.149951Z"
+    },
+    {
+      "scenario": "temporal",
+      "test_scenario": "temporal",
+      "namespace": "wego_accept_temporal_1791802564263700000_",
+      "assertion": "DAG dependency and parent output",
+      "assertion_id": "7d9c1f700995976cddc8b4f7",
+      "run_id": "6214a611-736a-4fee-8db9-892638d693c9",
+      "at": "2026-10-12T10:58:20.414967Z"
+    },
+    {
+      "scenario": "temporal",
+      "test_scenario": "temporal",
+      "namespace": "wego_accept_temporal_1791802564263700000_",
+      "assertion": "one-shot schedule removed after trigger",
+      "assertion_id": "85e76483f3c6820d75e973df",
+      "at": "2026-10-12T10:58:20.423044Z"
+    },
+    {
+      "scenario": "temporal",
+      "test_scenario": "temporal",
+      "namespace": "wego_accept_temporal_1791802564263700000_",
+      "assertion": "workflow resources deleted; run history retained",
+      "assertion_id": "bc61cfe35826be28b668b794",
+      "at": "2026-10-12T10:58:20.50617Z"
+    },
+    {
+      "scenario": "webhooks",
+      "test_scenario": "webhooks",
+      "namespace": "wego_accept_webhooks_1791802700506235000_",
+      "assertion": "controlled HTTP webhook stripe:payment_intent.succeeded payload and result",
+      "assertion_id": "c5ef59c36843a56bdad84107",
+      "run_id": "83c0bd42-0dfc-4542-b201-a6ff6886d85d",
+      "worker_id": "67cb2234-6c25-49e9-bc1f-54b79e1135c2",
+      "at": "2026-10-12T10:58:24.268127Z"
+    },
+    {
+      "scenario": "webhooks",
+      "test_scenario": "webhooks",
+      "namespace": "wego_accept_webhooks_1791802700506235000_",
+      "assertion": "controlled HTTP webhook github:pull_request:opened payload and result",
+      "assertion_id": "34f15dc5fe06655f28d933ee",
+      "run_id": "020414b9-38ef-455c-9ae3-3d069223c48c",
+      "worker_id": "67cb2234-6c25-49e9-bc1f-54b79e1135c2",
+      "at": "2026-10-12T10:58:24.351936Z"
+    },
+    {
+      "scenario": "webhooks",
+      "test_scenario": "webhooks",
+      "namespace": "wego_accept_webhooks_1791802700506235000_",
+      "assertion": "controlled HTTP webhook slack:event:app_mention payload and result",
+      "assertion_id": "7f265915ea175e6ac65ba39a",
+      "run_id": "0355cffb-5a9c-4d8d-9d66-cd80d777b083",
+      "worker_id": "67cb2234-6c25-49e9-bc1f-54b79e1135c2",
+      "at": "2026-10-12T10:58:24.43113Z"
+    },
+    {
+      "scenario": "webhooks",
+      "test_scenario": "webhooks",
+      "namespace": "wego_accept_webhooks_1791802700506235000_",
+      "assertion": "controlled HTTP webhook slack:command:/deploy payload and result",
+      "assertion_id": "81328d19df6dc7131635aaed",
+      "run_id": "3e32a9f7-017e-4017-84d5-8ddf6cae5cbf",
+      "worker_id": "67cb2234-6c25-49e9-bc1f-54b79e1135c2",
+      "at": "2026-10-12T10:58:24.509565Z"
+    },
+    {
+      "scenario": "webhooks",
+      "test_scenario": "webhooks",
+      "namespace": "wego_accept_webhooks_1791802700506235000_",
+      "assertion": "controlled HTTP webhook slack:interaction:block_actions payload and result",
+      "assertion_id": "499dab04a0ac7f667e35621d",
+      "run_id": "cbed5c07-02c5-4a3f-ab11-45543a5425b0",
+      "worker_id": "67cb2234-6c25-49e9-bc1f-54b79e1135c2",
+      "at": "2026-10-12T10:58:24.588482Z"
+    },
+    {
+      "scenario": "webhooks",
+      "test_scenario": "webhooks",
+      "namespace": "wego_accept_webhooks_1791802700506235000_",
+      "assertion": "workflow resources deleted; run history retained",
+      "assertion_id": "bc61cfe35826be28b668b794",
+      "at": "2026-10-12T10:58:24.674386Z"
+    }
+  ],
+  "event_codec_evidence": [
+    {
+      "assertions": [
+        "four default RPC events completed",
+        "shared stream event created two distinct runs",
+        "empty input arrays completed",
+        "event retry restored checkpoint and continued output",
+        "stored results and durable frames decoded with different registry order"
+      ],
+      "cleanup": "definitions deleted; instances closed; run history and referenced objects retained",
+      "command": "env GOWORK=off go -C sdks/wego test -json -tags=e2e ./tests/e2e/... -timeout 30m",
+      "encoding_ids": [
+        "example.gzip.v1"
+      ],
+      "mq": "postgresql",
+      "namespace": "wego_accept_rpc_events_1791802749143790000_",
+      "protocol_version": 5,
+      "run_ids": [
+        "c9618b4c-e68a-447c-b965-71dc14a6b6fd",
+        "7d977e51-f7b4-4b18-8fce-d3419dcbe3de",
+        "f8f04594-87ec-431d-8d5f-e724c0c96ef5",
+        "fe25f9b1-d099-467c-bb95-03226b2c2822",
+        "e651da98-b303-4cab-8cbb-8817e5b352c1",
+        "6e641259-166d-4bae-9586-aa0932a849a6",
+        "33711ade-97bb-4b10-8179-ac156e232e89",
+        "3d6bc36f-a648-41af-aa32-72207455eae3",
+        "bb565139-0e94-433e-af98-f8f781061c5f"
+      ],
+      "sdk_version": "0.3.3",
+      "server_version": "v0.110.5",
+      "status": "PASSED"
+    },
+    {
+      "assertions": [
+        "four default RPC events completed",
+        "shared stream event created two distinct runs",
+        "empty input arrays completed",
+        "event retry restored checkpoint and continued output",
+        "stored results and durable frames decoded with different registry order"
+      ],
+      "cleanup": "definitions deleted; instances closed; run history and referenced objects retained",
+      "command": "env GOWORK=off go -C sdks/wego test -json -tags=e2e ./tests/e2e/... -timeout 30m",
+      "encoding_ids": [
+        "example.aes256-gcm.v1"
+      ],
+      "mq": "postgresql",
+      "namespace": "wego_accept_rpc_events_1791802756597968000_",
+      "protocol_version": 5,
+      "run_ids": [
+        "88fc1ea1-cc26-4525-973e-5458b59c2896",
+        "05b65c1a-53d3-4daf-9ff6-1e5417c8ef6d",
+        "d0a1f076-08f7-4149-9d67-83f5dbb909ca",
+        "8058f366-e7fa-462a-9e64-5d4758c95200",
+        "a274a4d6-a47a-434e-a0e3-ed1cab9c229e",
+        "0fd134c4-ca56-4be3-8b1c-331b0bcc2876",
+        "03c16695-4086-47e2-a64a-c9a24f0e3b86",
+        "63aa8074-8d32-46c1-973e-f93be572d0a2",
+        "aa297155-c063-4954-8806-6a647b7f1523"
+      ],
+      "sdk_version": "0.3.3",
+      "server_version": "v0.110.5",
+      "status": "PASSED"
+    },
+    {
+      "assertions": [
+        "four default RPC events completed",
+        "shared stream event created two distinct runs",
+        "empty input arrays completed",
+        "event retry restored checkpoint and continued output",
+        "stored results and durable frames decoded with different registry order"
+      ],
+      "cleanup": "definitions deleted; instances closed; run history and referenced objects retained",
+      "command": "env GOWORK=off go -C sdks/wego test -json -tags=e2e ./tests/e2e/... -timeout 30m",
+      "encoding_ids": [
+        "example.s3-object.sha256.v1"
+      ],
+      "mq": "postgresql",
+      "namespace": "wego_accept_rpc_events_1791802761664217000_",
+      "protocol_version": 5,
+      "run_ids": [
+        "e3301917-aaaa-49f8-ad4c-3677f28f92da",
+        "6ce527fa-4635-4a84-aa41-7e1b89b4e75e",
+        "a1f72c51-e1d6-46e1-992e-ff087d872018",
+        "9f6fa66b-b0fb-4c03-93d7-409f37e7f9a8",
+        "30a19bef-2a3e-445a-9873-7037d1c3195b",
+        "b52c3e75-9477-4605-bd82-f1a1e3cb33d6",
+        "18c76b93-4558-44c6-88d4-e9d026cccaa0",
+        "c5b20b92-d490-402d-ad1c-9e27eec67f00",
+        "f770eff4-9b7e-47be-a120-c931f7992397"
+      ],
+      "sdk_version": "0.3.3",
+      "server_version": "v0.110.5",
+      "status": "PASSED"
+    },
+    {
+      "assertions": [
+        "four default RPC events completed",
+        "shared stream event created two distinct runs",
+        "empty input arrays completed",
+        "event retry restored checkpoint and continued output",
+        "stored results and durable frames decoded with different registry order"
+      ],
+      "cleanup": "definitions deleted; instances closed; run history and referenced objects retained",
+      "command": "env GOWORK=off go -C sdks/wego test -json -tags=e2e ./tests/e2e/... -timeout 30m",
+      "encoding_ids": [
+        "example.gzip.v1",
+        "example.aes256-gcm.v1",
+        "example.s3-object.sha256.v1"
+      ],
+      "mq": "postgresql",
+      "namespace": "wego_accept_rpc_events_1791802766252996000_",
+      "protocol_version": 5,
+      "run_ids": [
+        "fb474df2-f237-4320-89f2-29757e3192e1",
+        "8c0e03ed-566e-4972-aeed-7b9b54bb2aba",
+        "a315aa92-fad9-4d2e-aea7-4720e7b3cafa",
+        "d6e0c5da-1c9d-423d-a337-8630494010e4",
+        "e40dfa8a-f7fe-4e68-a663-8dbaba143da1",
+        "64782a23-69c3-4372-9987-a3dbb5cc09e5",
+        "09b69101-4c01-4ccf-8866-a78a3b1cd146",
+        "6e4540ba-6e58-4b36-b180-5be5890e2398",
+        "dec98ef5-b519-4344-be5c-f2c62ee897c9"
+      ],
+      "sdk_version": "0.3.3",
+      "server_version": "v0.110.5",
+      "status": "PASSED"
+    },
+    {
+      "assertions": [
+        "four default RPC events completed",
+        "shared stream event created two distinct runs",
+        "empty input arrays completed",
+        "event retry restored checkpoint and continued output",
+        "stored results and durable frames decoded with different registry order"
+      ],
+      "cleanup": "definitions deleted; instances closed; run history and referenced objects retained",
+      "command": "env GOWORK=off go -C sdks/wego test -json -tags=e2e ./tests/e2e/... -timeout 30m",
+      "encoding_ids": [],
+      "mq": "postgresql",
+      "namespace": "wego_accept_rpc_events_1791802772049773000_",
+      "protocol_version": 5,
+      "run_ids": [
+        "bca96671-302b-4a5a-87e7-985114507e6c",
+        "4cc27b26-84ee-4447-8ee3-a0542f0df5e8",
+        "816a88ac-1233-4e00-9613-4b14476722d9",
+        "a6fbfd39-a453-4238-bfa0-ad14022ef6d6",
+        "782c2896-89ae-4116-94c2-b1d1b2be710e",
+        "797e20b2-2f40-484c-848d-82db053794f7",
+        "6d796b1b-4587-4fa8-b887-2638e688a147",
+        "9f96904b-299a-4c97-a355-5364b5ddc5f3",
+        "0a1e9a3c-c0b1-4cb9-85e2-3006becee894"
+      ],
+      "sdk_version": "0.3.3",
+      "server_version": "v0.110.5",
+      "status": "PASSED"
+    }
+  ],
+  "minio_evidence": {
+    "cleanup": "workers and connections stopped; definitions and standalone probe deleted; referenced S3 objects retained with run/topic history",
+    "command": "env GOWORK=off go -C sdks/wego test -json -tags=e2e ./tests/e2e/... -timeout 30m",
+    "mq": "postgresql",
+    "protocol_version": 5,
+    "records": [
+      {
+        "scenario": "minio-codec",
+        "namespace": "wego_accept_minio-codec_1791802709182458000_",
+        "assertion": "S3 unary roundtrip; per-call routing retained under group concurrency",
+        "assertion_id": "912cbf7b1c02d34fd158f576",
+        "run_id": "f78ba739-2dbb-4d45-ba93-117270c5f0d6",
+        "worker_id": "5401df96-ec5a-4e10-b93b-3a1fa39b094b",
+        "at": "2026-10-12T10:58:33.122942Z"
+      },
+      {
+        "scenario": "minio-codec",
+        "namespace": "wego_accept_minio-codec_1791802709182458000_",
+        "assertion": "S3 unary roundtrip; per-call routing retained under group concurrency",
+        "assertion_id": "912cbf7b1c02d34fd158f576",
+        "run_id": "875b4017-da8c-4050-ad43-d91624670ea8",
+        "worker_id": "5401df96-ec5a-4e10-b93b-3a1fa39b094b",
+        "at": "2026-10-12T10:58:36.687442Z"
+      },
+      {
+        "scenario": "minio-codec",
+        "namespace": "wego_accept_minio-codec_1791802709182458000_",
+        "assertion": "S3 unary roundtrip; per-call routing retained under group concurrency",
+        "assertion_id": "912cbf7b1c02d34fd158f576",
+        "run_id": "73935584-947f-4b83-9db4-beccc61aa098",
+        "worker_id": "5401df96-ec5a-4e10-b93b-3a1fa39b094b",
+        "at": "2026-10-12T10:58:37.247098Z"
+      },
+      {
+        "scenario": "minio-codec",
+        "namespace": "wego_accept_minio-codec_1791802709182458000_",
+        "assertion": "S3 client stream batch input and terminal response",
+        "assertion_id": "c65bc99349d9a9441a23301e",
+        "run_id": "f59a185d-254b-4a1b-9ceb-110de914c831",
+        "worker_id": "5401df96-ec5a-4e10-b93b-3a1fa39b094b",
+        "at": "2026-10-12T10:58:37.302547Z"
+      },
+      {
+        "scenario": "minio-codec",
+        "namespace": "wego_accept_minio-codec_1791802709182458000_",
+        "assertion": "S3 bidi batch input and ordered output",
+        "assertion_id": "c3713ad4e2e9339e1d9c9da8",
+        "run_id": "d14f44b4-f0f1-4f2e-8001-15ce493c3e49",
+        "worker_id": "5401df96-ec5a-4e10-b93b-3a1fa39b094b",
+        "at": "2026-10-12T10:58:37.367591Z"
+      },
+      {
+        "scenario": "minio-codec",
+        "namespace": "wego_accept_minio-codec_1791802709182458000_",
+        "assertion": "S3 bidi batch input and ordered output",
+        "assertion_id": "c3713ad4e2e9339e1d9c9da8",
+        "run_id": "d14f44b4-f0f1-4f2e-8001-15ce493c3e49",
+        "worker_id": "5401df96-ec5a-4e10-b93b-3a1fa39b094b",
+        "at": "2026-10-12T10:58:37.372929Z"
+      },
+      {
+        "scenario": "minio-codec",
+        "namespace": "wego_accept_minio-codec_1791802709182458000_",
+        "assertion": "S3 bidi batch input and ordered output",
+        "assertion_id": "c3713ad4e2e9339e1d9c9da8",
+        "run_id": "d14f44b4-f0f1-4f2e-8001-15ce493c3e49",
+        "worker_id": "5401df96-ec5a-4e10-b93b-3a1fa39b094b",
+        "at": "2026-10-12T10:58:37.378786Z"
+      },
+      {
+        "scenario": "minio-codec",
+        "namespace": "wego_accept_minio-codec_1791802709182458000_",
+        "assertion": "S3 Worker checkpoint restores two historical outputs and completes on second attempt; binary headers/trailers preserved",
+        "assertion_id": "f8085b388ed06fb1140cbe83",
+        "run_id": "ba3176e8-651e-4d36-bc61-b05520c97934",
+        "worker_id": "5401df96-ec5a-4e10-b93b-3a1fa39b094b",
+        "at": "2026-10-12T10:58:37.708932Z"
+      },
+      {
+        "scenario": "minio-codec",
+        "namespace": "wego_accept_minio-codec_1791802709182458000_",
+        "assertion": "S3 independent Conn and codec resume serialized checkpoint without another task or handler execution",
+        "assertion_id": "ce7b5160467dd0b0e86900a0",
+        "run_id": "ba3176e8-651e-4d36-bc61-b05520c97934",
+        "worker_id": "5401df96-ec5a-4e10-b93b-3a1fa39b094b",
+        "at": "2026-10-12T10:58:38.803376Z"
+      },
+      {
+        "scenario": "minio-codec",
+        "namespace": "wego_accept_minio-codec_1791802709182458000_",
+        "assertion": "S3 JOIN and broadcast EVENT frames decoded by Worker",
+        "assertion_id": "d57c61519614828527ec3668",
+        "at": "2026-10-12T10:58:38.855456Z"
+      },
+      {
+        "scenario": "minio-codec",
+        "namespace": "wego_accept_minio-codec_1791802709182458000_",
+        "assertion": "S3 rejects missing history, cross-prefix references and oversized downloads; probe object deleted",
+        "assertion_id": "aa97b3b400dcf523e939381a",
+        "at": "2026-10-12T10:58:38.859734Z"
+      },
+      {
+        "scenario": "grpc-streams",
+        "namespace": "wego_accept_grpc-streams_1791802718859737000_",
+        "assertion": "client stream 0 messages, CloseAndRecv, trailers",
+        "assertion_id": "e31fb0a7a87b99eef67ad9f9",
+        "run_id": "66239623-1f5f-4347-93b8-b6305fb54679",
+        "worker_id": "15405b11-d8b2-4e04-8837-df992341f8f0",
+        "at": "2026-10-12T10:58:43.99012Z"
+      },
+      {
+        "scenario": "grpc-streams",
+        "namespace": "wego_accept_grpc-streams_1791802718859737000_",
+        "assertion": "client stream 5 messages, CloseAndRecv, trailers",
+        "assertion_id": "a1c86760fbc045af23f0869a",
+        "run_id": "e386bf92-0b07-4e93-8d7c-73af49182401",
+        "worker_id": "15405b11-d8b2-4e04-8837-df992341f8f0",
+        "at": "2026-10-12T10:58:44.059318Z"
+      },
+      {
+        "scenario": "grpc-streams",
+        "namespace": "wego_accept_grpc-streams_1791802718859737000_",
+        "assertion": "server stream 0 messages, window 2, slow consumer",
+        "assertion_id": "a30bdbacde315a0244a146e5",
+        "at": "2026-10-12T10:58:44.146707Z"
+      },
+      {
+        "scenario": "grpc-streams",
+        "namespace": "wego_accept_grpc-streams_1791802718859737000_",
+        "assertion": "server stream 5 messages, window 2, slow consumer",
+        "assertion_id": "5a722f9e287fcd470fdf26b1",
+        "run_id": "2491c45c-b5cd-467b-b8e4-75b7a05c656e",
+        "worker_id": "15405b11-d8b2-4e04-8837-df992341f8f0",
+        "at": "2026-10-12T10:58:44.313449Z"
+      },
+      {
+        "scenario": "grpc-streams",
+        "namespace": "wego_accept_grpc-streams_1791802718859737000_",
+        "assertion": "bidi batch input and streaming output with one business slot",
+        "assertion_id": "7e82d9453c996f3f200a1699",
+        "at": "2026-10-12T10:58:44.407962Z"
+      },
+      {
+        "scenario": "grpc-streams",
+        "namespace": "wego_accept_grpc-streams_1791802718859737000_",
+        "assertion": "bidi batch input and streaming output with one business slot",
+        "assertion_id": "7e82d9453c996f3f200a1699",
+        "run_id": "e0de3921-25e1-4fac-b50a-d132a09a2766",
+        "worker_id": "15405b11-d8b2-4e04-8837-df992341f8f0",
+        "at": "2026-10-12T10:58:44.535518Z"
+      },
+      {
+        "scenario": "grpc-streams",
+        "namespace": "wego_accept_grpc-streams_1791802718859737000_",
+        "assertion": "early client-stream handler return",
+        "assertion_id": "48b1172b6d1b100de62f19ad",
+        "run_id": "a46796ec-648c-4976-89f1-64af5d7072a1",
+        "worker_id": "15405b11-d8b2-4e04-8837-df992341f8f0",
+        "at": "2026-10-12T10:58:44.693177Z"
+      },
+      {
+        "scenario": "grpc-streams",
+        "namespace": "wego_accept_grpc-streams_1791802718859737000_",
+        "assertion": "stream outputs precede business status; cancellation terminates receive",
+        "assertion_id": "291176238a8484c02def9486",
+        "at": "2026-10-12T10:58:44.700335Z"
+      },
+      {
+        "scenario": "grpc-streams",
+        "namespace": "wego_accept_grpc-streams_1791802718859737000_",
+        "assertion": "workflow resources deleted; run history retained",
+        "assertion_id": "bc61cfe35826be28b668b794",
+        "at": "2026-10-12T10:58:44.842442Z"
+      },
+      {
+        "scenario": "minio-codec",
+        "namespace": "wego_accept_minio-codec_1791802709182458000_",
+        "assertion": "workflow resources deleted; run history retained",
+        "assertion_id": "bc61cfe35826be28b668b794",
+        "at": "2026-10-12T10:58:44.892343Z"
+      },
+      {
+        "scenario": "minio-codec",
+        "namespace": "wego_accept_minio-codec_1791802709182458000_",
+        "assertion": "S3 bucket=wego-codec prefix=codec-0cf8211c-973e-4971-b5ac-ed17867ef7e1/ objects=78 PUT=79 GET=99; objects retained with run/topic history",
+        "assertion_id": "5ed2cab3204ffb31071d11de",
+        "at": "2026-10-12T10:58:44.895354Z"
+      }
+    ],
+    "sdk_version": "0.3.3",
+    "server_version": "v0.110.5",
+    "status": "PASSED",
+    "storage_client": "AWS SDK for Go v2 / service/s3"
+  },
+  "embedded_evidence": {
+    "assertion_ids": [
+      "87825ad3f77c324e9b69f0b2"
+    ],
+    "assertions": [
+      "independent process and PostgreSQL database",
+      "migrations and registration",
+      "standard protobuf RPC result",
+      "engine and API listeners closed"
+    ],
+    "cleanup": "workflow definitions deleted; API/gRPC listeners closed; independent PostgreSQL database dropped",
+    "command": "env GOWORK=off go -C sdks/wego test -tags=e2e,wego_embedded ./tests/e2e/... -run '^TestEmbedded$' -timeout 10m",
+    "database_dropped": true,
+    "independent_example": "PASSED: Hello, embed!",
+    "mq": "postgresql",
+    "protocol_version": 5,
+    "run_id": "ba07e61b-ea86-4223-b5ca-d15f5d30ef16",
+    "scenario": "embedded",
+    "sdk_version": "0.3.3",
+    "server_version": "v0.110.5",
+    "status": "PASSED",
+    "worker_id": "ba7d662a-dc9e-4b53-b75e-cc6dff1effc2"
+  },
+  "local_log_sha256": {
+    "v0.3.3-unit.log": "6e577f19777d1217295c6f8a6178aa6c066112fd89fb868d8c6070279f8d0a33",
+    "v0.3.3-race.log": "943fc4ba5f3744e162c902406376209bb5fe7675d3cc62eb9b9756895dabf53c",
+    "v0.3.3-released.log": "18b6f4c3b5ace90ba81943bc9d6b0c159be2eb413217677afad41a24ef0a23b2",
+    "v0.3.3-final-quality.log": "85154fe7eec09bb078997b2e5e259a1c9ee35d69419a095545c3a71f9e978ab1",
+    "v0.3.3-upstream.log": "3f059549c6643c39e95922f08bb9d795bd47c895377aab5b3adbdce6b36ae365",
+    "v0.3.3-final-targeted.log": "805d86be500260ce023277e5e752a46a80640807a32332d30f1e84391fca83b1",
+    "v0.3.3-protocol-engine.log": "85e2b000a06d27b2c7c5e0dfbd3047a7443f070f07c406235a88d0f8ff19a2d4",
+    "v0.3.3-embedded.log": "da30eaf02f9e993e3f5daef742faf3c30d1cf994f0087761e8ea46edce41a2c8",
+    "v0.3.3-final-e2e.jsonl": "3bf438f00814e633e0d9f9d8323d947d85003c4932578fe2f42db929dff1ac9a",
+    "v0.3.3-fuzz-frame.log": "b11c5dec9abebd97b2aa908bd984292f3d23c6656c4bf18faadff419ce9f9f22",
+    "v0.3.3-fuzz-payload.log": "6e94765ffa96f6ff4546f9b1af396a71014f8d027a847d07f36549988c41bca7",
+    "v0.3.3-fuzz-state.log": "33a4af0a1ff3dc6579bca8aeb126bfafa7212f93d07ad3644040cde39fea5bdc"
+  },
+  "cleanup": "unique test namespaces; workflow/trigger resources deleted, SDK instances closed; run and topic history plus referenced objects retained; embedded database dropped",
+  "evidence_files": {
+    "examples": "acceptance-1791802704674422000.json",
+    "minio": "minio-codec-1791802724895451000.json",
+    "embedded": "wego_embedded_1791801768038958000.json"
+  }
+}

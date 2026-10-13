@@ -19,6 +19,7 @@ import (
 	"github.com/hatchet-dev/hatchet/sdks/wego/client"
 	pb "github.com/hatchet-dev/hatchet/sdks/wego/examples/proto"
 	"github.com/hatchet-dev/hatchet/sdks/wego/examples/scenarios"
+	"github.com/hatchet-dev/hatchet/sdks/wego/internal/wire"
 	"github.com/hatchet-dev/hatchet/sdks/wego/model"
 )
 
@@ -213,7 +214,7 @@ func testDurableRestart(t *testing.T, pending bool) {
 	}
 	// 重复当前步骤直到完成条件或取消信号满足；等待期间重新检查状态，避免把一次唤醒当作最终结果
 	for {
-		if err = conn.Events().Push(ctx, "restart:finish", map[string]string{"run_id": ref.RunID}); err != nil {
+		if err = conn.Events().Push(ctx, "restart:finish", model.Input{Value: map[string]string{"run_id": ref.RunID}, Routing: map[string]any{"run_id": ref.RunID}}); err != nil {
 			t.Fatal(err)
 		}
 		// state, e 通过明确 RunID 查询或管理执行记录，结果必须来自实际引擎
@@ -269,7 +270,7 @@ func testDurableRestart(t *testing.T, pending bool) {
 		map[string]any{
 			"status":                "PASSED",
 			"sdk_version":           wego.Version,
-			"protocol_version":      4,
+			"protocol_version":      wire.Version,
 			"pending_memo_injected": pending,
 			"recomputed_time":       expectedTime,
 			"command":               os.Getenv("WEGO_TEST_COMMAND"),

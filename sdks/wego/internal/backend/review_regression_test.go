@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net"
@@ -46,7 +47,7 @@ func TestReviewBinaryMetadata(t *testing.T) {
 	// ctx 携带 token-bin 的 ff00fe 原始字节，protobuf 和 JSON 都不得按 UTF-8 替换
 	ctx := metadata.NewOutgoingContext(context.Background(), metadata.Pairs("token-bin", want))
 	// env, err 按协议编码业务 protobuf；先投影调度字段，再执行载荷变换
-	env, err := wire.Encode(ctx, "method", &pb.Request{}, nil, nil, 1024)
+	env, err := wire.Encode(ctx, "method", &pb.Request{}, nil, spec.Runtime{}, 1024)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -57,11 +58,15 @@ func TestReviewBinaryMetadata(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	decoded, err = wire.Open(ctx, "method", decoded, spec.Runtime{}, 1024, 4<<20)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if decoded.Metadata["token-bin"][0] != want {
 		t.Errorf("binary metadata corrupted: got %x, want %x", decoded.Metadata["token-bin"][0], want)
 	}
 	// encoded 经 protobuf/base64 转发多值二进制响应头
-	codec, err := wire.NewFrameCodec(nil, 4096, 8192)
+	codec, err := wire.NewFrameCodec(spec.Runtime{}, 4096, 8192)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -75,7 +80,7 @@ func TestReviewBinaryMetadata(t *testing.T) {
 		t.Fatalf("stream metadata changed: %v, %v", frame, err)
 	}
 	// rpcError 在错误通道中同样传输 binary headers 和 trailers
-	rpcError := &model.RPCError{Err: status.Error(codes.Aborted, "business failure"), Headers: env.Metadata, Trailers: env.Metadata}
+	rpcError := &model.RPCError{Err: status.Error(codes.Aborted, "business failure"), Headers: decoded.Metadata, Trailers: decoded.Metadata}
 	// restored 只使用 wego 错误链，任意字节不混入业务 details
 	var restored *model.RPCError
 	if !errors.As(wire.DecodeError(wire.EncodeError(rpcError)), &restored) || restored.Headers["token-bin"][0] != want || restored.Trailers["token-bin"][0] != want {
@@ -230,7 +235,7 @@ func fixture(t *testing.T, a *blockedAdmin, r *blockedRegistration) spec.Runtime
 	// c 创建默认配置副本，后续显式选项可以覆盖 0、false 或 nil
 	c := spec.Defaults()
 	c.Address = l.Addr().String()
-	c.ServerURL = "http://127.0.0.1:1"
+	c.ServerURL = bindingAPI(t)
 	c.TenantID = "00000000-0000-4000-8000-000000000001"
 	c.TLSSet = true
 	c.TLS = nil
@@ -294,11 +299,9 @@ func TestReviewNumericAffinity(t *testing.T) {
 	defer close(a.release)
 	// done 分配本段逻辑独占的容器或通知通道，避免与其他调用共享可变状态
 	done := make(chan struct{})
-	// comparator 验证数字比较器与必需性、权重一起保留到真实请求
-	comparator := model.LabelGreaterEqual
 	go func() {
 		defer close(done)
-		_, _ = b.Run(context.Background(), "review", nil, model.RunOptions{Labels: map[string]*model.DesiredWorkerLabel{"capacity": {Value: int32(8), Required: true, Weight: 7, Comparator: &comparator}}})
+		_, _ = b.Run(context.Background(), "review", nil, model.RunOptions{DesiredWorkerLabels: map[string]*model.DesiredWorkerLabel{"capacity": {Value: int32(8), Required: true, Weight: 7, Comparator: model.LabelGreaterEqual}}})
 	}()
 	select {
 	// req 从实际操作完成通道读取结果，失败时不能继续后续成功断言
@@ -416,7 +419,8 @@ type immediateBackend struct {
 // Run 构造受控 protobuf 响应及真实 metadata 形状，供 invoker 选项传递测试使用
 func (b *immediateBackend) Run(ctx context.Context, name string, input any, opts model.RunOptions) (ports.Run, error) {
 	// env, err 按协议编码业务 protobuf；先投影调度字段，再执行载荷变换
-	env, err := wire.Encode(ctx, name, &pb.Reply{Message: "response"}, nil, nil, 1024)
+	plain, typeName, err := wire.MarshalValue(&pb.Reply{Message: "response"}, 1024)
+	env := wire.NewEnvelope(ctx, name, typeName, plain, nil)
 	if err != nil {
 		return ports.Run{}, err
 	}
@@ -426,7 +430,8 @@ func (b *immediateBackend) Run(ctx context.Context, name string, input any, opts
 		if b.failure != nil {
 			return ports.Result{}, &model.RPCError{Err: b.failure, Headers: env.Headers, Trailers: env.Trailers}
 		}
-		return ports.Result{RunID: "fixture", Outputs: map[string]any{"output": env}}, nil
+		sealed, err := wire.Seal(ctx, env, spec.Runtime{}, 1024, 1024+(64<<10), 4<<20)
+		return ports.Result{RunID: "fixture", Outputs: map[string]any{"output": sealed}}, err
 	}}, nil
 }
 
@@ -461,13 +466,13 @@ func TestReviewInterceptorCallOptionsReachInvoker(t *testing.T) {
 type reviewPayload struct{ sawCancelled bool }
 
 // Encode 记录 payload 编码看到的取消状态，测试发布预算是否覆盖对象 I/O
-func (p *reviewPayload) Encode(ctx context.Context, _ string, data []byte) ([]byte, error) {
+func (p *reviewPayload) Encode(ctx context.Context, data []byte) ([]byte, error) {
 	p.sawCancelled = ctx.Err() != nil
 	return nil, status.Error(codes.Canceled, "review fixture end")
 }
 
 // Decode 此 fixture 不执行反向变换；编码取消断言不应被解码路径影响
-func (*reviewPayload) Decode(context.Context, string, []byte) ([]byte, error) { return nil, nil }
+func (*reviewPayload) Decode(context.Context, []byte) ([]byte, error) { return nil, nil }
 
 // TestReviewEventPayloadHonorsCancellation 预先取消的发布在进入 codec 和后端之前失败
 func TestReviewEventPayloadHonorsCancellation(t *testing.T) {
@@ -487,8 +492,8 @@ func TestReviewEventPayloadHonorsCancellation(t *testing.T) {
 	// ctx, cancel 创建独立取消视图，退出时释放后台等待，不改写父执行 context
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	err = c.Events().Push(ctx, "review", model.RPCInput{Method: pb.UnaryGreeter_SayHello_FullMethodName, Message: &pb.Request{}})
-	if status.Code(err) != codes.Canceled {
+	err = c.Events().Push(ctx, "review", model.Input{Value: &pb.Request{}})
+	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("cancelled event accepted: %v", err)
 	}
 }
@@ -526,6 +531,7 @@ func TestReviewWorkflowMetricsUsesNamespace(t *testing.T) {
 // 评审专用：删除成功后，同一个连接不得继续从缓存返回已删除资源
 func TestReviewWorkflowDeleteInvalidatesLookup(t *testing.T) {
 	// mu 保护 HTTP fixture 的删除状态，Get 与 Delete 可以并发请求
+	// mu 防止 HTTP fixture 的列表与版本查询竞争修改名称。
 	var mu sync.Mutex
 	// deleted 是受锁保护的 HTTP fixture 状态，删除后查询应返回空列表而非缓存旧值
 	deleted := false
@@ -670,14 +676,14 @@ type blockingPayload struct {
 }
 
 // Encode 阻塞在真实预算上，不用 fixture 的额外释放通道制造取消效果
-func (p *blockingPayload) Encode(ctx context.Context, _ string, _ []byte) ([]byte, error) {
+func (p *blockingPayload) Encode(ctx context.Context, _ []byte) ([]byte, error) {
 	close(p.entered)
 	<-ctx.Done()
 	return nil, ctx.Err()
 }
 
 // Decode 不参与上传生命周期测试
-func (*blockingPayload) Decode(_ context.Context, _ string, data []byte) ([]byte, error) {
+func (*blockingPayload) Decode(_ context.Context, data []byte) ([]byte, error) {
 	return data, nil
 }
 
@@ -700,7 +706,7 @@ func TestTriggerEncodingParticipatesInClose(t *testing.T) {
 	// completed 保存当前上传结束的实际错误
 	completed := make(chan error, 1)
 	go func() {
-		completed <- conn.Events().Push(context.Background(), "future", model.RPCInput{Method: pb.UnaryGreeter_SayHello_FullMethodName, Message: &pb.Request{}})
+		completed <- conn.Events().Push(context.Background(), "future", model.Input{Value: &pb.Request{}})
 	}()
 	select {
 	case <-payload.entered:
@@ -779,4 +785,56 @@ func TestWorkerStartupDeadlineHonorsOriginalCause(t *testing.T) {
 	if err = w.Start(ctx); !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatal(err)
 	}
+}
+
+// CodecID 为测试内存变换提供稳定格式身份。
+func (*reviewPayload) CodecID() string { return "fixture.reviewPayload.v1" }
+
+// DecodeLimit 复用测试变换并检查有限字节，不把成功的超限结果交给协议层。
+func (p *reviewPayload) DecodeLimit(ctx context.Context, data []byte, limit int) ([]byte, error) {
+	out, err := p.Decode(ctx, data)
+	if err != nil {
+		return nil, err
+	}
+	if len(out) > limit {
+		return nil, fmt.Errorf("fixture decoded payload exceeds limit")
+	}
+	return out, nil
+}
+
+// CodecID 为测试内存变换提供稳定格式身份。
+func (*blockingPayload) CodecID() string { return "fixture.blockingPayload.v1" }
+
+// DecodeLimit 复用测试变换并检查有限字节，不把成功的超限结果交给协议层。
+func (p *blockingPayload) DecodeLimit(ctx context.Context, data []byte, limit int) ([]byte, error) {
+	out, err := p.Decode(ctx, data)
+	if err != nil {
+		return nil, err
+	}
+	if len(out) > limit {
+		return nil, fmt.Errorf("fixture decoded payload exceeds limit")
+	}
+	return out, nil
+}
+
+// bindingAPI 模拟按名称及当前版本读取持久定义；不通过绕过生产校验来测试提交协议。
+func bindingAPI(t *testing.T) string {
+	t.Helper()
+	// current 保存本次名称查询，fixture 的调用按查询后读版本串行进行。
+	var current string
+	// mu 防止 HTTP fixture 的列表与版本查询竞争修改名称。
+	var mu sync.Mutex
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		mu.Lock()
+		defer mu.Unlock()
+		if name := r.URL.Query().Get("name"); name != "" {
+			current = name
+			_ = json.NewEncoder(w).Encode(map[string]any{"rows": []any{map[string]any{"metadata": map[string]any{"id": "00000000-0000-4000-8000-000000000002"}, "name": name}}})
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"metadata": map[string]any{"id": "00000000-0000-4000-8000-000000000003"}, "inputJsonSchema": map[string]any{"x-wego-binding": map[string]any{"version": 6, "kind": "task", "namespace": "", "workflow": current}}})
+	}))
+	t.Cleanup(server.Close)
+	return server.URL
 }

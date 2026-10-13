@@ -1,0 +1,98 @@
+package main
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
+	"os"
+	"testing"
+	"time"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3/types"
+	"github.com/google/uuid"
+	"github.com/hatchet-dev/hatchet/sdks/wego/examples/codec/payload"
+)
+
+// sample 保存串行 S3 单次上传或下载的平均成本，不混入本地协议基准。
+type sample struct {
+	// Bytes 是上传前的业务字节长度。
+	Bytes int `json:"bytes"`
+	// Operation 固定为 upload 或 download。
+	Operation string `json:"operation"`
+	// Iterations 是 testing.Benchmark 实际测量的操作次数。
+	Iterations int `json:"iterations"`
+	// Nanoseconds 是包含 SDK 签名、摘要与网络 I/O 的平均耗时。
+	Nanoseconds int64 `json:"nanoseconds_per_op"`
+	// Allocations 和 AllocatedBytes 是独立进程中的每次操作分配成本。
+	Allocations int64 `json:"allocations_per_op"`
+	// AllocatedBytes 不包含服务端进程的内存。
+	AllocatedBytes int64 `json:"allocated_bytes_per_op"`
+}
+
+// main 仅创建自己的 UUID 对象目录，完成测量后逐项删除并验证目录为空。
+func main() {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+	config := payload.ConfigFromEnv()
+	prefix := "v040-bench-" + uuid.NewString() + "/"
+	objects, err := payload.NewS3(ctx, config, prefix)
+	if err != nil {
+		panic(err)
+	}
+	defer objects.Close()
+	client := s3.New(s3.Options{Region: config.Region, Credentials: credentials.NewStaticCredentialsProvider(config.AccessKey, config.SecretKey, ""), BaseEndpoint: aws.String(config.Endpoint), UsePathStyle: true})
+	// records 只保存数值测量，不输出连接密钥、token 或对象正文。
+	records := []sample{}
+	for _, size := range []int{16, 1024, 65536, 1 << 20} {
+		data := bytes.Repeat([]byte{'x'}, size)
+		reference, err := objects.Encode(ctx, data)
+		if err != nil {
+			panic(err)
+		}
+		for _, operation := range []string{"upload", "download"} {
+			result := testing.Benchmark(func(b *testing.B) {
+				b.ReportAllocs()
+				for b.Loop() {
+					var result []byte
+					var err error
+					if operation == "upload" {
+						result, err = objects.Encode(ctx, data)
+					} else {
+						result, err = objects.DecodeLimit(ctx, reference, size)
+					}
+					if err != nil {
+						b.Fatal(err)
+					}
+					if operation == "download" && !bytes.Equal(result, data) {
+						b.Fatal("S3 bytes changed")
+					}
+				}
+			})
+			records = append(records, sample{size, operation, result.N, result.NsPerOp(), result.AllocsPerOp(), result.AllocedBytesPerOp()})
+		}
+	}
+	// cleanup 只删除本轮前缀下的四个内容寻址对象，不涉及持久运行引用。
+	listed, err := client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{Bucket: aws.String(config.Bucket), Prefix: aws.String(prefix)})
+	if err != nil || aws.ToBool(listed.IsTruncated) {
+		panic(fmt.Sprintf("list incomplete: %v", err))
+	}
+	keys := []types.ObjectIdentifier{}
+	for _, object := range listed.Contents {
+		keys = append(keys, types.ObjectIdentifier{Key: object.Key})
+	}
+	deleted, err := client.DeleteObjects(ctx, &s3.DeleteObjectsInput{Bucket: aws.String(config.Bucket), Delete: &types.Delete{Objects: keys}})
+	if err != nil || len(deleted.Errors) != 0 {
+		panic(fmt.Sprintf("delete failed: %v", err))
+	}
+	remaining, err := objects.ObjectCount(ctx)
+	if err != nil || remaining != 0 {
+		panic(fmt.Sprintf("cleanup incomplete: %v", err))
+	}
+	if err := json.NewEncoder(os.Stdout).Encode(map[string]any{"status": "PASSED", "command": os.Getenv("WEGO_TEST_COMMAND"), "prefix": prefix, "concurrency": 1, "records": records, "objects_deleted": len(keys), "remaining_objects": remaining}); err != nil {
+		panic(err)
+	}
+}

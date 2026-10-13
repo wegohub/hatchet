@@ -62,17 +62,9 @@ func Claim(ctx context.Context, transport ports.DurableStreams, codec *wire.Fram
 		}
 		observeProtocol(transport, "wego_stream_claim_duration_seconds", request.Method, "reliable", outcome, time.Since(started).Seconds())
 	}()
-	if request.TaskID == "" || request.Method == "" || request.WorkerKey == "" || request.Writer == "" || request.Epoch < 0 {
-		return ClaimResult{}, status.Error(codes.InvalidArgument, "wego: incomplete CLAIM identity")
-	}
-	if request.Timeout == 0 {
-		request.Timeout = 10 * time.Second
-	}
-	if request.MaxReplayFrames == 0 {
-		request.MaxReplayFrames = 100000
-	}
-	if request.MaxReplayBytes == 0 {
-		request.MaxReplayBytes = 64 << 20
+	request, err = request.prepare()
+	if err != nil {
+		return ClaimResult{}, err
 	}
 	if request.Epoch > 0 {
 		// 重试不能在初始 CLAIM 已过期时先写一个新 CLAIM，制造看似有效的新起点
@@ -101,7 +93,7 @@ func Claim(ctx context.Context, transport ports.DurableStreams, codec *wire.Fram
 	if err := PublishFixed(ctx, transport, message); err != nil {
 		return ClaimResult{}, err
 	}
-	state := State{TaskID: request.TaskID, Method: request.Method, InputDigest: request.InputDigest}
+	state := State{TaskID: request.TaskID, RunID: request.RunID, Method: request.Method, InputDigest: request.InputDigest}
 	// result 仅在读到规范 CLAIM 后填写，发布 ACK 不产生所有权
 	// 扫描预算包含被忽略的旧 writer，不能仅按有效 DATA 计费
 	frames, encodedBytes, plainBytes := 0, 0, 0
@@ -134,6 +126,23 @@ func Claim(ctx context.Context, transport ports.DurableStreams, codec *wire.Fram
 		return result, nil
 	}
 	return ClaimResult{}, err
+}
+
+// prepare 固定候选身份和扫描预算；不完整身份不能发布竞争帧。
+func (request ClaimRequest) prepare() (ClaimRequest, error) {
+	if request.TaskID == "" || request.RunID == "" || request.Method == "" || request.WorkerKey == "" || request.Writer == "" || request.Epoch < 0 {
+		return request, status.Error(codes.InvalidArgument, "wego: incomplete CLAIM identity")
+	}
+	if request.Timeout == 0 {
+		request.Timeout = 10 * time.Second
+	}
+	if request.MaxReplayFrames == 0 {
+		request.MaxReplayFrames = 100000
+	}
+	if request.MaxReplayBytes == 0 {
+		request.MaxReplayBytes = 64 << 20
+	}
+	return request, nil
 }
 
 // verifyOrigin 只确认最早保留帧为同一调用的 epoch=0 起点；恢复前缀仍由竞争后的完整读回确定

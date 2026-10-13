@@ -51,7 +51,7 @@ func TestOversizedResultReport(t *testing.T) {
 			t.Error(err)
 		}
 	})
-	ref, err := b.Run(ctx, definition.Name, map[string]any{}, model.RunOptions{})
+	ref, err := b.Run(ctx, definition.Name, p0NativeInput(t, ctx, config, definition.Name), model.RunOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}

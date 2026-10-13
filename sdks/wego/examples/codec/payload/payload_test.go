@@ -17,29 +17,36 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// TestTransformsBoundedAndAuthenticated 检验实际风险：压缩膨胀、密文篡改和跨方法解密
+// TestTransformsBoundedAndAuthenticated 检验压缩膨胀、错误密钥和密文篡改；value 不绑定调用方法。
 func TestTransformsBoundedAndAuthenticated(t *testing.T) {
 	ctx := context.Background()
-	compressed, err := (&Gzip{}).Encode(ctx, "/service/Read", bytes.Repeat([]byte("a"), 2<<20))
+	compressed, err := (&Gzip{}).Encode(ctx, bytes.Repeat([]byte("a"), 2<<20))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := (&Gzip{}).DecodeLimit(ctx, "/service/Read", compressed, 1<<20); status.Code(err) != codes.ResourceExhausted {
+	if _, err := (&Gzip{}).DecodeLimit(ctx, compressed, 1<<20); status.Code(err) != codes.ResourceExhausted {
 		t.Fatalf("gzip expansion bypassed budget: %v", err)
 	}
 	encrypted, err := NewAESGCM(bytes.Repeat([]byte{1}, 32))
 	if err != nil {
 		t.Fatal(err)
 	}
-	encoded, err := encrypted.Encode(ctx, "/service/Read", []byte("message"))
+	encoded, err := encrypted.Encode(ctx, []byte("message"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := encrypted.Decode(ctx, "/service/Write", encoded); status.Code(err) != codes.DataLoss {
-		t.Fatalf("method authentication bypassed: %v", err)
+	if decoded, err := encrypted.Decode(ctx, encoded); err != nil || string(decoded) != "message" {
+		t.Fatal("AES roundtrip", err)
+	}
+	other, err := NewAESGCM(bytes.Repeat([]byte{2}, 32))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := other.Decode(ctx, encoded); status.Code(err) != codes.DataLoss {
+		t.Fatal("wrong key accepted", err)
 	}
 	encoded[len(encoded)-1] ^= 1
-	if _, err := encrypted.Decode(ctx, "/service/Read", encoded); status.Code(err) != codes.DataLoss {
+	if _, err := encrypted.Decode(ctx, encoded); status.Code(err) != codes.DataLoss {
 		t.Fatalf("tampering accepted: %v", err)
 	}
 }
@@ -88,16 +95,16 @@ func TestS3SignedScopedAndBounded(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer objects.Close()
-	ref, err := objects.Encode(context.Background(), "/service/Read", []byte("ten bytes!"))
+	ref, err := objects.Encode(context.Background(), []byte("ten bytes!"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	got, err := objects.Decode(context.Background(), "/service/Read", ref)
+	got, err := objects.Decode(context.Background(), ref)
 	if err != nil || string(got) != "ten bytes!" || unsigned.Load() {
 		t.Fatalf("signed roundtrip: %q, unsigned=%t, error=%v", got, unsigned.Load(), err)
 	}
 	before := reads.Load()
-	if _, err := objects.DecodeLimit(context.Background(), "/service/Read", ref, 4); status.Code(err) != codes.ResourceExhausted || reads.Load() != before {
+	if _, err := objects.DecodeLimit(context.Background(), ref, 4); status.Code(err) != codes.ResourceExhausted || reads.Load() != before {
 		t.Fatalf("reference budget caused I/O: %v", err)
 	}
 	// malformed 指向当前目录之外；允许的摘要和大小也不能绕过目录限制
@@ -107,26 +114,26 @@ func TestS3SignedScopedAndBounded(t *testing.T) {
 	}
 	malformed.Key = "other/" + malformed.SHA256
 	bad, _ := json.Marshal(malformed)
-	if _, err := objects.Decode(context.Background(), "/service/Read", bad); status.Code(err) != codes.DataLoss || reads.Load() != before {
+	if _, err := objects.Decode(context.Background(), bad); status.Code(err) != codes.DataLoss || reads.Load() != before {
 		t.Fatalf("cross-prefix request escaped: %v", err)
 	}
 	// 后端谎报引用大小：实际响应大于预算必须在读取中拒绝，不靠元数据检查
 	mu.Lock()
 	stored = bytes.Repeat([]byte{1}, 64)
 	mu.Unlock()
-	if _, err := objects.DecodeLimit(context.Background(), "/service/Read", ref, 16); status.Code(err) != codes.ResourceExhausted {
+	if _, err := objects.DecodeLimit(context.Background(), ref, 16); status.Code(err) != codes.ResourceExhausted {
 		t.Fatalf("actual download bypassed budget: %v", err)
 	}
 	// 同样大小的坏内容不会触发大小限制，但 SHA256 必须识别它
 	mu.Lock()
 	stored = bytes.Repeat([]byte{1}, 10)
 	mu.Unlock()
-	if _, err := objects.Decode(context.Background(), "/service/Read", ref); status.Code(err) != codes.DataLoss {
+	if _, err := objects.Decode(context.Background(), ref); status.Code(err) != codes.DataLoss {
 		t.Fatalf("corrupt object accepted: %v", err)
 	}
 	canceled, cancel := context.WithCancel(context.Background())
 	cancel()
-	if _, err := objects.Decode(canceled, "/service/Read", ref); !errors.Is(err, context.Canceled) {
+	if _, err := objects.Decode(canceled, ref); !errors.Is(err, context.Canceled) {
 		t.Fatalf("S3 did not preserve cancellation: %v", err)
 	}
 }

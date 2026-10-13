@@ -13,6 +13,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/hatchet-dev/hatchet/sdks/wego/internal/binding"
+	"github.com/hatchet-dev/hatchet/sdks/wego/internal/callctx"
 	"github.com/hatchet-dev/hatchet/sdks/wego/internal/engine"
 	"github.com/hatchet-dev/hatchet/sdks/wego/internal/spec"
 	"github.com/hatchet-dev/hatchet/sdks/wego/internal/stream"
@@ -21,6 +22,10 @@ import (
 
 // taskServerStream 在单次任务中适配 gRPC；Recv 与 Send 各允许一个并发调用
 type taskServerStream struct {
+	// native 输出官方业务 chunk，不创建可靠流控制帧。
+	native bool
+	// sentMessages 只在发送锁下计数，用于原生流的最终摘要。
+	sentMessages uint64
 	// ctx 保留任务身份、输入 deadline 及 checkpoint
 	ctx context.Context
 	// engine 提供本实例 codec 和观测
@@ -49,6 +54,8 @@ type taskServerStream struct {
 	history *stream.History
 	// sendError 保留首次发布失败，即使业务忽略 Send 错误也不能伪报成功
 	sendError error
+	// finished 在发送锁内封闭输出；handler 返回后的迟到调用不得发布新帧。
+	finished bool
 }
 
 // Context 返回包含任务身份的标准上下文
@@ -58,6 +65,9 @@ func (s *taskServerStream) Context() context.Context { return s.ctx }
 func (s *taskServerStream) SetHeader(md metadata.MD) error {
 	s.sendMu.Lock()
 	defer s.sendMu.Unlock()
+	if s.finished {
+		return status.Error(codes.FailedPrecondition, "wego: server stream finished")
+	}
 	if s.headerSent {
 		return status.Error(codes.Internal, "wego: headers already sent")
 	}
@@ -69,6 +79,9 @@ func (s *taskServerStream) SetHeader(md metadata.MD) error {
 func (s *taskServerStream) SendHeader(md metadata.MD) error {
 	s.sendMu.Lock()
 	defer s.sendMu.Unlock()
+	if s.finished {
+		return status.Error(codes.FailedPrecondition, "wego: server stream finished")
+	}
 	if s.headerSent {
 		return status.Error(codes.Internal, "wego: headers already sent")
 	}
@@ -92,13 +105,16 @@ func (s *taskServerStream) flushHeaders() error {
 func (s *taskServerStream) SetTrailer(md metadata.MD) {
 	s.sendMu.Lock()
 	defer s.sendMu.Unlock()
+	if s.finished {
+		return
+	}
 	s.trailers = metadata.Join(s.trailers, md)
 }
 
 // RecvMsg 逐条还原业务 codec，channel 耗尽只半关闭输入方向
 func (s *taskServerStream) RecvMsg(value any) error {
-	message, ok := value.(proto.Message)
-	if !ok || message == nil || !message.ProtoReflect().IsValid() || message.ProtoReflect().Descriptor().FullName() != s.method.Descriptor.Input().FullName() {
+	message, _ := value.(proto.Message)
+	if !matchesMessage(message, s.method.Descriptor.Input().FullName()) {
 		return status.Error(codes.InvalidArgument, "wego: stream request protobuf type mismatch")
 	}
 	if !s.recvMu.TryLock() {
@@ -121,14 +137,17 @@ func (s *taskServerStream) RecvMsg(value any) error {
 
 // SendMsg 对 server/bidi 只编码完整 DATA 帧；client stream 最终响应独立应用一次业务 codec
 func (s *taskServerStream) SendMsg(value any) (err error) {
-	message, ok := value.(proto.Message)
-	if !ok || message == nil || !message.ProtoReflect().IsValid() || message.ProtoReflect().Descriptor().FullName() != s.method.Descriptor.Output().FullName() {
+	message, _ := value.(proto.Message)
+	if !matchesMessage(message, s.method.Descriptor.Output().FullName()) {
 		return status.Error(codes.InvalidArgument, "wego: stream response protobuf type mismatch")
 	}
 	if !s.sendMu.TryLock() {
 		return status.Error(codes.FailedPrecondition, "wego: concurrent stream sends")
 	}
 	defer s.sendMu.Unlock()
+	if s.finished {
+		return status.Error(codes.FailedPrecondition, "wego: server stream finished")
+	}
 	if s.sendError != nil {
 		return s.sendError
 	}
@@ -149,16 +168,17 @@ func (s *taskServerStream) SendMsg(value any) (err error) {
 		if s.response != nil {
 			return status.Error(codes.Internal, "wego: duplicate client stream response")
 		}
-		envelope, err := wire.EncodeSnapshot(s.ctx, s.method.FullName, string(message.ProtoReflect().Descriptor().FullName()), plain, nil, s.engine.Config.Middleware, s.options.MaxEncodedMessageBytes)
-		if err != nil {
-			return err
-		}
+		envelope := wire.NewEnvelope(s.ctx, s.method.FullName, string(message.ProtoReflect().Descriptor().FullName()), plain, nil)
 		s.response = &envelope
 		return nil
 	}
 	if err := s.flushHeaders(); err != nil {
 		return err
 	}
+	if s.native {
+		return s.sendNative(plain)
+	}
+
 	if s.producer.LastOutput == ^uint64(0) {
 		return status.Error(codes.ResourceExhausted, "wego: output sequence exhausted")
 	}
@@ -167,6 +187,22 @@ func (s *taskServerStream) SendMsg(value any) (err error) {
 		s.producer.LastOutput++
 	} else {
 		s.sendError = err
+	}
+	return err
+}
+
+// sendNative 在发送锁内发布业务 ProtoJSON；计数只在官方接口确认后推进。
+func (s *taskServerStream) sendNative(plain []byte) error {
+	state, ok := callctx.Get(s.ctx)
+	if !ok || state.Execution == nil {
+		return status.Error(codes.FailedPrecondition, "wego: native stream requires task execution")
+	}
+	if s.sentMessages == ^uint64(0) {
+		return status.Error(codes.ResourceExhausted, "wego: output sequence exhausted")
+	}
+	err := state.Execution.Stream(s.ctx, plain)
+	if err == nil {
+		s.sentMessages++
 	}
 	return err
 }

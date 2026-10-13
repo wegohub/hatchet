@@ -15,11 +15,14 @@ import (
 	"github.com/hatchet-dev/hatchet/pkg/worker/condition"
 
 	"github.com/hatchet-dev/hatchet/sdks/wego/internal/ports"
+	"github.com/hatchet-dev/hatchet/sdks/wego/internal/wire"
 	"github.com/hatchet-dev/hatchet/sdks/wego/model"
 )
 
 // execution 私有保存原始执行上下文，复用 durable 等待序号、memo 和子任务身份
 type execution struct {
+	// filterPayload 在 handler 启动前解码，后续 Info 只返回独立快照。
+	filterPayload map[string]any
 	// original 后端原始执行上下文，保留 durable 等待序号和父子运行身份
 	original oldworker.HatchetContext
 	// backend 内部后端接口；业务层不能取出其具体实现
@@ -61,7 +64,7 @@ func (e *execution) Info() model.TaskInfo {
 		RetryCount:         e.original.RetryCount(),
 		InvocationCount:    count,
 		ParentRunID:        e.original.ParentWorkflowRunId(),
-		FilterPayload:      cloneMap(e.original.FilterPayload()),
+		FilterPayload:      cloneMap(e.filterPayload),
 		AdditionalMetadata: maps.Clone(e.original.AdditionalMetadata()),
 		WorkerLabels:       cloneMap(e.original.Worker().GetLabels()),
 	}
@@ -150,7 +153,31 @@ func (e *execution) Sleep(ctx context.Context, d time.Duration) error {
 }
 
 // WaitEvent 复制 scope/lookback 条件，并解码对应事件的首个匹配数据
+// WaitEvent 复用一次 durable 等待，返回解码后的业务对象。
 func (e *execution) WaitEvent(ctx context.Context, key, expression string, opts model.EventWait) (map[string]any, error) {
+	// output 是业务 JSON 视图，事件 envelope 不交给 handler。
+	var output map[string]any
+	if err := e.WaitEventInto(ctx, key, expression, &output, opts); err != nil {
+		return nil, err
+	}
+	return output, nil
+}
+
+// WaitEventInto 将同一个已记录事件还原到 protobuf 或 JSON 目标，不新增持久等待。
+func (e *execution) WaitEventInto(ctx context.Context, key, expression string, target any, opts model.EventWait) error {
+	envelope, err := e.waitEventEnvelope(ctx, key, expression, opts)
+	if err != nil {
+		return err
+	}
+
+	limits := e.backend.config.PayloadLimits
+	budget, cancel := context.WithTimeout(ctx, limits.DecodeTimeout)
+	defer cancel()
+	return wire.DecodeValue(budget, "", envelope, target, e.backend.config, limits.MaxMessageBytes, limits.MaxEncodedBytes)
+}
+
+// waitEventEnvelope 复用原始等待序号；解码不能再创建第二次 durable 等待。
+func (e *execution) waitEventEnvelope(ctx context.Context, key, expression string, opts model.EventWait) (wire.Envelope, error) {
 	// options 属于当前操作的独立状态，读写遵守所属对象的锁与退出屏障
 	var options []condition.UserEventConditionOpt
 	if opts.Scope != nil {
@@ -163,22 +190,22 @@ func (e *execution) WaitEvent(ctx context.Context, key, expression string, opts 
 	// data 编码后的业务或协议字节，只有编码成功才可交付
 	data, err := e.waitCondition(ctx, condition.UserEventCondition(key, expression, options...), "wait_for_event", key)
 	if err != nil {
-		return nil, err
+		return wire.Envelope{}, err
 	}
 	// 引擎结果按条件组、可读键、匹配列表分层；例如 {group:{ready:[{value:7}]}} 返回 {value:7}
 	var groups map[string]map[string][]map[string]any
 	// err 当前操作错误，失败时不继续使用对应结果
 	if err := json.Unmarshal(data, &groups); err != nil {
-		return nil, err
+		return wire.Envelope{}, err
 	}
 	// 逐项处理本组定义、成员或协议详情，保留每项身份；例如 run-1 的结果不能交给 run-2
 	for _, group := range groups {
 		// rows 取得 group[key] 的结果，确认成功后才进入下一处理阶段
 		if rows := group[key]; len(rows) > 0 {
-			return rows[0], nil
+			return wire.AsEnvelope(rows[0])
 		}
 	}
-	return nil, fmt.Errorf("wego: event wait result missing key %s", key)
+	return wire.Envelope{}, fmt.Errorf("wego: event wait result missing key %s", key)
 }
 
 // Now 用固定 memo 键持久化 UTC 时间；恢复执行读取原值而不访问新的墙上时钟
@@ -278,10 +305,22 @@ func (e *execution) Refresh(ctx context.Context, d time.Duration) error {
 
 // Stream 将业务字节发布到当前 TaskRunID 的流出口，调用方不需要取得后端执行对象
 func (e *execution) Stream(ctx context.Context, payload []byte) error {
-	return e.backend.Publish(ctx, e.original.StepRunId(), payload)
+	return e.backend.publishNativeStream(ctx, e.original.StepRunId(), payload)
 }
 
 // ParentOutput 按父任务名称解码已完成的父输出，避免把整个结果映射作为单个业务值
-func (e *execution) ParentOutput(name string, out any) error {
-	return Normalize(e.original.StepOutput(name, out))
+func (e *execution) ParentOutput(ctx context.Context, name string, out any) error {
+	// raw 保留父任务存储格式，解密和下载遵守调用方预算。
+	var raw json.RawMessage
+	if err := e.original.StepOutput(name, &raw); err != nil {
+		return Normalize(err)
+	}
+	envelope, err := wire.AsEnvelope(raw)
+	if err != nil {
+		return err
+	}
+	limits := e.backend.config.PayloadLimits
+	budget, cancel := context.WithTimeout(ctx, limits.DecodeTimeout)
+	defer cancel()
+	return wire.DecodeValue(budget, "", envelope, out, e.backend.config, limits.MaxMessageBytes, limits.MaxEncodedBytes)
 }

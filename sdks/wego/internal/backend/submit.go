@@ -4,11 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"strings"
 
 	adminpb "github.com/hatchet-dev/hatchet/internal/services/admin/contracts"
 	v1 "github.com/hatchet-dev/hatchet/internal/services/shared/proto/v1"
-	clientconfig "github.com/hatchet-dev/hatchet/pkg/config/client"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
@@ -58,11 +56,15 @@ func (b *Backend) submit(ctx context.Context, name string, inputs []model.RunMan
 	var refs []ports.Run
 	// errs 各分块或清理步骤的错误集合，不能丢弃部分成功信息
 	var errs []error
+	// uncertain 保存状态不明确的原始位置，notSent 标记后续未发送的起点。
+	var uncertain []int
+	notSent := len(requests)
 	// 逐项处理本组定义、成员或协议详情，保留每项身份；例如 run-1 的结果不能交给 run-2
 	for start := 0; start < len(requests); {
 		// err 当前操作错误，失败时不继续使用对应结果
 		if err := ctx.Err(); err != nil {
 			errs = append(errs, err)
+			notSent = start
 			break
 		}
 		// end 取得 start + 1 的结果，确认成功后才进入下一处理阶段
@@ -79,29 +81,42 @@ func (b *Backend) submit(ctx context.Context, name string, inputs []model.RunMan
 				end++
 			}
 		}
-		// ids 引擎确认的运行身份集合，不通过提交输入猜测身份
-		var ids []string
-		// err 当前操作错误，失败时不继续使用对应结果
-		var err error
-		if bulk {
-			// r 属于当前操作的独立状态，读写遵守所属对象的锁与退出屏障
-			var r *adminpb.BulkTriggerWorkflowResponse
-			r, err = b.admin.BulkTriggerWorkflow(b.auth(ctx), &adminpb.BulkTriggerWorkflowRequest{Workflows: requests[start:end]})
-			if err == nil {
-				ids = r.WorkflowRunIds
-			}
-		} else {
-			// r 属于当前操作的独立状态，读写遵守所属对象的锁与退出屏障
-			var r *adminpb.TriggerWorkflowResponse
-			r, err = b.admin.TriggerWorkflow(b.auth(ctx), requests[start])
-			if err == nil {
-				ids = []string{r.WorkflowRunId}
-			}
-		}
+		ids, err := b.triggerChunk(ctx, requests[start:end], bulk)
 		if err != nil {
-			errs = append(errs, Normalize(err))
-		} else if len(ids) != end-start {
+			normalized := Normalize(err)
+			errs = append(errs, normalized)
+			// collision 将官方冲突详情转换为无输入位置猜测的成功身份。
+			var collision *model.BulkIdempotencyCollisionError
+			if errors.As(normalized, &collision) {
+				for _, id := range collision.SuccessfulRunIDs {
+					ref := b.runRef(id)
+					ref.InputIndex = -1
+					refs = append(refs, ref)
+				}
+			} else {
+				notSent = end
+				for index := start; index < end; index++ {
+					uncertain = append(uncertain, index)
+				}
+				break
+			}
+		} else if len(ids) != end-start || !distinctRunIDs(ids) {
 			errs = append(errs, status.Error(codes.DataLoss, "wego: submitted count differs from RunIDs"))
+			seen := map[string]bool{}
+			for _, id := range ids {
+				if id == "" || seen[id] {
+					continue
+				}
+				seen[id] = true
+				ref := b.runRef(id)
+				ref.InputIndex = -1
+				refs = append(refs, ref)
+			}
+			notSent = end
+			for index := start; index < end; index++ {
+				uncertain = append(uncertain, index)
+			}
+			break
 		} else {
 			// 逐项处理本组定义、成员或协议详情，保留每项身份；例如 run-1 的结果不能交给 run-2
 			for i, id := range ids {
@@ -113,32 +128,51 @@ func (b *Backend) submit(ctx context.Context, name string, inputs []model.RunMan
 		}
 		start = end
 	}
+	return refs, submissionFailure(errs, refs, uncertain, notSent, len(requests))
+}
+
+// triggerChunk 只发送已经冻结的请求；返回不明确时调用者停止后续分块，不自动重试。
+func (b *Backend) triggerChunk(ctx context.Context, requests []*v1.TriggerWorkflowRequest, bulk bool) ([]string, error) {
+	if bulk {
+		response, err := b.admin.BulkTriggerWorkflow(b.auth(ctx), &adminpb.BulkTriggerWorkflowRequest{Workflows: requests})
+		if err != nil {
+			return nil, err
+		}
+		if response == nil {
+			return nil, status.Error(codes.DataLoss, "wego: missing bulk response")
+		}
+		return response.WorkflowRunIds, nil
+	}
+	response, err := b.admin.TriggerWorkflow(b.auth(ctx), requests[0])
+	if err != nil {
+		return nil, err
+	}
+	if response == nil {
+		return nil, status.Error(codes.DataLoss, "wego: missing trigger response")
+	}
+	return []string{response.WorkflowRunId}, nil
+}
+
+// submissionFailure 汇总成功、未发送和不明确项，不凭返回顺序猜测冲突项的位置。
+func submissionFailure(errs []error, refs []ports.Run, uncertain []int, notSent, total int) error {
 	if len(errs) > 0 {
 		// cause 取得 errs[0] 的结果，确认成功后才进入下一处理阶段
 		cause := errs[0]
 		if len(errs) > 1 {
 			cause = errors.Join(errs...)
 		}
-		// collision 属于当前操作的独立状态，读写遵守所属对象的锁与退出屏障
-		var collision *model.BulkIdempotencyCollisionError
-		// merged 累计每个失败块的完整详情；1002 项分两块时不能只返回第一块
-		merged := &model.BulkIdempotencyCollisionError{Err: cause}
-		// chunkErr 的详情逐块累计，其余传输错误仍保留在错误链
-		for _, chunkErr := range errs {
-			if errors.As(chunkErr, &collision) {
-				merged.SuccessfulRunIDs = append(merged.SuccessfulRunIDs, collision.SuccessfulRunIDs...)
-				// item 为某个失败块的冲突身份，复制后不借用错误容器
-				for _, item := range collision.Collisions {
-					merged.Collisions = append(merged.Collisions, &model.IdempotencyCollisionError{ExistingRunID: item.ExistingRunID})
-				}
+		if len(uncertain) > 0 || notSent < total {
+			partial := &model.PartialSubmissionError{Err: cause, UncertainInputIndices: uncertain}
+			for index := notSent; index < total; index++ {
+				partial.UnsubmittedInputIndices = append(partial.UnsubmittedInputIndices, index)
 			}
-		}
-		if len(merged.Collisions) > 0 || len(merged.SuccessfulRunIDs) > 0 {
-			// ref 的成功身份也纳入跨块冲突汇总，不能因其他块冲突而丢失
 			for _, ref := range refs {
-				merged.SuccessfulRunIDs = append(merged.SuccessfulRunIDs, ref.ID)
+				partial.SuccessfulRunIDs = append(partial.SuccessfulRunIDs, ref.ID)
 			}
-			return refs, merged
+			cause = partial
+		}
+		if merged := mergeSubmissionCollisions(errs, refs, cause); merged != nil {
+			return merged
 		}
 		if len(refs) > 0 {
 			// ids 引擎确认的运行身份集合，不通过提交输入猜测身份
@@ -147,18 +181,57 @@ func (b *Backend) submit(ctx context.Context, name string, inputs []model.RunMan
 			for i, ref := range refs {
 				ids[i] = ref.ID
 			}
-			return refs, &model.PartialSubmissionError{SuccessfulRunIDs: ids, Err: cause}
+			if partial, ok := cause.(*model.PartialSubmissionError); ok {
+				return partial
+			}
+			return &model.PartialSubmissionError{SuccessfulRunIDs: ids, Err: cause}
 		}
-		return refs, cause
+		return cause
 	}
-	return refs, nil
+	return nil
+}
+
+// mergeSubmissionCollisions 合并跨块冲突详情，成功身份只保留一次，不丢弃传输错误链。
+func mergeSubmissionCollisions(errs []error, refs []ports.Run, cause error) error {
+	// collision 属于当前操作的独立状态，读写遵守所属对象的锁与退出屏障
+	var collision *model.BulkIdempotencyCollisionError
+	// merged 累计每个失败块的完整详情；1002 项分两块时不能只返回第一块
+	merged := &model.BulkIdempotencyCollisionError{Err: cause}
+	// chunkErr 的详情逐块累计，其余传输错误仍保留在错误链
+	for _, chunkErr := range errs {
+		if errors.As(chunkErr, &collision) {
+			merged.SuccessfulRunIDs = append(merged.SuccessfulRunIDs, collision.SuccessfulRunIDs...)
+			// item 为某个失败块的冲突身份，复制后不借用错误容器
+			for _, item := range collision.Collisions {
+				merged.Collisions = append(merged.Collisions, &model.IdempotencyCollisionError{ExistingRunID: item.ExistingRunID})
+			}
+		}
+	}
+	if len(merged.Collisions) > 0 || len(merged.SuccessfulRunIDs) > 0 {
+		// ref 的成功身份也纳入跨块冲突汇总，不能因其他块冲突而丢失
+		for _, ref := range refs {
+			merged.SuccessfulRunIDs = append(merged.SuccessfulRunIDs, ref.ID)
+		}
+		// 同一成功身份同时存在于 refs 和冲突详情，只在汇总中保留一次。
+		seen := map[string]bool{}
+		unique := merged.SuccessfulRunIDs[:0]
+		for _, id := range merged.SuccessfulRunIDs {
+			if !seen[id] {
+				unique = append(unique, id)
+				seen[id] = true
+			}
+		}
+		merged.SuccessfulRunIDs = unique
+		return merged
+	}
+	return nil
 }
 
 // submissionName 验证整批绑定的一致性，原生任务只应用其自身的 namespace 规则
 func (b *Backend) submissionName(ctx context.Context, name string, inputs []model.RunManyInput) (string, error) {
 	// RPC 身份来自输入类型而非 JSON 字段或 workflow 前缀
 	if len(inputs) > 0 {
-		if rpcInput, ok := inputs[0].Input.(ports.RPCInput); ok {
+		if rpcInput, ok := inputs[0].Input.(ports.RPCInput); ok && rpcInput.RPCMethod() != "" {
 			method := rpcInput.RPCMethod()
 			if err := binding.ValidateName(b.config.Namespace, method); err != nil {
 				return "", err
@@ -174,7 +247,10 @@ func (b *Backend) submissionName(ctx context.Context, name string, inputs []mode
 			}
 			name = binding.WorkflowName(b.config.Namespace, method)
 		} else {
-			name = clientconfig.ApplyNamespace(strings.ToLower(name), &b.config.Namespace)
+			if err := b.ValidateTarget(ctx, name, "unary", ""); err != nil {
+				return "", err
+			}
+			name = nativeWorkflowName(b.config.Namespace, name)
 		}
 	}
 	return name, nil
@@ -188,7 +264,7 @@ func (b *Backend) prepareTriggers(ctx context.Context, name string, inputs []mod
 	for i, input := range inputs {
 		// opts 取得 input.Options 的结果，确认成功后才进入下一处理阶段
 		opts := input.Options
-		opts.Metadata = traceMetadata(ctx, opts.Metadata)
+		opts.AdditionalMetadata = traceMetadata(ctx, opts.AdditionalMetadata)
 		// data 编码后的业务或协议字节，只有编码成功才可交付
 		data, err := json.Marshal(input.Input)
 		if err != nil {
@@ -269,4 +345,16 @@ func (b *Backend) bindTriggerParent(ctx context.Context, req *v1.TriggerWorkflow
 			req.DesiredWorkerId = &info.WorkerID
 		}
 	}
+}
+
+// distinctRunIDs 不接受空身份或重复响应；这些响应不能证明原始输入位置。
+func distinctRunIDs(ids []string) bool {
+	seen := make(map[string]bool, len(ids))
+	for _, id := range ids {
+		if id == "" || seen[id] {
+			return false
+		}
+		seen[id] = true
+	}
+	return true
 }

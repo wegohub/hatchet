@@ -135,8 +135,9 @@ func WithLogReport(value bool) Option {
 	}
 }
 
-// WithMiddleware 配置 Middleware：按顺序应用的业务中间件；载荷解码按反向顺序还原
+// WithMiddleware 注册中间件和 codec；默认按注册顺序编码，解码按消息记录的 ID 逆序执行。
 func WithMiddleware(value ...middleware.Option) Option {
+	value = append([]middleware.Option(nil), value...)
 	return func(c *spec.Runtime) {
 		c.Middleware = append(c.Middleware, value...)
 	}
@@ -177,8 +178,8 @@ func WithEmbedded(value EmbeddedConfig) Option {
 	}
 }
 
-// WithRoutingDefaults 配置方法的默认调度字段，调用的同名顶层键覆盖默认值
-// 例如 group=default、cost=1，可在单次调用中覆盖 group=group-a
+// WithRoutingDefaults 配置所有任务的默认 input.routing，按任务名或完整方法名隔离。
+// 例如 group=default、cost=1，可由 client.WithRouting 覆盖 group=group-a；不修改原生 JSON 输入。
 func WithRoutingDefaults(method string, values map[string]any) Option {
 	// snapshot 在创建选项时复制；之后修改调用方 map 不改变已保存的选项
 	snapshot, err := spec.SnapshotRouting(values)
@@ -199,4 +200,38 @@ func WithDisableWorker() Option {
 // WithBackendMessageLimit 设置完整协议 RPC 的预算和自有连接限制；不能提高服务器或官方执行连接的上限
 func WithBackendMessageLimit(bytes int) Option {
 	return func(r *spec.Runtime) { r.BackendMessageLimit = bytes }
+}
+
+// PayloadLimits 为普通任务和 RPC 规定相同的消息与 codec 预算。
+type PayloadLimits = spec.PayloadLimits
+
+// WithPayloadLimits 设置完整的通用预算；零值不是无限制。
+func WithPayloadLimits(limits PayloadLimits) Option {
+	return func(r *spec.Runtime) { r.PayloadLimits = limits }
+}
+
+// WithEventRoutingDefaults 按发布事件键保存默认值；多个接收任务共享同一份 routing。
+func WithEventRoutingDefaults(key string, values map[string]any) Option {
+	snapshot, err := spec.SnapshotRouting(values)
+	return func(r *spec.Runtime) {
+		if err != nil {
+			r.SetRoutingDefaults(key, nil, err)
+			return
+		}
+		if r.EventRoutingDefaults == nil {
+			r.EventRoutingDefaults = map[string]map[string]any{}
+		}
+		copy, _ := spec.SnapshotRouting(snapshot)
+		r.EventRoutingDefaults[key] = copy
+	}
+}
+
+// WithEncodingCodecs 显式选择发送链，最后一次配置生效；空参数只保留已注册的解码能力。
+// 例如注册 gzip、aes、s3 后，可以只发送 gzip，同时仍能还原历史 aes+s3 消息。
+func WithEncodingCodecs(ids ...string) Option {
+	ids = append([]string(nil), ids...)
+	return func(c *spec.Runtime) {
+		c.EncodingCodecs = append([]string(nil), ids...)
+		c.EncodingCodecsSet = true
+	}
 }

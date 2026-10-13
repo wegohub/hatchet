@@ -66,7 +66,7 @@ func (f *recoveryLog) SubscribeDurable(ctx context.Context, request ports.Durabl
 // recoveryCodec 创建有界协议编码器，并把明文 fixture 变为真实整帧数据
 func recoveryCodec(t *testing.T, frames ...*wire.LogFrame) (*wire.FrameCodec, []ports.DurableEntry) {
 	t.Helper()
-	codec, err := wire.NewFrameCodec(nil, 4096, 8192)
+	codec, err := wire.NewFrameCodec(spec.Runtime{}, 4096, 8192)
 	if err != nil {
 		t.Fatal(err)
 	}

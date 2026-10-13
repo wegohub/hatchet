@@ -11,6 +11,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/hatchet-dev/hatchet/sdks/wego/internal/ports"
+	"github.com/hatchet-dev/hatchet/sdks/wego/internal/spec"
 	"github.com/hatchet-dev/hatchet/sdks/wego/internal/wire"
 )
 
@@ -52,9 +53,9 @@ func (f *claimLog) SubscribeDurable(ctx context.Context, _ ports.DurableSubscrip
 
 // TestClaimReadbackBoundaries 覆盖获胜、落选、历史丢失与资源预算，ACK 不能作为所有权证据
 func TestClaimReadbackBoundaries(t *testing.T) {
-	for _, name := range []string{"owned", "lost", "missing_identity", "negative_epoch", "missing_origin", "corrupt_frame", "frame_budget", "byte_budget", "rejected", "canceled"} {
+	for _, name := range []string{"owned", "lost", "wrong_run", "missing_identity", "negative_epoch", "missing_origin", "corrupt_frame", "frame_budget", "byte_budget", "rejected", "canceled"} {
 		t.Run(name, func(t *testing.T) {
-			codec, err := wire.NewFrameCodec(nil, 4096, 8192)
+			codec, err := wire.NewFrameCodec(spec.Runtime{}, 4096, 8192)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -64,6 +65,16 @@ func TestClaimReadbackBoundaries(t *testing.T) {
 			defer cancel()
 			want := codes.OK
 			switch name {
+			case "wrong_run":
+				// TaskID、writer 和摘要相同也不能认可属于其他 Run 的 CLAIM。
+				frame := logFrame("CLAIM", 0, "a", 0)
+				frame.RunId = "other-run"
+				encoded, err := codec.Encode(ctx, request.Method, frame)
+				if err != nil {
+					t.Fatal(err)
+				}
+				fixture.entries = []ports.DurableEntry{{Cursor: "1", Payload: encoded}}
+				want = codes.DataLoss
 			case "lost":
 				_, fixture.entries = recoveryCodec(t, logFrame("CLAIM", 0, "b", 0))
 			case "missing_identity":
@@ -117,7 +128,7 @@ func TestClaimReadbackBoundaries(t *testing.T) {
 
 // BenchmarkClaimAcquire 测量 SDK 编码、发布和规范读回开销；不包含引擎网络延迟
 func BenchmarkClaimAcquire(b *testing.B) {
-	codec, err := wire.NewFrameCodec(nil, 4096, 8192)
+	codec, err := wire.NewFrameCodec(spec.Runtime{}, 4096, 8192)
 	if err != nil {
 		b.Fatal(err)
 	}

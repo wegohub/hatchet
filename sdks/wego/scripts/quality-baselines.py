@@ -92,7 +92,7 @@ def main():
         scores = complexities(output)
         report["complexity"] = {name: value for name, value in scores.items() if value > 15}
         for name, value in report["complexity"].items():
-            if value > policy["complexity_maximums"].get(name, 15):
+            if value > policy["complexity_maximums"].get(name, policy["complexity_maximums"].get(name.replace("(*", "("), 15)):
                 report["failures"].append(f"{name}: complexity {value} exceeds recorded maximum")
     if args.benchmarks:
         run(["go", "test", "./internal/wire", "./internal/stream", "-run", "^$", "-bench", "Benchmark(FrameCodec|ProtoJSONEnvelope|LogInterpreter|ClaimAcquire)$", "-benchmem", "-benchtime=150ms", "-count=3"], "quality-benchmarks.log")

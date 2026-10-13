@@ -121,20 +121,18 @@ func Concurrency(ctx context.Context, report *Report) error {
 func concurrencyQueued(ctx context.Context, report *Report, variant string) (err error) {
 	// o 按分组记录当前并发和峰值的 fixture，所有测试请求共用它进行实际执行统计
 	o := newOccupancy()
-	// strategy 本场景需要验证的并发策略，实际执行峰值和终态用于判断其是否生效
-	strategy := model.GroupRoundRobin
 	// limit 构造当前步骤的数据对象，字段在提交、编码或断言之前一次性初始化
 	limit := model.Concurrency{
 		Expression:    "input.routing.group",
 		MaxRuns:       pointer(int32(1)),
-		LimitStrategy: &strategy,
+		LimitStrategy: model.GroupRoundRobin,
 	}
 	// limits 本场景的并发约束集合，静态与动态上限分别配置，业务峰值按实际执行记录断言
 	limits := []model.Concurrency{limit}
 	if variant == "multiple-keys" {
 		limits = []model.Concurrency{
-			{Expression: "input.routing.account", MaxRuns: pointer(int32(1)), LimitStrategy: &strategy},
-			{Expression: "input.routing.tier", MaxRuns: pointer(int32(1)), LimitStrategy: &strategy},
+			{Expression: "input.routing.account", MaxRuns: pointer(int32(1)), LimitStrategy: model.GroupRoundRobin},
+			{Expression: "input.routing.tier", MaxRuns: pointer(int32(1)), LimitStrategy: model.GroupRoundRobin},
 		}
 	}
 	if variant == "dynamic" {
@@ -298,7 +296,7 @@ func concurrencyCancel(ctx context.Context, report *Report, strategy model.Concu
 			task.WithConcurrency(model.Concurrency{
 				Expression:    "input.routing.group",
 				MaxRuns:       pointer(int32(1)),
-				LimitStrategy: &strategy,
+				LimitStrategy: strategy,
 			}),
 		),
 	)
@@ -512,7 +510,7 @@ func RateLimits(ctx context.Context, report *Report) (err error) {
 			KeyExpr:        pointer("input.routing.id"),
 			Units:          pointer(1),
 			LimitValueExpr: pointer("1"),
-			Duration:       pointer(model.Second),
+			Duration:       model.Second,
 		})),
 	)
 	if err != nil {

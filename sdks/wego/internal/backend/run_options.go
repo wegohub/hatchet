@@ -20,12 +20,17 @@ func traceMetadata(ctx context.Context, values map[string]string) map[string]str
 	if values == nil {
 		values = map[string]string{}
 	}
-	// carrier 取得 propagation.MapCarrier{} 的结果，确认成功后才进入下一处理阶段
+	// 官方调度读取 traceparent/tracestate；使用同一键才能把引擎 spans 与业务 spans 关联。
 	carrier := propagation.MapCarrier{}
 	propagation.TraceContext{}.Inject(ctx, carrier)
-	// 逐项处理本组定义、成员或协议详情，保留每项身份；例如 run-1 的结果不能交给 run-2
+	// 有效父 span 的空 tracestate 也覆盖旧值，避免关联上另一条 trace 的供应商状态。
+	if carrier["traceparent"] != "" {
+		delete(values, "traceparent")
+		delete(values, "tracestate")
+	}
+	// 当前调用的有效 span 覆盖调用者同名字段，其他运行 metadata 保持独立快照。
 	for key, value := range carrier {
-		values["wego."+key] = value
+		values[key] = value
 	}
 	return values
 }
@@ -37,29 +42,30 @@ func runOptions(v model.RunOptions) ([]v0.RunOptFunc, error) {
 	if v.Priority != nil {
 		out = append(out, v0.WithPriority(int32(*v.Priority)))
 	}
-	if v.Metadata != nil {
-		out = append(out, v0.WithRunMetadata(v.Metadata))
+	if v.AdditionalMetadata != nil {
+		out = append(out, v0.WithRunMetadata(v.AdditionalMetadata))
 	}
-	if v.Labels != nil {
+	if v.DesiredWorkerLabels != nil {
 		// labels 后端亲和性条件集合，例如 owner 的 Required=true 不允许回退到另一实例
 		labels := map[string]*types.DesiredWorkerLabel{}
 		// key 是调度标签名，label 的 Value 必须保持 string 或 int32 类型
-		for key, label := range v.Labels {
+		for key, label := range v.DesiredWorkerLabels {
 			if label == nil {
 				return nil, fmt.Errorf("wego: nil affinity label %s", key)
+			}
+			// 后端入口也拒绝非法枚举，不能将未知数值交给官方协议解释。
+			if label.Comparator < model.LabelEqual || label.Comparator > model.LabelLessEqual {
+				return nil, fmt.Errorf("wego: unsupported worker label comparator")
 			}
 			// value 验证数值范围，禁止 JSON roundtrip 把整数变成 float64
 			value, err := affinityValue(label.Value)
 			if err != nil {
 				return nil, fmt.Errorf("wego: label %s: %w", key, err)
 			}
-			// converted 拷贝必需性、权重和比较器，避免引用调用方可变指针
+			// converted 拷贝约束；零值比较器也显式发送 EQUAL，公开 API 无需指针。
 			converted := &types.DesiredWorkerLabel{Value: value, Required: label.Required, Weight: label.Weight}
-			if label.Comparator != nil {
-				// comparator 与 wego 枚举保持同一数值语义
-				comparator := types.WorkerLabelComparator(*label.Comparator)
-				converted.Comparator = &comparator
-			}
+			comparator := types.WorkerLabelComparator(label.Comparator)
+			converted.Comparator = &comparator
 			labels[key] = converted
 		}
 		out = append(out, v0.WithDesiredWorkerLabels(labels))
