@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.27
+
+- 本机 Hatchet Compose 集成 hatchet-extra：源码多阶段镜像构建、TLS 与公钥初始化、持久 ACK 密钥、JetStream 数据卷及 gRPC 健康检查；消息协议保持 6，SDK 调用 API 不变。
+
 ## 0.4.26
 
 - WaitForEvent / WaitForEventInto 改用 EventWaitOption：WithEventScope 和 WithConsiderEventsSince 接受值参数，内部保留省略与显式空值的区别，重复配置最后一次生效。回溯缺少 scope、非法时间和 nil 选项在登记等待前失败；选项可并发复用。同步示例、测试和文档，并复核枚举、并发、限流、触发优先级、Batch 和事件 scope 的零值语义。消息协议保持 6。

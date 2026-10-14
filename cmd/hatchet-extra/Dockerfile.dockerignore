@@ -1,0 +1,25 @@
+# 白名单上下文：不发送 .env、备份、工作树、依赖缓存或私有证书。
+**
+!go.mod
+!go.sum
+!api/
+!api/**
+!api-contracts/
+!api-contracts/**
+!internal/
+!internal/**
+!pkg/
+!pkg/**
+!cmd/
+!cmd/hatchet-extra/
+!cmd/hatchet-extra/**
+**/.env
+**/*.env
+**/*.key
+**/*.pem
+**/*.crt
+**/node_modules
+**/.git
+**/__pycache__
+# 官方 auth-disabled 的编译期测试 keyset 属于源码，不是部署密钥。
+!pkg/authmode/keyset/*.key

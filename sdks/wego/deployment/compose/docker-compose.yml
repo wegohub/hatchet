@@ -16,6 +16,63 @@ x-environment: &environment
   SERVER_INTERNAL_CLIENT_INTERNAL_GRPC_BROADCAST_ADDRESS: hatchet-engine:7070
 
 services:
+  extra-init:
+    # 仅初始化阶段读取 Hatchet 加密配置；运行容器不挂载 JWT 私钥。
+    image: hatchet-extra:local
+    build:
+      context: ../../../..
+      dockerfile: cmd/hatchet-extra/Dockerfile
+    user: "0:0"
+    command: ["init"]
+    environment:
+      SERVER_SECURITY_CHECK_ENABLED: "false"
+    volumes:
+      - hatchet_config:/hatchet/config:ro
+      - extra_config:/extra-config
+      - extra_data:/data
+    depends_on:
+      setup-config:
+        condition: service_completed_successfully
+
+  hatchet-extra:
+    image: hatchet-extra:local
+    build:
+      context: ../../../..
+      dockerfile: cmd/hatchet-extra/Dockerfile
+    command:
+      - --listen=0.0.0.0:7080
+      - --store=/data
+      - --jwt-public-key=/extra-config/jwt-public.key
+      - --tls-cert=/extra-config/tls.crt
+      - --tls-key=/extra-config/tls.key
+      - --shutdown-timeout=30s
+    restart: unless-stopped
+    stop_grace_period: 40s
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in .env}
+      DATABASE_MAX_CONNS: "5"
+      SERVER_URL: http://localhost:${HATCHET_HTTP_PORT:-8080}
+      SERVER_SECURITY_CHECK_ENABLED: "false"
+    ports:
+      - "127.0.0.1:${EXTRA_GRPC_PORT:-7080}:7080"
+    volumes:
+      - extra_config:/extra-config:ro
+      - extra_data:/data
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    healthcheck:
+      test: ["CMD", "hatchet-extra", "healthcheck", "--ca=/extra-config/tls.crt"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+    depends_on:
+      extra-init:
+        condition: service_completed_successfully
+
   minio:
     # 从官方发布源码构建；社区版的最新正式发布不提供预编译容器。
     image: wego-minio:RELEASE.2025-10-15T17-29-55Z
@@ -107,3 +164,5 @@ services:
 volumes:
   hatchet_config:
   minio_data:
+  extra_config:
+  extra_data:

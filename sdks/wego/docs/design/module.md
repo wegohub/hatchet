@@ -1,6 +1,6 @@
 # wego SDK 功能与包结构
 
-SDK `0.4.26`，统一消息与流日志协议 `6`，依赖未经修改的官方 Hatchet `v0.110.5`。0.2.0 的 18 项门禁、28 源文件/74 构造片段及完整验收见 [历史验收报告](acceptance-report.md) 和 [交付报告](v0.2.0-p5-report.md)。0.2.1 增加 AWS S3 SDK / MinIO codec 示例，部署及专项验证见 [专项报告](minio-codec-report.md)。0.2.2 增加经 API 认证的租户 Durable Streams 部署脚本；数据库授权由部署管理处理，SDK 运行时不直接操作数据库。设计与约束见 [v0.2.0.md](v0.2.0.md)，完整 option 与使用示例见 [worker.md](worker.md)。
+SDK `0.4.27`，统一消息与流日志协议 `6`，依赖未经修改的官方 Hatchet `v0.110.5`。0.2.0 的 18 项门禁、28 源文件/74 构造片段及完整验收见 [历史验收报告](acceptance-report.md) 和 [交付报告](v0.2.0-p5-report.md)。0.2.1 增加 AWS S3 SDK / MinIO codec 示例，部署及专项验证见 [专项报告](minio-codec-report.md)。0.2.2 增加经 API 认证的租户 Durable Streams 部署脚本；数据库授权由部署管理处理，SDK 运行时不直接操作数据库。设计与约束见 [v0.2.0.md](v0.2.0.md)，完整 option 与使用示例见 [worker.md](worker.md)。
 
 0.4.20 将任务幂等统一为 `task.WithIdempotency(model.Idempotency{Expression, Method, TTL})`；Method 缺省使用 TTL，STATUS 按终态释放并使用 TTL 兜底。配置整体覆盖，注册前校验表达式、枚举与至少 1 毫秒的有效期；流任务的提交幂等仍由 SDK 保留。
 

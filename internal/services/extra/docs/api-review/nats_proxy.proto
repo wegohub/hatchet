@@ -1,0 +1,356 @@
+// 供选择首版范围的候选定义，全部 RPC 尚未实现；不要据此认为已经提供服务。
+syntax = "proto3";
+package hatchet.extra.review.v1;
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+import "nats_models.proto";
+option go_package = "github.com/wegohub/hatchet/hatchet-extra/gen/review/v1;reviewv1";
+
+// 请求不接收 tenant_id：由 Hatchet token 确定租户。namespace 是租户内逻辑分区。
+// subject、stream、consumer、bucket 都是逻辑名；适配层统一隔离，不暴露内部 NATS 名称。
+message Scope { string namespace = 1; }
+message StreamRef { Scope scope = 1; string stream = 2; }
+message ConsumerRef { StreamRef stream = 1; string consumer = 2; }
+message BucketRef { Scope scope = 1; string bucket = 2; }
+message KeyRef { BucketRef bucket = 1; string key = 2; }
+message ObjectRef { BucketRef bucket = 1; string name = 2; }
+message Name { string name = 1; }
+message Revision { uint64 revision = 1; }
+message NatsError {
+  int32 grpc_code = 1;
+  string message = 2;
+  optional int32 api_code = 3;
+  optional uint32 nats_error_code = 4;
+}
+message Message {
+  string subject = 1;
+  bytes data = 2;
+  map<string, StringValues> headers = 3;
+  // 发布时 reply 是租户内的逻辑回复 subject；收到消息后 Respond 使用签发的 reply_token。
+  // 网关映射回复 subject，不能让业务访问其他租户或网关内部 inbox。
+  string reply = 4;
+  bytes reply_token = 5;
+}
+
+// Core NATS：瞬时 pub/sub、queue group、request/reply。不是持久消息接口。
+service CoreService {
+  rpc Publish(CorePublishRequest) returns (google.protobuf.Empty);
+  rpc Request(CoreRequest) returns (Message);
+  rpc Reply(CoreReplyRequest) returns (google.protobuf.Empty);
+  rpc Subscribe(stream SubscriptionCommand) returns (stream SubscriptionEvent);
+  rpc GetConnectionInfo(Scope) returns (ConnectionInfo);
+}
+message CorePublishRequest { Scope scope = 1; Message message = 2; }
+message CoreRequest { Scope scope = 1; Message message = 2; optional int64 timeout_ns = 3; }
+message CoreReplyRequest { bytes reply_token = 1; bytes data = 2; map<string, StringValues> headers = 3; }
+message SubscriptionOpen {
+  Scope scope = 1;
+  string subject = 2;
+  string queue_group = 3;
+  optional uint64 max_messages = 4;
+  optional int64 pending_messages = 5;
+  optional int64 pending_bytes = 6;
+}
+message SubscriptionLimits { optional int64 max_messages = 1; optional int64 max_bytes = 2; }
+message SubscriptionCommand {
+  // 首帧必须 open；单流对应一个订阅。drain 停止新消息并发送已接收缓冲，cancel 立即退出。
+  oneof command {
+    SubscriptionOpen open = 1;
+    google.protobuf.Empty drain = 2;
+    google.protobuf.Empty stop = 3;
+    uint64 auto_unsubscribe_after = 4;
+    SubscriptionLimits limits = 5;
+    google.protobuf.Empty stats = 6;
+    google.protobuf.Empty clear_max_pending = 7;
+  }
+}
+message SubscriptionStats {
+  uint64 delivered = 1; uint64 dropped = 2;
+  int64 pending_messages = 3; int64 pending_bytes = 4;
+  int64 max_pending_messages = 5; int64 max_pending_bytes = 6;
+  int64 limit_messages = 7; int64 limit_bytes = 8;
+}
+message SubscriptionEvent {
+  oneof event {
+    google.protobuf.Empty ready = 1;
+    Message message = 2;
+    SubscriptionStats stats = 3;
+    NatsError error = 4;
+    google.protobuf.Empty drained = 5;
+  }
+}
+message ConnectionInfo {
+  int64 max_payload = 1; bool headers_supported = 2; bool jetstream_supported = 3;
+  // 仅返回允许租户观察的逻辑能力，不暴露内部地址、系统账户或 TLS 私钥。
+  string server_version = 4;
+}
+
+// 管理操作按租户授权。嵌入 NATS 共用账户时，不能直接返回全账户统计。
+service StreamService {
+  rpc CreateStream(StreamConfigRequest) returns (NatsStreamInfo);
+  rpc UpdateStream(StreamConfigRequest) returns (NatsStreamInfo);
+  rpc CreateOrUpdateStream(StreamConfigRequest) returns (NatsStreamInfo);
+  rpc GetStream(StreamInfoRequest) returns (NatsStreamInfo);
+  rpc ListStreams(StreamListRequest) returns (stream NatsStreamInfo);
+  rpc ListStreamNames(StreamListRequest) returns (stream Name);
+  rpc FindStream(SubjectRequest) returns (Name);
+  rpc DeleteStream(StreamRef) returns (google.protobuf.Empty);
+  rpc PurgeStream(PurgeStreamRequest) returns (google.protobuf.Empty);
+  rpc GetMessage(GetMessageRequest) returns (NatsRawStreamMsg);
+  rpc DeleteMessage(DeleteMessageRequest) returns (google.protobuf.Empty);
+  rpc GetAccountInfo(Scope) returns (NatsAccountInfo);
+}
+message StreamConfigRequest { Scope scope = 1; NatsStreamConfig config = 2; }
+message StreamInfoRequest { StreamRef stream = 1; optional bool deleted_details = 2; optional string subject_filter = 3; }
+message StreamListRequest { Scope scope = 1; optional string subject_filter = 2; }
+message SubjectRequest { Scope scope = 1; string subject = 2; }
+message PurgeStreamRequest {
+  StreamRef stream = 1; optional string subject = 2;
+  // sequence 与 keep 互斥，保留零值的显式存在性。
+  oneof limit { uint64 before_sequence = 3; uint64 keep = 4; }
+}
+message GetMessageRequest {
+  StreamRef stream = 1;
+  oneof selector { uint64 sequence = 2; string last_subject = 3; }
+  // GetMsg 的 WithGetMsgSubject；不能与 last_subject 同时指定。
+  optional string subject = 4;
+  // 旧 API DirectGet/DirectGetNext 的候选能力；需 stream 允许 direct。
+  optional bool direct = 5; optional string next_subject = 6;
+}
+message DeleteMessageRequest { StreamRef stream = 1; uint64 sequence = 2; bool secure = 3; }
+
+service PublisherService {
+  rpc Publish(PublishRequest) returns (NatsPubAck);
+  // 异步发布是流水线，非事务批量。每条都有 correlation_id 与独立结果。
+  // 断线时没有确认的项属于结果不明；不得自动换 ID 重发。
+  rpc PublishAsync(stream PublishRequest) returns (stream PublishResult);
+}
+message PublishOptions {
+  optional string message_id = 1;
+  optional string expected_stream = 2;
+  optional string expected_last_message_id = 3;
+  optional uint64 expected_last_sequence = 4;
+  optional uint64 expected_last_subject_sequence = 5;
+  optional string expected_last_subject = 6;
+  optional int64 message_ttl_ns = 7;
+  optional uint32 retry_attempts = 8;
+  optional int64 retry_wait_ns = 9;
+  optional int64 stall_wait_ns = 10;
+  ScheduleOptions schedule = 11;
+}
+message ScheduleOptions {
+  oneof schedule { google.protobuf.Timestamp at = 1; string cron = 2; int64 every_ns = 3; }
+  string target_subject = 4; optional string source_subject = 5;
+  optional string time_zone = 6; optional bool rollup = 7;
+  oneof expiry { int64 ttl_ns = 8; bool ttl_never = 9; }
+}
+message PublishRequest { Scope scope = 1; Message message = 2; PublishOptions options = 3; string correlation_id = 4; }
+message PublishResult {
+  string correlation_id = 1;
+  oneof result { NatsPubAck ack = 2; NatsError error = 3; }
+}
+
+service ConsumerService {
+  rpc CreateConsumer(ConsumerConfigRequest) returns (NatsConsumerInfo);
+  rpc UpdateConsumer(ConsumerConfigRequest) returns (NatsConsumerInfo);
+  rpc CreateOrUpdateConsumer(ConsumerConfigRequest) returns (NatsConsumerInfo);
+  rpc GetConsumer(ConsumerRef) returns (NatsConsumerInfo);
+  rpc ListConsumers(StreamRef) returns (stream NatsConsumerInfo);
+  rpc ListConsumerNames(StreamRef) returns (stream Name);
+  rpc DeleteConsumer(ConsumerRef) returns (google.protobuf.Empty);
+  rpc PauseConsumer(PauseConsumerRequest) returns (NatsConsumerPauseResponse);
+  rpc ResumeConsumer(ConsumerRef) returns (NatsConsumerPauseResponse);
+  rpc ResetConsumer(ResetConsumerRequest) returns (NatsConsumerResetResponse);
+  rpc UnpinConsumer(UnpinConsumerRequest) returns (google.protobuf.Empty);
+  rpc Fetch(FetchRequest) returns (stream Delivery);
+  rpc Consume(stream ConsumeCommand) returns (stream ConsumeEvent);
+  // OrderedConsumer 是网关托管的临时有序读取会话，不是 durable ACK 消费者。
+  rpc ReadOrdered(OrderedReadRequest) returns (stream Delivery);
+  rpc Ack(AckRequest) returns (google.protobuf.Empty);
+}
+message ConsumerConfigRequest {
+  StreamRef stream = 1; NatsConsumerConfig config = 2;
+  // false 使用 pull 创建/更新入口，true 使用对应 push 入口。
+  bool push = 3;
+}
+message PauseConsumerRequest { ConsumerRef consumer = 1; google.protobuf.Timestamp until = 2; }
+message ResetConsumerRequest { ConsumerRef consumer = 1; optional uint64 start_sequence = 2; }
+message UnpinConsumerRequest { ConsumerRef consumer = 1; string priority_group = 2; }
+message FetchOptions {
+  optional int64 max_wait_ns = 1; optional int64 heartbeat_ns = 2;
+  optional string priority_group = 3; optional int64 min_pending = 4;
+  optional int64 min_ack_pending = 5; optional uint32 priority = 6;
+}
+message FetchRequest {
+  ConsumerRef consumer = 1;
+  oneof batch { uint32 max_messages = 2; uint64 max_bytes = 3; }
+  bool no_wait = 4; FetchOptions options = 5;
+  // 旧 Fetch(batch, PullMaxBytes) 同时限制消息数和字节数；仅 max_messages 模式使用。
+  optional uint64 max_bytes_limit = 6;
+}
+message Delivery {
+  Message message = 1; NatsMsgMetadata metadata = 2;
+  // 签名 token 绑定租户、consumer 和本次原生 ack subject；多副本共用验证密钥。
+  // 保留原生投递标识，不能仅凭 stream sequence 构造 ACK。
+  bytes ack_token = 3;
+}
+message ConsumeOpen {
+  ConsumerRef consumer = 1; bool push = 2; FetchOptions fetch = 3;
+  optional int64 pull_max_messages = 4; optional int64 pull_max_bytes = 5;
+  optional int64 threshold_messages = 6; optional int64 threshold_bytes = 7;
+  optional int64 stop_after = 8; optional bool error_on_missing_heartbeat = 9;
+}
+message ConsumeCommand {
+  oneof command { ConsumeOpen open = 1; google.protobuf.Empty drain = 2; google.protobuf.Empty stop = 3; }
+}
+message ConsumeEvent {
+  oneof event { Delivery delivery = 1; NatsError error = 2; google.protobuf.Empty ready = 3; google.protobuf.Empty drained = 4; }
+}
+message OrderedReadRequest { StreamRef stream = 1; NatsOrderedConsumerConfig config = 2; ConsumeOpen buffering = 3; }
+message AckRequest {
+  bytes ack_token = 1;
+  enum Kind { ACK = 0; NAK = 1; IN_PROGRESS = 2; TERM = 3; }
+  Kind kind = 2; optional int64 nak_delay_ns = 3; optional string term_reason = 4;
+  // ACK + confirm 对应 DoubleAck/AckSync；其他类型拒绝 confirm=true。
+  bool confirm = 5;
+}
+
+service KeyValueService {
+  rpc CreateBucket(KeyValueConfigRequest) returns (KeyValueStatus);
+  rpc UpdateBucket(KeyValueConfigRequest) returns (KeyValueStatus);
+  rpc CreateOrUpdateBucket(KeyValueConfigRequest) returns (KeyValueStatus);
+  rpc GetBucket(BucketRef) returns (KeyValueStatus);
+  rpc ListBuckets(Scope) returns (stream KeyValueStatus);
+  rpc ListBucketNames(Scope) returns (stream Name);
+  rpc DeleteBucket(BucketRef) returns (google.protobuf.Empty);
+  rpc Put(KeyValuePutRequest) returns (Revision);
+  rpc Create(KeyValueCreateRequest) returns (Revision);
+  rpc Update(KeyValueUpdateRequest) returns (Revision);
+  rpc Get(KeyValueGetRequest) returns (KeyValueEntry);
+  rpc Delete(KeyValueDeleteRequest) returns (google.protobuf.Empty);
+  rpc Purge(KeyValueDeleteRequest) returns (google.protobuf.Empty);
+  rpc PurgeDeletes(KeyValuePurgeDeletesRequest) returns (google.protobuf.Empty);
+  rpc ListKeys(KeyValueListKeysRequest) returns (stream Name);
+  rpc History(KeyValueHistoryRequest) returns (stream KeyValueEntry);
+  rpc Watch(KeyValueWatchRequest) returns (stream KeyValueWatchEvent);
+}
+message KeyValueConfigRequest { Scope scope = 1; NatsKeyValueConfig config = 2; }
+message KeyValuePutRequest { KeyRef key = 1; bytes value = 2; }
+message KeyValueCreateRequest { KeyRef key = 1; bytes value = 2; optional int64 ttl_ns = 3; }
+message KeyValueUpdateRequest { KeyRef key = 1; bytes value = 2; uint64 expected_revision = 3; }
+message KeyValueGetRequest { KeyRef key = 1; optional uint64 revision = 2; }
+message KeyValueDeleteRequest { KeyRef key = 1; optional uint64 expected_revision = 2; optional int64 purge_ttl_ns = 3; }
+message KeyValuePurgeDeletesRequest { BucketRef bucket = 1; optional int64 delete_markers_older_than_ns = 2; }
+message WatchOptions {
+  bool include_history = 1; bool ignore_deletes = 2; bool updates_only = 3;
+  bool metadata_only = 4; optional uint64 resume_from_revision = 5;
+}
+message KeyValueListKeysRequest { BucketRef bucket = 1; repeated string filters = 2; WatchOptions options = 3; }
+message KeyValueHistoryRequest { KeyRef key = 1; WatchOptions options = 2; }
+message KeyValueWatchRequest { BucketRef bucket = 1; repeated string keys = 2; WatchOptions options = 3; }
+message KeyValueEntry {
+  string bucket = 1; string key = 2; bytes value = 3; uint64 revision = 4;
+  google.protobuf.Timestamp created = 5; uint64 delta = 6;
+  enum Operation { PUT = 0; DELETE = 1; PURGE = 2; }
+  Operation operation = 7;
+}
+message KeyValueWatchEvent {
+  // native Watch 的 nil 初始化结束标记不能丢失，也不能冒充空业务值。
+  oneof event { KeyValueEntry entry = 1; google.protobuf.Empty initialized = 2; }
+}
+message KeyValueStatus {
+  string bucket = 1; uint64 values = 2; uint64 history = 3; int64 ttl_ns = 4;
+  string backing_store = 5; uint64 bytes = 6; bool compressed = 7;
+  int64 limit_marker_ttl_ns = 8; map<string,string> metadata = 9;
+  NatsKeyValueConfig config = 10; NatsStreamInfo stream_info = 11;
+}
+
+service ObjectStoreService {
+  rpc CreateBucket(ObjectStoreConfigRequest) returns (ObjectStoreStatus);
+  rpc UpdateBucket(ObjectStoreConfigRequest) returns (ObjectStoreStatus);
+  rpc CreateOrUpdateBucket(ObjectStoreConfigRequest) returns (ObjectStoreStatus);
+  rpc GetBucket(BucketRef) returns (ObjectStoreStatus);
+  rpc ListBuckets(Scope) returns (stream ObjectStoreStatus);
+  rpc ListBucketNames(Scope) returns (stream Name);
+  rpc DeleteBucket(BucketRef) returns (google.protobuf.Empty);
+  rpc Put(stream ObjectPutPart) returns (NatsObjectInfo);
+  rpc Get(ObjectGetRequest) returns (stream ObjectGetPart);
+  rpc GetInfo(ObjectGetRequest) returns (NatsObjectInfo);
+  rpc List(ObjectListRequest) returns (stream NatsObjectInfo);
+  rpc Delete(ObjectRef) returns (google.protobuf.Empty);
+  rpc UpdateMeta(ObjectUpdateMetaRequest) returns (google.protobuf.Empty);
+  rpc AddLink(ObjectLinkRequest) returns (NatsObjectInfo);
+  rpc Seal(BucketRef) returns (google.protobuf.Empty);
+  rpc Watch(ObjectWatchRequest) returns (stream ObjectWatchEvent);
+}
+message ObjectStoreConfigRequest { Scope scope = 1; NatsObjectStoreConfig config = 2; }
+message ObjectPutOpen { BucketRef bucket = 1; NatsObjectMeta meta = 2; }
+message ObjectPutPart { oneof part { ObjectPutOpen open = 1; bytes data = 2; } }
+message ObjectGetRequest { ObjectRef object = 1; bool show_deleted = 2; }
+message ObjectGetPart { oneof part { NatsObjectInfo info = 1; bytes data = 2; } }
+message ObjectListRequest { BucketRef bucket = 1; bool show_deleted = 2; }
+message ObjectUpdateMetaRequest { ObjectRef object = 1; NatsObjectMeta meta = 2; }
+message ObjectLinkRequest {
+  ObjectRef link = 1;
+  oneof target { ObjectRef object = 2; BucketRef bucket = 3; }
+}
+message ObjectWatchRequest { BucketRef bucket = 1; WatchOptions options = 2; }
+message ObjectWatchEvent { oneof event { NatsObjectInfo info = 1; google.protobuf.Empty initialized = 2; } }
+message ObjectStoreStatus {
+  string bucket = 1; string description = 2; int64 ttl_ns = 3; int64 storage = 4;
+  int64 replicas = 5; bool sealed = 6; uint64 size = 7; string backing_store = 8;
+  map<string,string> metadata = 9; bool compressed = 10; NatsStreamInfo stream_info = 11;
+}
+
+// micro 是 NATS request/reply 的服务框架；Go callback 不能直接穿过 protobuf。
+// 本候选用双向流把请求交给远端业务进程，再把响应返回 NATS。
+service MicroService {
+  rpc Serve(stream MicroCommand) returns (stream MicroEvent);
+  rpc GetInfo(MicroRef) returns (MicroInfo);
+  rpc GetStats(MicroRef) returns (MicroStats);
+  rpc ResetStats(MicroRef) returns (google.protobuf.Empty);
+}
+message MicroRef { Scope scope = 1; string service_id = 2; }
+message MicroEndpoint {
+  string name = 1; string subject = 2; optional string queue_group = 3;
+  bool disable_queue_group = 4; map<string,string> metadata = 5;
+  optional int64 pending_messages = 6; optional int64 pending_bytes = 7;
+}
+message MicroConfig {
+  Scope scope = 1; string name = 2; string version = 3; string description = 4;
+  map<string,string> metadata = 5; repeated MicroEndpoint endpoints = 6;
+  optional string queue_group = 7; bool disable_queue_group = 8;
+  // Group/嵌套 Group 在客户端展开 subject 前缀和继承配置。
+}
+message MicroResponse {
+  string request_id = 1; bytes data = 2; map<string,StringValues> headers = 3;
+  optional string error_code = 4; optional string error_description = 5;
+}
+message MicroCommand {
+  oneof command {
+    MicroConfig open = 1; MicroResponse response = 2; google.protobuf.Empty stop = 3;
+    // 对应 Service.AddEndpoint；Group 是本地配置构造，无额外远程对象。
+    MicroEndpoint add_endpoint = 4;
+  }
+}
+message MicroEvent {
+  oneof event { MicroInfo ready = 1; MicroRequest request = 2; NatsError error = 3; }
+}
+message MicroRequest { string request_id = 1; string endpoint = 2; Message message = 3; }
+message MicroInfo {
+  string id = 1; string name = 2; string version = 3; string description = 4;
+  map<string,string> metadata = 5; repeated MicroEndpoint endpoints = 6;
+  string type = 7;
+}
+message MicroEndpointStats {
+  string name = 1; string subject = 2; string queue_group = 3;
+  uint64 num_requests = 4; uint64 num_errors = 5; string last_error = 6;
+  int64 processing_time_ns = 7; int64 average_processing_time_ns = 8;
+  // 自定义 StatsHandler 数据由本地业务提供；是否做远程回调另行选择。
+  bytes data_json = 9;
+}
+message MicroStats {
+  string id = 1; string name = 2; string version = 3;
+  google.protobuf.Timestamp started = 4; repeated MicroEndpointStats endpoints = 5;
+  string type = 6; map<string,string> metadata = 7;
+}

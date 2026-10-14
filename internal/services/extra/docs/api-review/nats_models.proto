@@ -1,0 +1,484 @@
+// API 评审候选模型，非已实现接口。字段与 nats.go v1.54.0 对照；不要直接发布。
+syntax = "proto3";
+package hatchet.extra.review.v1;
+import "google/protobuf/timestamp.proto";
+option go_package = "github.com/wegohub/hatchet/hatchet-extra/gen/review/v1;reviewv1";
+
+message StringValues { repeated string values = 1; }
+
+// NATS 枚举保留原生数值，用 optional 区分省略和显式零值。
+// 最终接口取舍后，可升级为带 UNSPECIFIED 的 protobuf enum，并显式转换原生枚举。
+// int64 时长单位统一为 ns；这不是 JS/JSON number 协议。
+// 配置更新为完整配置替换，不宣称提供字段级 PATCH。
+
+// 对应 jetstream.Placement；字段顺序与源码对照，嵌入结构显式命名。
+message NatsPlacement {
+  optional string cluster = 1; // Placement.Cluster: string
+  repeated string tags = 2; // Placement.Tags: []string
+}
+
+// 对应 jetstream.SubjectTransformConfig；字段顺序与源码对照，嵌入结构显式命名。
+message NatsSubjectTransformConfig {
+  optional string source = 1; // SubjectTransformConfig.Source: string
+  optional string destination = 2; // SubjectTransformConfig.Destination: string
+}
+
+// 对应 jetstream.ExternalStream；字段顺序与源码对照，嵌入结构显式命名。
+message NatsExternalStream {
+  optional string api_prefix = 1; // ExternalStream.APIPrefix: string
+  optional string deliver_prefix = 2; // ExternalStream.DeliverPrefix: string
+}
+
+// 对应 jetstream.StreamConsumerSource；字段顺序与源码对照，嵌入结构显式命名。
+message NatsStreamConsumerSource {
+  optional string name = 1; // StreamConsumerSource.Name: string
+  optional string deliver_subject = 2; // StreamConsumerSource.DeliverSubject: string
+}
+
+// 对应 jetstream.StreamSource；字段顺序与源码对照，嵌入结构显式命名。
+message NatsStreamSource {
+  optional string name = 1; // StreamSource.Name: string
+  optional uint64 opt_start_seq = 2; // StreamSource.OptStartSeq: uint64
+  // 时间戳。
+  google.protobuf.Timestamp opt_start_time = 3; // StreamSource.OptStartTime: *time.Time
+  optional string filter_subject = 4; // StreamSource.FilterSubject: string
+  repeated NatsSubjectTransformConfig subject_transforms = 5; // StreamSource.SubjectTransforms: []SubjectTransformConfig
+  NatsExternalStream external = 6; // StreamSource.External: *ExternalStream
+  NatsStreamConsumerSource consumer = 7; // StreamSource.Consumer: *StreamConsumerSource
+  optional string domain = 8; // StreamSource.Domain: string
+}
+
+// 对应 jetstream.RePublish；字段顺序与源码对照，嵌入结构显式命名。
+message NatsRePublish {
+  optional string source = 1; // RePublish.Source: string
+  optional string destination = 2; // RePublish.Destination: string
+  optional bool headers_only = 3; // RePublish.HeadersOnly: bool
+}
+
+// 对应 jetstream.StreamConsumerLimits；字段顺序与源码对照，嵌入结构显式命名。
+message NatsStreamConsumerLimits {
+  // 以纳秒表示 Go time.Duration；允许官方支持的负值哨兵。
+  optional int64 inactive_threshold = 1; // StreamConsumerLimits.InactiveThreshold: time.Duration
+  optional int64 max_ack_pending = 2; // StreamConsumerLimits.MaxAckPending: int
+}
+
+// 对应 jetstream.StreamConfig；字段顺序与源码对照，嵌入结构显式命名。
+message NatsStreamConfig {
+  optional string name = 1; // StreamConfig.Name: string
+  optional string description = 2; // StreamConfig.Description: string
+  repeated string subjects = 3; // StreamConfig.Subjects: []string
+  // 使用 nats.go v1.54.0 的 RetentionPolicy 值；适配层校验合法值，不能直接作 JSON 编码。
+  optional int64 retention = 4; // StreamConfig.Retention: RetentionPolicy
+  optional int64 max_consumers = 5; // StreamConfig.MaxConsumers: int
+  optional int64 max_msgs = 6; // StreamConfig.MaxMsgs: int64
+  optional int64 max_bytes = 7; // StreamConfig.MaxBytes: int64
+  // 使用 nats.go v1.54.0 的 DiscardPolicy 值；适配层校验合法值，不能直接作 JSON 编码。
+  optional int64 discard = 8; // StreamConfig.Discard: DiscardPolicy
+  optional bool discard_new_per_subject = 9; // StreamConfig.DiscardNewPerSubject: bool
+  // 以纳秒表示 Go time.Duration；允许官方支持的负值哨兵。
+  optional int64 max_age = 10; // StreamConfig.MaxAge: time.Duration
+  optional int64 max_msgs_per_subject = 11; // StreamConfig.MaxMsgsPerSubject: int64
+  optional int32 max_msg_size = 12; // StreamConfig.MaxMsgSize: int32
+  // 使用 nats.go v1.54.0 的 StorageType 值；适配层校验合法值，不能直接作 JSON 编码。
+  optional int64 storage = 13; // StreamConfig.Storage: StorageType
+  optional int64 replicas = 14; // StreamConfig.Replicas: int
+  optional bool no_ack = 15; // StreamConfig.NoAck: bool
+  // 以纳秒表示 Go time.Duration；允许官方支持的负值哨兵。
+  optional int64 duplicates = 16; // StreamConfig.Duplicates: time.Duration
+  NatsPlacement placement = 17; // StreamConfig.Placement: *Placement
+  NatsStreamSource mirror = 18; // StreamConfig.Mirror: *StreamSource
+  repeated NatsStreamSource sources = 19; // StreamConfig.Sources: []*StreamSource
+  optional bool sealed = 20; // StreamConfig.Sealed: bool
+  optional bool deny_delete = 21; // StreamConfig.DenyDelete: bool
+  optional bool deny_purge = 22; // StreamConfig.DenyPurge: bool
+  optional bool allow_rollup = 23; // StreamConfig.AllowRollup: bool
+  // 使用 nats.go v1.54.0 的 StoreCompression 值；适配层校验合法值，不能直接作 JSON 编码。
+  optional uint32 compression = 24; // StreamConfig.Compression: StoreCompression
+  optional uint64 first_seq = 25; // StreamConfig.FirstSeq: uint64
+  NatsSubjectTransformConfig subject_transform = 26; // StreamConfig.SubjectTransform: *SubjectTransformConfig
+  NatsRePublish re_publish = 27; // StreamConfig.RePublish: *RePublish
+  optional bool allow_direct = 28; // StreamConfig.AllowDirect: bool
+  optional bool mirror_direct = 29; // StreamConfig.MirrorDirect: bool
+  NatsStreamConsumerLimits consumer_limits = 30; // StreamConfig.ConsumerLimits: StreamConsumerLimits
+  map<string, string> metadata = 31; // StreamConfig.Metadata: map[string]string
+  optional string template = 32; // StreamConfig.Template: string
+  optional bool allow_msg_ttl = 33; // StreamConfig.AllowMsgTTL: bool
+  // 以纳秒表示 Go time.Duration；允许官方支持的负值哨兵。
+  optional int64 subject_delete_marker_ttl = 34; // StreamConfig.SubjectDeleteMarkerTTL: time.Duration
+  optional bool allow_msg_counter = 35; // StreamConfig.AllowMsgCounter: bool
+  optional bool allow_atomic_publish = 36; // StreamConfig.AllowAtomicPublish: bool
+  optional bool allow_msg_schedules = 37; // StreamConfig.AllowMsgSchedules: bool
+  // 使用 nats.go v1.54.0 的 PersistModeType 值；适配层校验合法值，不能直接作 JSON 编码。
+  optional int64 persist_mode = 38; // StreamConfig.PersistMode: PersistModeType
+  optional bool allow_batch_publish = 39; // StreamConfig.AllowBatchPublish: bool
+}
+
+// 对应 jetstream.StreamState；字段顺序与源码对照，嵌入结构显式命名。
+message NatsStreamState {
+  optional uint64 msgs = 1; // StreamState.Msgs: uint64
+  optional uint64 bytes = 2; // StreamState.Bytes: uint64
+  optional uint64 first_seq = 3; // StreamState.FirstSeq: uint64
+  // 时间戳。
+  google.protobuf.Timestamp first_time = 4; // StreamState.FirstTime: time.Time
+  optional uint64 last_seq = 5; // StreamState.LastSeq: uint64
+  // 时间戳。
+  google.protobuf.Timestamp last_time = 6; // StreamState.LastTime: time.Time
+  optional int64 consumers = 7; // StreamState.Consumers: int
+  repeated uint64 deleted = 8; // StreamState.Deleted: []uint64
+  optional int64 num_deleted = 9; // StreamState.NumDeleted: int
+  optional uint64 num_subjects = 10; // StreamState.NumSubjects: uint64
+  map<string, uint64> subjects = 11; // StreamState.Subjects: map[string]uint64
+}
+
+// 对应 jetstream.PeerInfo；字段顺序与源码对照，嵌入结构显式命名。
+message NatsPeerInfo {
+  optional string name = 1; // PeerInfo.Name: string
+  optional bool current = 2; // PeerInfo.Current: bool
+  optional bool offline = 3; // PeerInfo.Offline: bool
+  // 以纳秒表示 Go time.Duration；允许官方支持的负值哨兵。
+  optional int64 active = 4; // PeerInfo.Active: time.Duration
+  optional uint64 lag = 5; // PeerInfo.Lag: uint64
+  optional string peer = 6; // PeerInfo.Peer: string
+  optional bool pending = 7; // PeerInfo.Pending: bool
+}
+
+// 对应 jetstream.DesiredPeerInfo；字段顺序与源码对照，嵌入结构显式命名。
+message NatsDesiredPeerInfo {
+  optional string name = 1; // DesiredPeerInfo.Name: string
+  optional bool offline = 2; // DesiredPeerInfo.Offline: bool
+  optional string peer = 3; // DesiredPeerInfo.Peer: string
+}
+
+// 对应 jetstream.DesiredClusterInfoOrigin；字段顺序与源码对照，嵌入结构显式命名。
+message NatsDesiredClusterInfoOrigin {
+  optional int64 replicas = 1; // DesiredClusterInfoOrigin.Replicas: int
+  NatsPlacement placement = 2; // DesiredClusterInfoOrigin.Placement: *Placement
+  // 使用 nats.go v1.54.0 的 RetentionPolicy 值；适配层校验合法值，不能直接作 JSON 编码。
+  optional int64 retention = 3; // DesiredClusterInfoOrigin.Retention: *RetentionPolicy
+}
+
+// 对应 jetstream.DesiredClusterInfoStatus；字段顺序与源码对照，嵌入结构显式命名。
+message NatsDesiredClusterInfoStatus {
+  optional string description = 1; // DesiredClusterInfoStatus.Description: string
+  // 使用 nats.go v1.54.0 的 MigrationStatusType 值；适配层校验合法值，不能直接作 JSON 编码。
+  optional string type = 2; // DesiredClusterInfoStatus.Type: MigrationStatusType
+  optional string err = 3; // DesiredClusterInfoStatus.Err: string
+}
+
+// 对应 jetstream.DesiredClusterInfo；字段顺序与源码对照，嵌入结构显式命名。
+message NatsDesiredClusterInfo {
+  // 时间戳。
+  google.protobuf.Timestamp created = 1; // DesiredClusterInfo.Created: time.Time
+  optional string name = 2; // DesiredClusterInfo.Name: string
+  repeated NatsDesiredPeerInfo replicas = 3; // DesiredClusterInfo.Replicas: []*DesiredPeerInfo
+  NatsDesiredClusterInfoOrigin origin = 4; // DesiredClusterInfo.Origin: *DesiredClusterInfoOrigin
+  NatsDesiredClusterInfoStatus status = 5; // DesiredClusterInfo.Status: *DesiredClusterInfoStatus
+}
+
+// 对应 jetstream.ClusterInfo；字段顺序与源码对照，嵌入结构显式命名。
+message NatsClusterInfo {
+  optional string name = 1; // ClusterInfo.Name: string
+  optional string raft_group = 2; // ClusterInfo.RaftGroup: string
+  optional string leader = 3; // ClusterInfo.Leader: string
+  // 时间戳。
+  google.protobuf.Timestamp leader_since = 4; // ClusterInfo.LeaderSince: *time.Time
+  optional bool system_acc = 5; // ClusterInfo.SystemAcc: bool
+  optional string traffic_acc = 6; // ClusterInfo.TrafficAcc: string
+  repeated NatsPeerInfo replicas = 7; // ClusterInfo.Replicas: []*PeerInfo
+  NatsDesiredClusterInfo desired = 8; // ClusterInfo.Desired: *DesiredClusterInfo
+}
+
+// 对应 jetstream.StreamSourceInfo；字段顺序与源码对照，嵌入结构显式命名。
+message NatsStreamSourceInfo {
+  optional string name = 1; // StreamSourceInfo.Name: string
+  optional uint64 lag = 2; // StreamSourceInfo.Lag: uint64
+  optional uint64 seq = 3; // StreamSourceInfo.Seq: uint64
+  // 以纳秒表示 Go time.Duration；允许官方支持的负值哨兵。
+  optional int64 active = 4; // StreamSourceInfo.Active: time.Duration
+  optional string filter_subject = 5; // StreamSourceInfo.FilterSubject: string
+  repeated NatsSubjectTransformConfig subject_transforms = 6; // StreamSourceInfo.SubjectTransforms: []SubjectTransformConfig
+}
+
+// 对应 jetstream.StreamInfo；字段顺序与源码对照，嵌入结构显式命名。
+message NatsStreamInfo {
+  NatsStreamConfig config = 1; // StreamInfo.Config: StreamConfig
+  // 时间戳。
+  google.protobuf.Timestamp created = 2; // StreamInfo.Created: time.Time
+  NatsStreamState state = 3; // StreamInfo.State: StreamState
+  NatsClusterInfo cluster = 4; // StreamInfo.Cluster: *ClusterInfo
+  NatsStreamSourceInfo mirror = 5; // StreamInfo.Mirror: *StreamSourceInfo
+  repeated NatsStreamSourceInfo sources = 6; // StreamInfo.Sources: []*StreamSourceInfo
+  // 时间戳。
+  google.protobuf.Timestamp time_stamp = 7; // StreamInfo.TimeStamp: time.Time
+}
+
+// 对应 jetstream.ConsumerConfig；字段顺序与源码对照，嵌入结构显式命名。
+message NatsConsumerConfig {
+  optional string name = 1; // ConsumerConfig.Name: string
+  optional string durable = 2; // ConsumerConfig.Durable: string
+  optional string description = 3; // ConsumerConfig.Description: string
+  // 使用 nats.go v1.54.0 的 DeliverPolicy 值；适配层校验合法值，不能直接作 JSON 编码。
+  optional int64 deliver_policy = 4; // ConsumerConfig.DeliverPolicy: DeliverPolicy
+  optional uint64 opt_start_seq = 5; // ConsumerConfig.OptStartSeq: uint64
+  // 时间戳。
+  google.protobuf.Timestamp opt_start_time = 6; // ConsumerConfig.OptStartTime: *time.Time
+  // 使用 nats.go v1.54.0 的 AckPolicy 值；适配层校验合法值，不能直接作 JSON 编码。
+  optional int64 ack_policy = 7; // ConsumerConfig.AckPolicy: AckPolicy
+  // 以纳秒表示 Go time.Duration；允许官方支持的负值哨兵。
+  optional int64 ack_wait = 8; // ConsumerConfig.AckWait: time.Duration
+  optional int64 max_deliver = 9; // ConsumerConfig.MaxDeliver: int
+  // 以纳秒表示 Go time.Duration；允许官方支持的负值哨兵。
+  repeated int64 back_off = 10; // ConsumerConfig.BackOff: []time.Duration
+  optional string filter_subject = 11; // ConsumerConfig.FilterSubject: string
+  // 使用 nats.go v1.54.0 的 ReplayPolicy 值；适配层校验合法值，不能直接作 JSON 编码。
+  optional int64 replay_policy = 12; // ConsumerConfig.ReplayPolicy: ReplayPolicy
+  optional uint64 rate_limit = 13; // ConsumerConfig.RateLimit: uint64
+  optional string sample_frequency = 14; // ConsumerConfig.SampleFrequency: string
+  optional int64 max_waiting = 15; // ConsumerConfig.MaxWaiting: int
+  optional int64 max_ack_pending = 16; // ConsumerConfig.MaxAckPending: int
+  optional bool headers_only = 17; // ConsumerConfig.HeadersOnly: bool
+  optional int64 max_request_batch = 18; // ConsumerConfig.MaxRequestBatch: int
+  // 以纳秒表示 Go time.Duration；允许官方支持的负值哨兵。
+  optional int64 max_request_expires = 19; // ConsumerConfig.MaxRequestExpires: time.Duration
+  optional int64 max_request_max_bytes = 20; // ConsumerConfig.MaxRequestMaxBytes: int
+  // 以纳秒表示 Go time.Duration；允许官方支持的负值哨兵。
+  optional int64 inactive_threshold = 21; // ConsumerConfig.InactiveThreshold: time.Duration
+  optional int64 replicas = 22; // ConsumerConfig.Replicas: int
+  optional bool memory_storage = 23; // ConsumerConfig.MemoryStorage: bool
+  repeated string filter_subjects = 24; // ConsumerConfig.FilterSubjects: []string
+  map<string, string> metadata = 25; // ConsumerConfig.Metadata: map[string]string
+  // 时间戳。
+  google.protobuf.Timestamp pause_until = 26; // ConsumerConfig.PauseUntil: *time.Time
+  // 使用 nats.go v1.54.0 的 PriorityPolicy 值；适配层校验合法值，不能直接作 JSON 编码。
+  optional int64 priority_policy = 27; // ConsumerConfig.PriorityPolicy: PriorityPolicy
+  // 以纳秒表示 Go time.Duration；允许官方支持的负值哨兵。
+  optional int64 pinned_ttl = 28; // ConsumerConfig.PinnedTTL: time.Duration
+  repeated string priority_groups = 29; // ConsumerConfig.PriorityGroups: []string
+  optional string deliver_subject = 30; // ConsumerConfig.DeliverSubject: string
+  optional string deliver_group = 31; // ConsumerConfig.DeliverGroup: string
+  optional bool flow_control = 32; // ConsumerConfig.FlowControl: bool
+  // 以纳秒表示 Go time.Duration；允许官方支持的负值哨兵。
+  optional int64 idle_heartbeat = 33; // ConsumerConfig.IdleHeartbeat: time.Duration
+}
+
+// 对应 jetstream.SequenceInfo；字段顺序与源码对照，嵌入结构显式命名。
+message NatsSequenceInfo {
+  optional uint64 consumer = 1; // SequenceInfo.Consumer: uint64
+  optional uint64 stream = 2; // SequenceInfo.Stream: uint64
+  // 时间戳。
+  google.protobuf.Timestamp last = 3; // SequenceInfo.Last: *time.Time
+}
+
+// 对应 jetstream.PriorityGroupState；字段顺序与源码对照，嵌入结构显式命名。
+message NatsPriorityGroupState {
+  optional string group = 1; // PriorityGroupState.Group: string
+  optional string pinned_client_id = 2; // PriorityGroupState.PinnedClientID: string
+  // 时间戳。
+  google.protobuf.Timestamp pinned_ts = 3; // PriorityGroupState.PinnedTS: time.Time
+}
+
+// 对应 jetstream.ConsumerInfo；字段顺序与源码对照，嵌入结构显式命名。
+message NatsConsumerInfo {
+  optional string stream = 1; // ConsumerInfo.Stream: string
+  optional string name = 2; // ConsumerInfo.Name: string
+  // 时间戳。
+  google.protobuf.Timestamp created = 3; // ConsumerInfo.Created: time.Time
+  NatsConsumerConfig config = 4; // ConsumerInfo.Config: ConsumerConfig
+  NatsSequenceInfo delivered = 5; // ConsumerInfo.Delivered: SequenceInfo
+  NatsSequenceInfo ack_floor = 6; // ConsumerInfo.AckFloor: SequenceInfo
+  optional int64 num_ack_pending = 7; // ConsumerInfo.NumAckPending: int
+  optional int64 num_redelivered = 8; // ConsumerInfo.NumRedelivered: int
+  optional int64 num_waiting = 9; // ConsumerInfo.NumWaiting: int
+  optional uint64 num_pending = 10; // ConsumerInfo.NumPending: uint64
+  NatsClusterInfo cluster = 11; // ConsumerInfo.Cluster: *ClusterInfo
+  optional bool push_bound = 12; // ConsumerInfo.PushBound: bool
+  // 时间戳。
+  google.protobuf.Timestamp time_stamp = 13; // ConsumerInfo.TimeStamp: time.Time
+  repeated NatsPriorityGroupState priority_groups = 14; // ConsumerInfo.PriorityGroups: []PriorityGroupState
+  optional bool paused = 15; // ConsumerInfo.Paused: bool
+  // 以纳秒表示 Go time.Duration；允许官方支持的负值哨兵。
+  optional int64 pause_remaining = 16; // ConsumerInfo.PauseRemaining: time.Duration
+}
+
+// 对应 jetstream.OrderedConsumerConfig；字段顺序与源码对照，嵌入结构显式命名。
+message NatsOrderedConsumerConfig {
+  repeated string filter_subjects = 1; // OrderedConsumerConfig.FilterSubjects: []string
+  // 使用 nats.go v1.54.0 的 DeliverPolicy 值；适配层校验合法值，不能直接作 JSON 编码。
+  optional int64 deliver_policy = 2; // OrderedConsumerConfig.DeliverPolicy: DeliverPolicy
+  optional uint64 opt_start_seq = 3; // OrderedConsumerConfig.OptStartSeq: uint64
+  // 时间戳。
+  google.protobuf.Timestamp opt_start_time = 4; // OrderedConsumerConfig.OptStartTime: *time.Time
+  // 使用 nats.go v1.54.0 的 ReplayPolicy 值；适配层校验合法值，不能直接作 JSON 编码。
+  optional int64 replay_policy = 5; // OrderedConsumerConfig.ReplayPolicy: ReplayPolicy
+  // 以纳秒表示 Go time.Duration；允许官方支持的负值哨兵。
+  optional int64 inactive_threshold = 6; // OrderedConsumerConfig.InactiveThreshold: time.Duration
+  optional bool headers_only = 7; // OrderedConsumerConfig.HeadersOnly: bool
+  optional int64 max_reset_attempts = 8; // OrderedConsumerConfig.MaxResetAttempts: int
+  map<string, string> metadata = 9; // OrderedConsumerConfig.Metadata: map[string]string
+  optional string name_prefix = 10; // OrderedConsumerConfig.NamePrefix: string
+}
+
+// 对应 jetstream.ConsumerPauseResponse；字段顺序与源码对照，嵌入结构显式命名。
+message NatsConsumerPauseResponse {
+  optional bool paused = 1; // ConsumerPauseResponse.Paused: bool
+  // 时间戳。
+  google.protobuf.Timestamp pause_until = 2; // ConsumerPauseResponse.PauseUntil: time.Time
+  // 以纳秒表示 Go time.Duration；允许官方支持的负值哨兵。
+  optional int64 pause_remaining = 3; // ConsumerPauseResponse.PauseRemaining: time.Duration
+}
+
+// 对应 jetstream.ConsumerResetResponse；字段顺序与源码对照，嵌入结构显式命名。
+message NatsConsumerResetResponse {
+  NatsConsumerInfo consumer_info = 1; // ConsumerResetResponse.ConsumerInfo: *ConsumerInfo
+  optional uint64 reset_seq = 2; // ConsumerResetResponse.ResetSeq: uint64
+}
+
+// 对应 jetstream.AccountLimits；字段顺序与源码对照，嵌入结构显式命名。
+message NatsAccountLimits {
+  optional int64 max_memory = 1; // AccountLimits.MaxMemory: int64
+  optional int64 max_store = 2; // AccountLimits.MaxStore: int64
+  optional int64 max_streams = 3; // AccountLimits.MaxStreams: int
+  optional int64 max_consumers = 4; // AccountLimits.MaxConsumers: int
+  optional int64 max_ack_pending = 5; // AccountLimits.MaxAckPending: int
+  optional int64 memory_max_stream_bytes = 6; // AccountLimits.MemoryMaxStreamBytes: int64
+  optional int64 store_max_stream_bytes = 7; // AccountLimits.StoreMaxStreamBytes: int64
+  optional bool max_bytes_required = 8; // AccountLimits.MaxBytesRequired: bool
+}
+
+// 对应 jetstream.Tier；字段顺序与源码对照，嵌入结构显式命名。
+message NatsTier {
+  optional uint64 memory = 1; // Tier.Memory: uint64
+  optional uint64 store = 2; // Tier.Store: uint64
+  optional uint64 reserved_memory = 3; // Tier.ReservedMemory: uint64
+  optional uint64 reserved_store = 4; // Tier.ReservedStore: uint64
+  optional int64 streams = 5; // Tier.Streams: int
+  optional int64 consumers = 6; // Tier.Consumers: int
+  NatsAccountLimits limits = 7; // Tier.Limits: AccountLimits
+}
+
+// 对应 jetstream.APIStats；字段顺序与源码对照，嵌入结构显式命名。
+message NatsAPIStats {
+  optional int64 level = 1; // APIStats.Level: int
+  optional uint64 total = 2; // APIStats.Total: uint64
+  optional uint64 errors = 3; // APIStats.Errors: uint64
+  optional uint64 inflight = 4; // APIStats.Inflight: uint64
+}
+
+// 对应 jetstream.AccountInfo；字段顺序与源码对照，嵌入结构显式命名。
+message NatsAccountInfo {
+  NatsTier tier = 1; // AccountInfo.Tier: Tier
+  optional string domain = 2; // AccountInfo.Domain: string
+  NatsAPIStats api = 3; // AccountInfo.API: APIStats
+  map<string, NatsTier> tiers = 4; // AccountInfo.Tiers: map[string]Tier
+}
+
+// 对应 jetstream.KeyValueConfig；字段顺序与源码对照，嵌入结构显式命名。
+message NatsKeyValueConfig {
+  optional string bucket = 1; // KeyValueConfig.Bucket: string
+  optional string description = 2; // KeyValueConfig.Description: string
+  optional int32 max_value_size = 3; // KeyValueConfig.MaxValueSize: int32
+  optional uint32 history = 4; // KeyValueConfig.History: uint8
+  // 以纳秒表示 Go time.Duration；允许官方支持的负值哨兵。
+  optional int64 ttl = 5; // KeyValueConfig.TTL: time.Duration
+  optional int64 max_bytes = 6; // KeyValueConfig.MaxBytes: int64
+  // 使用 nats.go v1.54.0 的 StorageType 值；适配层校验合法值，不能直接作 JSON 编码。
+  optional int64 storage = 7; // KeyValueConfig.Storage: StorageType
+  optional int64 replicas = 8; // KeyValueConfig.Replicas: int
+  NatsPlacement placement = 9; // KeyValueConfig.Placement: *Placement
+  NatsRePublish re_publish = 10; // KeyValueConfig.RePublish: *RePublish
+  NatsStreamSource mirror = 11; // KeyValueConfig.Mirror: *StreamSource
+  repeated NatsStreamSource sources = 12; // KeyValueConfig.Sources: []*StreamSource
+  optional bool compression = 13; // KeyValueConfig.Compression: bool
+  // 以纳秒表示 Go time.Duration；允许官方支持的负值哨兵。
+  optional int64 limit_marker_ttl = 14; // KeyValueConfig.LimitMarkerTTL: time.Duration
+  map<string, string> metadata = 15; // KeyValueConfig.Metadata: map[string]string
+}
+
+// 对应 jetstream.ObjectStoreConfig；字段顺序与源码对照，嵌入结构显式命名。
+message NatsObjectStoreConfig {
+  optional string bucket = 1; // ObjectStoreConfig.Bucket: string
+  optional string description = 2; // ObjectStoreConfig.Description: string
+  // 以纳秒表示 Go time.Duration；允许官方支持的负值哨兵。
+  optional int64 ttl = 3; // ObjectStoreConfig.TTL: time.Duration
+  optional int64 max_bytes = 4; // ObjectStoreConfig.MaxBytes: int64
+  // 使用 nats.go v1.54.0 的 StorageType 值；适配层校验合法值，不能直接作 JSON 编码。
+  optional int64 storage = 5; // ObjectStoreConfig.Storage: StorageType
+  optional int64 replicas = 6; // ObjectStoreConfig.Replicas: int
+  NatsPlacement placement = 7; // ObjectStoreConfig.Placement: *Placement
+  optional bool compression = 8; // ObjectStoreConfig.Compression: bool
+  map<string, string> metadata = 9; // ObjectStoreConfig.Metadata: map[string]string
+}
+
+// 对应 jetstream.ObjectLink；字段顺序与源码对照，嵌入结构显式命名。
+message NatsObjectLink {
+  optional string bucket = 1; // ObjectLink.Bucket: string
+  optional string name = 2; // ObjectLink.Name: string
+}
+
+// 对应 jetstream.ObjectMetaOptions；字段顺序与源码对照，嵌入结构显式命名。
+message NatsObjectMetaOptions {
+  NatsObjectLink link = 1; // ObjectMetaOptions.Link: *ObjectLink
+  optional uint32 chunk_size = 2; // ObjectMetaOptions.ChunkSize: uint32
+}
+
+// 对应 jetstream.ObjectMeta；字段顺序与源码对照，嵌入结构显式命名。
+message NatsObjectMeta {
+  optional string name = 1; // ObjectMeta.Name: string
+  optional string description = 2; // ObjectMeta.Description: string
+  // 同名 header 可以有多个值。
+  map<string, StringValues> headers = 3; // ObjectMeta.Headers: nats.Header
+  map<string, string> metadata = 4; // ObjectMeta.Metadata: map[string]string
+  NatsObjectMetaOptions opts = 5; // ObjectMeta.Opts: *ObjectMetaOptions
+}
+
+// 对应 jetstream.ObjectInfo；字段顺序与源码对照，嵌入结构显式命名。
+message NatsObjectInfo {
+  NatsObjectMeta object_meta = 1; // ObjectInfo.ObjectMeta: ObjectMeta
+  optional string bucket = 2; // ObjectInfo.Bucket: string
+  optional string nuid = 3; // ObjectInfo.NUID: string
+  optional uint64 size = 4; // ObjectInfo.Size: uint64
+  // 时间戳。
+  google.protobuf.Timestamp mod_time = 5; // ObjectInfo.ModTime: time.Time
+  optional uint32 chunks = 6; // ObjectInfo.Chunks: uint32
+  optional string digest = 7; // ObjectInfo.Digest: string
+  optional bool deleted = 8; // ObjectInfo.Deleted: bool
+}
+
+// 对应 jetstream.PubAck；字段顺序与源码对照，嵌入结构显式命名。
+message NatsPubAck {
+  optional string stream = 1; // PubAck.Stream: string
+  optional uint64 sequence = 2; // PubAck.Sequence: uint64
+  optional bool duplicate = 3; // PubAck.Duplicate: bool
+  optional string domain = 4; // PubAck.Domain: string
+  optional string value = 5; // PubAck.Value: string
+}
+
+// 对应 jetstream.RawStreamMsg；字段顺序与源码对照，嵌入结构显式命名。
+message NatsRawStreamMsg {
+  optional string subject = 1; // RawStreamMsg.Subject: string
+  optional uint64 sequence = 2; // RawStreamMsg.Sequence: uint64
+  // 同名 header 可以有多个值。
+  map<string, StringValues> header = 3; // RawStreamMsg.Header: nats.Header
+  // 原始字节。
+  optional bytes data = 4; // RawStreamMsg.Data: []byte
+  // 时间戳。
+  google.protobuf.Timestamp time = 5; // RawStreamMsg.Time: time.Time
+}
+
+// 对应 jetstream.SequencePair；字段顺序与源码对照，嵌入结构显式命名。
+message NatsSequencePair {
+  optional uint64 consumer = 1; // SequencePair.Consumer: uint64
+  optional uint64 stream = 2; // SequencePair.Stream: uint64
+}
+
+// 对应 jetstream.MsgMetadata；字段顺序与源码对照，嵌入结构显式命名。
+message NatsMsgMetadata {
+  NatsSequencePair sequence = 1; // MsgMetadata.Sequence: SequencePair
+  optional uint64 num_delivered = 2; // MsgMetadata.NumDelivered: uint64
+  optional uint64 num_pending = 3; // MsgMetadata.NumPending: uint64
+  // 时间戳。
+  google.protobuf.Timestamp timestamp = 4; // MsgMetadata.Timestamp: time.Time
+  optional string stream = 5; // MsgMetadata.Stream: string
+  optional string consumer = 6; // MsgMetadata.Consumer: string
+  optional string domain = 7; // MsgMetadata.Domain: string
+}

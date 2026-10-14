@@ -367,6 +367,8 @@ func runSingle(ctx context.Context, instanceName string) {
 					Method:     model.IdempotencyMethodStatus,
 					TTL:        time.Minute,
 				}),
+				// 单次运行消耗槽位
+				task.WithSlotCost(1),
 			),
 			worker.WithDurableTask(
 				pb.Greeter_WaitHello_FullMethodName,

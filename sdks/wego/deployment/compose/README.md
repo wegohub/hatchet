@@ -6,6 +6,7 @@ Hatchet 使用官方 v0.110.5 镜像和 PostgreSQL MQ。MinIO 独立保存对象
 |---|---|
 | Hatchet API / 控制台 | http://localhost:8080 |
 | Hatchet gRPC | localhost:7077 |
+| hatchet-extra gRPC（TLS） | localhost:7080 |
 | MinIO S3 API | http://127.0.0.1:9000 |
 | MinIO 控制台 | http://127.0.0.1:9001 |
 
@@ -21,6 +22,29 @@ docker compose -f sdks/wego/deployment/compose/docker-compose.yml up -d --build 
 MinIO 的最新社区发布 [RELEASE.2025-10-15T17-29-55Z](https://github.com/minio/minio/releases/tag/RELEASE.2025-10-15T17-29-55Z) 要求从官方源码构建容器。本模板固定该发布、源提交与构建基础镜像 digest，生成本地镜像 `wego-minio:RELEASE.2025-10-15T17-29-55Z`；它不是 Hatchet 或 MinIO 的第三方修改镜像。构建需要访问 Go 模块代理。
 
 MinIO 使用 `minio_data` 卷和健康检查。不要通过 `down -v` 清理仍需恢复的流：删除卷会同时删除历史引用对象。服务重建会保留数据卷。
+
+## hatchet-extra
+
+从仓库根目录构建并部署：
+
+```sh
+docker compose -f sdks/wego/deployment/compose/docker-compose.yml up -d --build --wait hatchet-extra
+```
+
+镜像 `hatchet-extra:local` 从本工作树源码多阶段构建。`extra-init` 在 Hatchet 配置准备完成后导出无秘密的 JWT 验签公钥，生成自身 ACK 密钥和本机 TLS 证书。初始化容器读取 Hatchet 配置卷；运行容器只读取 `extra_config` 卷，以 UID 10001 运行，不挂载 Hatchet 私钥。数据库复用 `.env` 的 DATABASE_URL，鉴权使用现有 Hatchet 租户 token，缓存默认上限 5 分钟。
+
+`extra_data` 卷保存 JetStream 消息、consumer ACK 进度和 KV；`extra_config` 保存 ACK 密钥、TLS 密钥和验签公钥。容器重建保留两者，不能通过 `down -v` 删除仍需恢复的数据。仅发布 TLS gRPC 端口，不开放 NATS 端口。`EXTRA_GRPC_PORT` 可修改宿主机端口，默认 7080。
+
+本机客户端先导出并信任证书：
+
+```sh
+docker compose -f sdks/wego/deployment/compose/docker-compose.yml cp \
+  hatchet-extra:/extra-config/tls.crt /tmp/hatchet-extra.crt
+```
+
+使用标准 gRPC TLS credentials，信任该证书并连接 `localhost:7080`；metadata 携带 `authorization: Bearer <Hatchet 租户 token>`。同 Compose 网络可连接 `hatchet-extra:7080`。证书包含这两个 DNS 名和 127.0.0.1，有效期三年；这是一份本机部署证书，其他地址需部署匹配的证书。接口及配置预算见 [hatchet-extra README](../../../../../internal/services/extra/README.md)。
+
+健康检查验证 TLS、HTTP/2 和无 token 的鉴权挑战；实际租户认证通过业务 RPC 验证。SIGTERM 按 30 秒预算排空，Compose 给进程 40 秒退出预算。升级后执行上面的部署命令会复用 ACK 密钥、TLS 证书并重新导出当前 Hatchet 公钥。
 
 运行 [真实 codec 示例与测试](../../examples/codec/README.md)。示例通过 AWS S3 SDK 检查或创建专用 `wego-codec` 桶；创建权限仅用于示例初始化。实际应用可预建桶，使用仅允许所需目录 PUT/GET 的凭证。
 
