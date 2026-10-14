@@ -96,9 +96,9 @@ func Batch(ctx context.Context, report *Report) (err error) {
 		return out, nil
 	}
 	// simple 注册批量聚合定义，例如三项输入各有独立 RunID 与对应输出
-	simple := h.Conn.NewStandaloneBatchTask("batch-simple", mapOutput, model.BatchConfig{MaxSize: 3, MaxInterval: &interval})
+	simple := h.Conn.NewStandaloneBatchTask("batch-simple", mapOutput, model.BatchConfig{MaxSize: 3, MaxInterval: interval})
 	// keyed 注册批量聚合定义，例如三项输入各有独立 RunID 与对应输出
-	keyed := h.Conn.NewStandaloneBatchTask("batch-keyed", mapOutput, model.BatchConfig{MaxSize: 2, MaxInterval: &interval, GroupKey: pointer("input.routing.group")})
+	keyed := h.Conn.NewStandaloneBatchTask("batch-keyed", mapOutput, model.BatchConfig{MaxSize: 2, MaxInterval: interval, GroupKey: "input.routing.group"})
 	// broadcast 注册批量聚合定义，例如三项输入各有独立 RunID 与对应输出
 	broadcast := h.Conn.NewStandaloneBatchTask("batch-broadcast", func(ctx context.Context, inputs map[string]batchInput) (batchOutput, error) {
 		// sum 当前步骤的初始计数 0，后续根据实际执行或数据量更新
@@ -108,7 +108,7 @@ func Batch(ctx context.Context, report *Report) (err error) {
 			sum += len(input.Message)
 		}
 		return batchOutput{Sum: sum, BatchSize: len(inputs)}, nil
-	}, model.BatchConfig{MaxSize: 10, MaxInterval: &interval, BroadcastOutput: true})
+	}, model.BatchConfig{MaxSize: 10, MaxInterval: interval, BroadcastOutput: true})
 	h.NativeWorker, err = h.Conn.NewWorker(h.Namespace+"worker", client.WithWorkflows(simple, keyed, broadcast))
 	if err != nil {
 		_ = h.Conn.Close()

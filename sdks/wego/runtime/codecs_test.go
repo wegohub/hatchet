@@ -4,9 +4,9 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/hatchet-dev/hatchet/sdks/wego/examples/codec/payload"
 	"github.com/hatchet-dev/hatchet/sdks/wego/internal/spec"
 	"github.com/hatchet-dev/hatchet/sdks/wego/middleware"
+	"github.com/hatchet-dev/hatchet/sdks/wego/middleware/payload"
 )
 
 // TestCodecOptionsSnapshot 验证配置构造时冻结切片，后配置空链不会清除接收能力。

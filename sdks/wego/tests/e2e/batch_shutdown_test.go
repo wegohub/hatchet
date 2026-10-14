@@ -76,7 +76,7 @@ func TestBatchShutdownBudget(t *testing.T) {
 		<-ctx.Done()
 		stopped <- struct{}{}
 		return nil, ctx.Err()
-	}, model.BatchConfig{MaxSize: 1, MaxInterval: &interval, GroupKey: pointerForBatch("input.routing.group")})
+	}, model.BatchConfig{MaxSize: 1, MaxInterval: interval, GroupKey: "input.routing.group"})
 	// worker, err 接收 workerConn.NewWorker 的返回值，同时保存错误供紧接着的分支检查；失败时不继续使用结果
 	worker, err := workerConn.NewWorker("bounded-batch-worker", client.WithWorkflows(definition))
 	if err != nil {
@@ -177,9 +177,4 @@ func TestBatchShutdownBudget(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Log("batch shutdown report:", path)
-}
-
-// pointerForBatch 构造批配置指针，允许测试显式设置聚合参数
-func pointerForBatch(v string) *string {
-	return &v
 }

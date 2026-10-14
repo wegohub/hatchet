@@ -1,12 +1,14 @@
-# wego SDK 0.4.10
+# wego SDK 0.4.26
 
 wego 把标准 Go gRPC handler 和 protobuf 客户端桩接入 Hatchet standalone 任务。`Conn` 实现 `grpc.ClientConnInterface`，`Server` 实现 `grpc.ServiceRegistrar`；公开 API、回调值和错误链不暴露 Hatchet 类型。
 
-本版采用协议 **5**，只依赖未经修改的官方 Hatchet **v0.110.5**。0.2.0 的 18 项质量门禁、28 个源文件/74 个构造片段及完整验收记录见 [历史验收报告](docs/design/acceptance-report.md)。0.2.1 增加真实 MinIO codec 示例，使用 AWS S3 SDK；部署与运行见 [codec 示例](examples/codec/README.md)，0.2.1 的验证见 [专项报告](docs/design/minio-codec-report.md)。
+本版采用协议 **6**，只依赖未经修改的官方 Hatchet **v0.110.5**。0.2.0 的 18 项质量门禁、28 个源文件/74 个构造片段及完整验收记录见 [历史验收报告](docs/design/acceptance-report.md)。0.2.1 增加真实 MinIO codec 示例，使用 AWS S3 SDK；部署与运行见 [codec 示例](examples/codec/README.md)，0.2.1 的验证见 [专项报告](docs/design/minio-codec-report.md)。
 
 0.3.0 的 19 项质量门禁及官方镜像真实验收全部通过，见 [0.3.0 验收报告](docs/design/v0.3.0-acceptance-report.md)。升级需协调客户端和 Worker，先排空协议 4 的任务。
 
 0.4.0 使用协议 6 的 `_wego/value/routing` 输入，支持 Console 和官方 SDK 的原生业务 JSON；SDK 调用显式使用 wego 响应契约。codec 只处理业务 value，不使用 AAD；流协议帧仍整体变换。完整格式与迁移步骤见 [协议 6](docs/design/v0.4.0.md)。
+
+内置 gzip、zstd、AES-GCM 和 S3 codec 从 [`middleware/payload`](middleware/payload) 导入，通过 `middleware.WithPayload` 注册；应用持有 S3 连接及密钥。旧示例导入路径保留转发，持久 CodecID 不变。
 
 0.3.2 将 Cron 和 Schedule 的 `Priority` 改为 `int32`：`0` 表示未指定，`1–3` 为低、中、高优先级，其他值在提交前报错。无需取地址，协议仍为 5。
 
@@ -90,7 +92,7 @@ go func() {
 - `client.WithStreamIdempotencyKey` 指定流调用的提交幂等键，仅用于三种流；普通任务使用定义级 `task.WithIdempotency`。`client.StreamResumeToken` 读取 Client 的消费恢复凭证，只在成功交付输出后推进，`conn.ResumeStream` 从已有运行继续消费，不追加输入。
 - `task.Checkpoint` 返回本次接管前的有限历史；有历史的 handler 必须读到 EOF 后恢复业务进度，再发送新输出。外部副作用及业务消费幂等由应用负责。
 
-所有任务业务输入和输出均封包：protobuf 使用 ProtoJSON，普通 Go 值使用 JSON；业务字节统一 base64 承载并执行 codec。任务类型由注册绑定与调用地址确定，普通任务也可以使用 protobuf。CEL 使用显式 `input.routing.*`。routing 不经过载荷变换；所有流帧，包括 CLAIM、HEADERS、DATA、结束、JOIN、事件和取消，统一经过有界 codec。不明确发布结果复用同一 producer、序号和已编码字节。
+任务业务输入和输出遵循协议 6：protobuf 使用 ProtoJSON，普通 Go 值使用 JSON；无 codec 时优先保存可读 JSON，需要字节保真或执行 codec 时使用 base64 承载。任务类型由注册绑定与调用地址确定，普通任务也可以使用 protobuf。CEL 使用显式 `input.routing.*`。routing 不经过载荷变换；所有流帧，包括 CLAIM、HEADERS、DATA、结束、JOIN、事件和取消，统一经过有界 codec。不明确发布结果复用同一 producer、序号和已编码字节。
 
 调用命名沿用官方 Go SDK 的 `WithRunKey`、`WithRunSticky`、`WithRunPriority`、`WithRunMetadata`、`WithDesiredWorkerLabels`；后两者对应自有 `RunOptions.AdditionalMetadata`、`DesiredWorkerLabels`。`client.WithRouting` 与 `runtime.WithRoutingDefaults` 适用于普通任务和 RPC；生成客户端通过 `client.WithRunOptions(opts...)` 使用同一组 RunOption。routing 按默认值、`model.Input.Routing`、调用选项依次覆盖顶层键。Cron、Schedule 和 Event 使用 `model.Input{Value: input, Routing: fields}`；事件默认值通过 `WithEventRoutingDefaults` 配置，Filter CEL 读取 `payload.routing.*`。
 
@@ -126,7 +128,7 @@ Server 使用阻塞的 `Serve`，应用通过 `Stop` 或 `GracefulStop` 显式�
 
 RPC 与同步 Run 取消会请求取消本次拥有的运行。`RunRef.Result(ctx)` 和 `ResumeStream` 只停止当前观察；`RunRef.Cancel(ctx)` 显式取消共享运行。RunNoWait/RunMany 的 context 只控制提交，不固化执行 deadline。提交响应丢失时返回可诊断的提交错误及可恢复身份，不能把未知结果当成没有提交。
 
-`conn.Workers().SendEvent` 定向通知实例，`BroadcastEvent` 通知同 tenant/namespace 当前已加入的 Worker；成功表示持久发布，不表示业务回调已处理。JOIN、有限重连及内部取消不占 slots；业务回调使用独立有界队列。
+`conn.Workers().SendEvent` 定向通知实例，`BroadcastEvent` 通知同 tenant/namespace 当前已加入的 Worker；成功表示持久发布，不表示业务回调已处理。新 Worker 从自己的 JOIN 游标开始接收，加入前的历史不执行 codec；JOIN 本身与加入后的消息必须可解码。有限重连及内部取消不占 slots；业务回调使用独立有界队列。
 
 Trace provider 和 metrics registry 属于实例，不替换全局 OTel provider，metrics 默认关闭。协议指标只使用 method/mode/outcome 标签，运行身份通过日志/trace 关联。借用连接与应用提供的 exporter/存储由其所有者关闭。
 

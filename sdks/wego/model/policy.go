@@ -6,6 +6,26 @@ import (
 	"github.com/hatchet-dev/hatchet/sdks/wego/option"
 )
 
+// IdempotencyMethod 决定幂等键的释放方式，与官方 TTL、STATUS 策略对应。
+type IdempotencyMethod string
+
+const (
+	// IdempotencyMethodTTL 从接受首次触发起保留键，运行提前结束也不释放。
+	IdempotencyMethodTTL IdempotencyMethod = "TTL"
+	// IdempotencyMethodStatus 在运行成功、失败或取消时释放键，TTL 是兜底有效期。
+	IdempotencyMethodStatus IdempotencyMethod = "STATUS"
+)
+
+// Idempotency 定义提交去重规则；不同业务任务应使用不同键，例如 routing.operation_id。
+type Idempotency struct {
+	// Expression 计算幂等键的 CEL 表达式，结果必须是字符串。
+	Expression string
+	// Method 为空时使用 TTL；可直接填写 IdempotencyMethodStatus 等常量。
+	Method IdempotencyMethod
+	// TTL 是去重窗口；STATUS 下是键的兜底有效期，至少为 1 毫秒。
+	TTL time.Duration
+}
+
 // ConcurrencyLimitStrategy 并发超限时的调度策略枚举
 type ConcurrencyLimitStrategy string
 
@@ -30,16 +50,17 @@ const (
 type Concurrency struct {
 	// Expression CEL 或触发表达式；语法由对应管理或执行功能解释
 	Expression string
-	// MaxRuns 静态并发上限；如 2 表示相同分组最多两次同时执行
-	MaxRuns *int32
+	// MaxRuns 静态并发上限；0 表示未指定，由服务端默认使用 1。
+	// 正数显式限制同组同时运行数，例如 2；负数是配置错误。
+	MaxRuns int32
 	// LimitStrategy 超限策略；空值不指定策略，由服务端应用默认规则。
 	LimitStrategy ConcurrencyLimitStrategy
 	// Name 资源或任务名称，注册与调用必须使用相同值
 	Name string
 	// IsTenantScoped 是否在授权范围内共享并发限制，而非仅限当前任务
 	IsTenantScoped bool
-	// MaxRunsExpression 动态并发上限表达式，与固定 MaxRuns 区分
-	MaxRunsExpression *string
+	// MaxRunsExpression 动态并发上限表达式；空字符串不指定，"0" 是有效的暂停表达式。
+	MaxRunsExpression string
 }
 
 // RateLimitDuration 限流计数周期枚举，使用后端支持的周期字符串
@@ -66,14 +87,14 @@ const (
 type RateLimit struct {
 	// Key 任务运行、幂等或限流使用的键
 	Key string
-	// KeyExpr 动态限流键的 CEL 表达式，例如 input.routing.group
-	KeyExpr *string
-	// Units 每次执行消耗的静态额度；如 2 表示扣除两单位
+	// KeyExpr 动态限流键的 CEL 表达式；空字符串使用静态 Key。
+	KeyExpr string
+	// Units 每次执行消耗的静态额度；nil 保留默认，指向 0 明确不消耗额度。
 	Units *int
-	// UnitsExpr 按输入计算本次额度消耗的表达式
-	UnitsExpr *string
-	// LimitValueExpr 动态计算限流上限的表达式
-	LimitValueExpr *string
+	// UnitsExpr 按输入计算额度消耗；空字符串不指定，"0" 表示零消耗。
+	UnitsExpr string
+	// LimitValueExpr 动态计算限流上限；空字符串不指定。
+	LimitValueExpr string
 	// Duration 限流统计周期，例如 Minute 表示一分钟；空值不覆盖后端周期配置。
 	Duration RateLimitDuration
 }
@@ -132,12 +153,12 @@ type EvictionPolicy struct {
 type BatchConfig struct {
 	// MaxSize 每批最大条数；例如 3 条输入组成一个批次
 	MaxSize int32
-	// MaxInterval 批次首次入队后的最大聚合等待时间
-	MaxInterval *time.Duration
-	// GroupKey 批聚合分组表达式；不同 group 的输入不会混入同一批
-	GroupKey *string
-	// GroupMaxRuns 同一批分组允许的同时运行批次数
-	GroupMaxRuns *int32
+	// MaxInterval 最大聚合等待时间；0 保留服务端默认，正数须为 1ms 至 24h。
+	MaxInterval time.Duration
+	// GroupKey 批聚合分组表达式；空字符串使用服务端默认分组。
+	GroupKey string
+	// GroupMaxRuns 同组同时运行批次数；0 保留服务端默认，显式值为 1 至 10000。
+	GroupMaxRuns int32
 	// BroadcastOutput 是否将一个批次结果广播给每条输入；false 使用逐条结果映射
 	BroadcastOutput bool
 }

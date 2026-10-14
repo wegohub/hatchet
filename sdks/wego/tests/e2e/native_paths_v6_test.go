@@ -19,7 +19,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/hatchet-dev/hatchet/sdks/wego/client"
-	"github.com/hatchet-dev/hatchet/sdks/wego/examples/codec/payload"
 	pb "github.com/hatchet-dev/hatchet/sdks/wego/examples/proto"
 	"github.com/hatchet-dev/hatchet/sdks/wego/examples/scenarios"
 	"github.com/hatchet-dev/hatchet/sdks/wego/internal/backend"
@@ -28,6 +27,7 @@ import (
 	"github.com/hatchet-dev/hatchet/sdks/wego/internal/spec"
 	"github.com/hatchet-dev/hatchet/sdks/wego/internal/wire"
 	"github.com/hatchet-dev/hatchet/sdks/wego/middleware"
+	"github.com/hatchet-dev/hatchet/sdks/wego/middleware/payload"
 	"github.com/hatchet-dev/hatchet/sdks/wego/model"
 	"github.com/hatchet-dev/hatchet/sdks/wego/runtime"
 	"github.com/hatchet-dev/hatchet/sdks/wego/task"
@@ -139,12 +139,12 @@ func TestProtocolV6NativeBusinessPaths(t *testing.T) {
 			output[id] = &pb.Reply{Message: input.Message, Count: input.Count}
 		}
 		return output, nil
-	}, model.BatchConfig{MaxSize: 2, MaxInterval: &interval})
+	}, model.BatchConfig{MaxSize: 2, MaxInterval: interval})
 	failureSizes := make(chan int, 2)
 	failingBatch := conn.NewStandaloneBatchTask("batch-failure", func(_ context.Context, members map[string]*pb.Request) (map[string]*pb.Reply, error) {
 		failureSizes <- len(members)
 		return nil, status.Error(codes.Aborted, "batch rejected")
-	}, model.BatchConfig{MaxSize: 2, MaxInterval: &interval})
+	}, model.BatchConfig{MaxSize: 2, MaxInterval: interval})
 	started := make(chan struct{}, 1)
 	durable := conn.NewStandaloneDurableTask("wait", func(ctx context.Context, _ map[string]any) (*pb.Reply, error) {
 		started <- struct{}{}

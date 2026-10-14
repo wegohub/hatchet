@@ -1,5 +1,70 @@
 # Changelog
 
+## 0.4.26
+
+- WaitForEvent / WaitForEventInto 改用 EventWaitOption：WithEventScope 和 WithConsiderEventsSince 接受值参数，内部保留省略与显式空值的区别，重复配置最后一次生效。回溯缺少 scope、非法时间和 nil 选项在登记等待前失败；选项可并发复用。同步示例、测试和文档，并复核枚举、并发、限流、触发优先级、Batch 和事件 scope 的零值语义。消息协议保持 6。
+
+## 0.4.25
+
+- 将任务上下文的借用连接入口更名为 `task.Conn(ctx)`，迁移所有调用示例、测试和使用文档，不保留旧入口。连接所有权、子调用和 durable 行为不变，Close / Shutdown 继续返回 ErrBorrowedResource；消息协议保持 6。
+
+## 0.4.24
+
+- feature `WaitHello` 使用生成的 protobuf 客户端经 wego Conn 并发创建子任务，以 `WithRunOptions` 传递稳定 child key 和独立 routing；按输入顺序收集全部响应，保留 RunMany 注释示例。消息协议保持 6。
+
+## 0.4.23
+
+- feature `WaitHello` 改为 durable 子任务编排：使用可重放时间生成固定随机种子，创建 3–10 个带稳定 key 的子任务并收集全部结果；响应增加 `child_results`，子响应包含真实 ParentRunID。新增 `Test_ChildSpawning` 验证数量、输出顺序、唯一身份和父子关系；消息协议保持 6。
+
+## 0.4.22
+
+- 正式载荷组件迁入 `middleware/payload`，统一更新 SDK、示例、测试和文档导入路径；旧 `examples/codec/payload` 兼容层直接指向新包。父包仅提供接口及注册入口，CodecID、构造方式、持久格式和消息协议 6 保持不变；使用方需将 `wego/payload` 导入改为 `wego/middleware/payload`。
+
+## 0.4.21
+
+- 补全手动 feature `Test_RunMany`：按十项、三个独立分组批量提交，验证 STATUS 幂等的三个成功运行与七次冲突、未知输入位置和实际业务结果；失败时取消本轮已确认运行。消息协议保持 6。
+
+## 0.4.20
+
+- 幂等配置统一为 `task.WithIdempotency(model.Idempotency{Expression, Method, TTL})`，移除布尔位置参数与 `WithIdempotencyTTL`。Method 缺省使用 TTL，STATUS 按运行终态释放键并以 TTL 兜底；策略整体覆盖，在注册前拒绝空表达式、非法枚举和不足 1 毫秒的有效期。同步示例、测试与配置文档，保留流任务的内部提交幂等策略，消息协议保持 6。
+
+## 0.4.19
+
+- 新增 Hatchet 分组加权公平调度的设计评估、实施计划及待人工审阅的英文 issue 草稿。此版本仅更新提案文档和版本标识，尚未实现新调度策略；消息协议保持 6。
+
+## 0.4.18
+
+- 策略中的动态 CEL 字段和 Batch 分组改为字符串，空值表示未指定；Batch 聚合窗口和分组并发上限改为值类型，0 保留官方默认，并在转换前校验范围。`RateLimit.Units` 保留指针以区分默认消耗与显式零消耗。同步示例和配置文档，协议保持 6。
+
+## 0.4.17
+
+- `model.Concurrency.MaxRuns` 改为 `int32`：0 表示未指定，正数为静态并发上限，负数在注册前拒绝；后端仅为正数设置官方可选字段，默认仍由服务端使用 1。示例直接填写数值，动态上限表达式与协议 6 不变。
+
+## 0.4.16
+
+- 官方 Worker 的 RPC 执行日志通过实例注册表显示完整方法名，覆盖失败、完成、动作列表和结构化 action 字段；内部摘要路由、业务错误内容及协议 6 保持不变。
+
+## 0.4.15
+
+- `task.WithRefreshTimeout` 默认每隔一个续期间隔只延长相同的时长；新增 `WithRefreshIncrement` 和 `WithRefreshMaxDuration` 可选项，以及适用于三种 gRPC 流 handler 的 `WithRefreshStreamTimeout`。任务入口按实际增量续期，网络入口直接运行回调；到期、取消和续期失败共用安全收尾逻辑。消息协议保持 6。
+
+## 0.4.14
+
+- wego 任务失败改用控制台可读的 JSON 对象上报 gRPC 错误码、消息和可识别的 details；全部 detail 保留原始字节，客户端无需注册相同的 protobuf 类型。失败错误不经过业务 payload codec，客户端仍能还原 status、响应 metadata、流结束清单及不可重试标记；已有二进制错误仍可读取。原生调用的失败格式不变，任务输入协议保持 6。
+
+## 0.4.13
+
+- 注册静态 Cron／Filter 输入时，若旧封包已损坏或其 S3 对象缺失，使用已校验的当前封包注册新版本；其他解码配置或传输故障继续明确失败。Worker 事件读回错误增加阶段与 topic 诊断。
+- 重试退避上限在注册前校验官方要求的 1 秒至 24 小时整秒范围；手动 feature Worker 改用 `10*time.Second`，本机 MinIO 测试桶对齐为 `wego`。协议保持 6。
+
+## 0.4.12
+
+- gzip、zstd、AES-GCM 和 S3 载荷组件迁入正式公开包 `payload`；示例、测试及当前文档统一使用新路径。旧 `examples/codec/payload` 提供类型别名和构造函数转发，现有导入仍可编译。CodecID、阈值、持久字节格式和协议 6 均不变。
+
+## 0.4.11
+
+- Worker 初始化时通过本次发布的完整编码字节定位 JOIN 游标，只解码自己的屏障；加入前已过期的广播对象不会阻止启动。屏障本身仍验证 codec 可读，加入后的通知及断线重连继续严格解码，协议保持 6。
+
 ## 0.4.10
 
 - 提交和事件使用官方 traceparent/tracestate 调度字段；普通与可靠流执行接续引擎父 trace，输入封包仅在缺少有效执行上下文时恢复 trace，避免 Console 把业务与引擎 spans 分成两条链路。协议保持 6。

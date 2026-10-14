@@ -2,6 +2,7 @@ package spec
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/hatchet-dev/hatchet/sdks/wego/model"
@@ -40,12 +41,8 @@ type Task struct {
 	Events []string
 	// Filters 默认事件过滤器及传给业务的 filter payload
 	Filters []model.DefaultFilter
-	// IdempotencyExpression 计算幂等键的 CEL 表达式，例如 input.routing.id
-	IdempotencyExpression string
-	// IdempotencyStatus 是否配置幂等状态策略
-	IdempotencyStatus bool
-	// IdempotencyTTL 幂等键记录的有效期
-	IdempotencyTTL time.Duration
+	// Idempotency 完整的提交去重策略；未设置时继承，显式配置整体覆盖默认值。
+	Idempotency option.Option[model.Idempotency]
 	// Durable 是否使用可重放执行上下文；普通网络请求没有 durable 身份
 	Durable bool
 	// Batch 批聚合配置；nil 表示逐条执行
@@ -110,10 +107,9 @@ func Merge(base, override Task) Task {
 	if override.Filters != nil {
 		base.Filters = override.Filters
 	}
-	if override.IdempotencyExpression != "" {
-		base.IdempotencyExpression = override.IdempotencyExpression
-		base.IdempotencyStatus = override.IdempotencyStatus
-		base.IdempotencyTTL = override.IdempotencyTTL
+	if override.Idempotency.Set {
+		// METHOD、表达式与 TTL 必须来自同一份配置，不拼接不同层的策略。
+		base.Idempotency = override.Idempotency
 	}
 	base.Durable = override.Durable
 	// 使用显式提供的 Batch 覆盖默认列表；非 nil 空列表表示主动清空
@@ -125,6 +121,40 @@ func Merge(base, override Task) Task {
 
 // Validate 检查配置组合的有效性，在资源启动前拒绝不合法的容量和预算
 func (t *Task) Validate() error {
+	if t.Idempotency.Set {
+		// 空策略是配置错误，不能被当作未设置而意外继承其他任务的幂等键。
+		config := t.Idempotency.Value
+		if strings.TrimSpace(config.Expression) == "" {
+			return fmt.Errorf("wego: idempotency expression must not be empty")
+		}
+		switch config.Method {
+		case "", model.IdempotencyMethodTTL, model.IdempotencyMethodStatus:
+		default:
+			return fmt.Errorf("wego: invalid idempotency method %q", config.Method)
+		}
+		// 官方以毫秒存储；500 微秒会被截为 0，必须在注册前拒绝。
+		if config.TTL < time.Millisecond {
+			return fmt.Errorf("wego: idempotency TTL must be at least 1ms")
+		}
+	}
+	// 静态上限 0 表示未指定；动态表达式返回 0 的暂停语义不在此处校验。
+	for _, concurrency := range t.Concurrency {
+		if concurrency.MaxRuns < 0 {
+			return fmt.Errorf("wego: concurrency max runs must be nonnegative")
+		}
+	}
+	// 批配置的零值保留官方默认；先校验再转为毫秒，避免负数或溢出变成有效配置。
+	if batch := t.Batch; batch != nil {
+		if batch.MaxSize < 1 || batch.MaxSize > 100000 {
+			return fmt.Errorf("wego: batch max size must be in range 1..100000")
+		}
+		if batch.MaxInterval != 0 && (batch.MaxInterval < time.Millisecond || batch.MaxInterval > 24*time.Hour) {
+			return fmt.Errorf("wego: batch max interval must be zero or in range 1ms..24h")
+		}
+		if batch.GroupMaxRuns < 0 || batch.GroupMaxRuns > 10000 {
+			return fmt.Errorf("wego: batch group max runs must be in range 0..10000")
+		}
+	}
 	// 显式配置存在时将其传给当前策略；例如设置 Value=0、Set=true 仍必须生效
 	if t.Retries.Set && t.Retries.Value < 0 {
 		return fmt.Errorf("wego: retries must be nonnegative")

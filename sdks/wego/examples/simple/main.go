@@ -48,8 +48,8 @@ func (g *greeter) WaitHello(ctx context.Context, req *pb.Request) (*pb.Reply, er
 
 // ChildHello 通过任务上下文提交子调用，并返回父子运行身份
 func (g *greeter) ChildHello(ctx context.Context, req *pb.Request) (*pb.Reply, error) {
-	// conn, err 接收 task.Client 的返回值，同时保存错误供紧接着的分支检查；失败时不继续使用结果
-	conn, err := task.Client(ctx)
+	// conn, err 接收 task.Conn 的返回值，同时保存错误供紧接着的分支检查；失败时不继续使用结果
+	conn, err := task.Conn(ctx)
 	if err != nil {
 		return nil, err
 	}

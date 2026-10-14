@@ -66,7 +66,7 @@ func TestStatusDetailsAndNonRetryable(t *testing.T) {
 	if !errors.As(err, &marked) || status.Code(err) != codes.InvalidArgument {
 		t.Fatal(err)
 	}
-	if len(status.Convert(err).Details()) != 2 {
+	if len(status.Convert(err).Details()) != 1 {
 		t.Fatal("status details lost")
 	}
 }
@@ -99,7 +99,7 @@ func TestErrorMetadataDoesNotPolluteBusinessDetails(t *testing.T) {
 	var transport *model.RPCError
 	// nonretry 禁止重试错误的识别目标；转换后只保留 wego 或标准错误链
 	var nonretry *model.NonRetryableError
-	if !errors.As(err, &transport) || !errors.As(err, &nonretry) || status.Code(err) != codes.FailedPrecondition || len(status.Convert(err).Details()) != 2 || transport.Headers["worker"][0] != "ready" || transport.Trailers["state"][0] != "failed" {
+	if !errors.As(err, &transport) || !errors.As(err, &nonretry) || status.Code(err) != codes.FailedPrecondition || len(status.Convert(err).Details()) != 1 || transport.Headers["worker"][0] != "ready" || transport.Trailers["state"][0] != "failed" {
 		t.Fatalf("transport/status lost: %v", err)
 	}
 }

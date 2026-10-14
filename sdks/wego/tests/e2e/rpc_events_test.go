@@ -21,7 +21,6 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/hatchet-dev/hatchet/sdks/wego/client"
-	"github.com/hatchet-dev/hatchet/sdks/wego/examples/codec/payload"
 	pb "github.com/hatchet-dev/hatchet/sdks/wego/examples/proto"
 	"github.com/hatchet-dev/hatchet/sdks/wego/examples/scenarios"
 	"github.com/hatchet-dev/hatchet/sdks/wego/internal/backend"
@@ -30,6 +29,7 @@ import (
 	"github.com/hatchet-dev/hatchet/sdks/wego/internal/stream"
 	"github.com/hatchet-dev/hatchet/sdks/wego/internal/wire"
 	"github.com/hatchet-dev/hatchet/sdks/wego/middleware"
+	"github.com/hatchet-dev/hatchet/sdks/wego/middleware/payload"
 	"github.com/hatchet-dev/hatchet/sdks/wego/model"
 	"github.com/hatchet-dev/hatchet/sdks/wego/runtime"
 	"github.com/hatchet-dev/hatchet/sdks/wego/task"

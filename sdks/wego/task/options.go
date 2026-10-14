@@ -51,7 +51,8 @@ func WithScheduleTimeout(v time.Duration) Option {
 	}
 }
 
-// WithRetryBackoff 配置重试等待倍率与最大值，限制重复失败时的提交频率
+// WithRetryBackoff 配置重试等待倍率与最大时长；例如 (2, 10*time.Second)。
+// 最大时长按官方协议须为 1 秒至 24 小时之间的整秒。
 func WithRetryBackoff(factor float32, max time.Duration) Option {
 	return func(c *spec.Task) {
 		c.BackoffFactor = option.Some(factor)
@@ -124,19 +125,11 @@ func WithDefaultFilters(v ...DefaultFilter) Option {
 	}
 }
 
-// WithIdempotency 设置通过输入计算幂等键的表达式，相同有效键提交时返回包含 ExistingRunID 的冲突错误
-func WithIdempotency(expression string, status bool) Option {
+// WithIdempotency 设置完整的提交去重策略，重复配置以最后一次为准。
+// 例如 Expression="input.routing.operation_id"、Method=STATUS、TTL=time.Minute，
+// 同一业务运行终结后释放键；事件重复触发不创建运行，直接提交返回幂等冲突。
+func WithIdempotency(v model.Idempotency) Option {
 	return func(c *spec.Task) {
-		c.IdempotencyExpression = expression
-		c.IdempotencyStatus = status
-	}
-}
-
-// WithIdempotencyTTL 设置幂等记录有效期，到期后相同键可以再次创建运行
-func WithIdempotencyTTL(expression string, status bool, ttl time.Duration) Option {
-	return func(c *spec.Task) {
-		c.IdempotencyExpression = expression
-		c.IdempotencyStatus = status
-		c.IdempotencyTTL = ttl
+		c.Idempotency = option.Some(v)
 	}
 }

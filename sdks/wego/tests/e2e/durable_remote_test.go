@@ -67,7 +67,7 @@ func TestReviewDurableRemoteChildOutput(t *testing.T) {
 	// parent 沿用自己的 durable listener 提交子任务，不能借用 childConn 的本地定义
 	parent := parentConn.NewStandaloneDurableTask("remote-parent", func(ctx context.Context, in map[string]int) (durableRemoteOutput, error) {
 		// borrowed 属于当前执行，其配置和父身份均来自 parentConn
-		borrowed, err := task.Client(ctx)
+		borrowed, err := task.Conn(ctx)
 		if err != nil {
 			return durableRemoteOutput{}, err
 		}

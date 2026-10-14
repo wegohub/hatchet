@@ -10,10 +10,10 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/hatchet-dev/hatchet/sdks/wego/examples/codec/payload"
 	pb "github.com/hatchet-dev/hatchet/sdks/wego/examples/proto"
 	"github.com/hatchet-dev/hatchet/sdks/wego/internal/spec"
 	"github.com/hatchet-dev/hatchet/sdks/wego/middleware"
+	"github.com/hatchet-dev/hatchet/sdks/wego/middleware/payload"
 )
 
 // protocolPacket 模拟服务端 JSON map 往返，大整数只存在于编码字节中。

@@ -1,4 +1,4 @@
-// Package payload 演示压缩、加密和 S3 卸载的有界 codec；不属于 SDK 核心 API
+// Package payload 提供可直接注册的压缩、加密和 S3 卸载组件。
 package payload
 
 import (
@@ -58,7 +58,7 @@ func (*Gzip) Encode(ctx context.Context, data []byte) ([]byte, error) {
 	return output.Bytes(), ctx.Err()
 }
 
-// Decode 使用示例的绝对上限；SDK 流路径通过 DecodeLimit 提供更小的预算
+// Decode 使用组件绝对上限；SDK 流路径通过 DecodeLimit 提供更小的预算。
 func (p *Gzip) Decode(ctx context.Context, data []byte) ([]byte, error) {
 	return p.DecodeLimit(ctx, data, maxObjectBytes)
 }
@@ -74,7 +74,7 @@ func (*Gzip) DecodeLimit(ctx context.Context, data []byte, limit int) ([]byte, e
 }
 
 // AESGCM 使用随机 nonce 和 nil AAD 认证业务字节；不可变密钥可被客户端和 Worker 并发使用
-// 此示例只使用一个密钥；实际轮换需在载荷中保存 key ID，并保留历史解密密钥
+// 当前格式只使用一个密钥；轮换时需保留历史解密能力，避免旧消息不可读。
 type AESGCM struct {
 	// aead 保存复制后的密钥所创建的认证加密器，不公开原始密钥
 	aead cipher.AEAD

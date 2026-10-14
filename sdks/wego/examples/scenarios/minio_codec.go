@@ -20,9 +20,9 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/hatchet-dev/hatchet/sdks/wego/client"
-	"github.com/hatchet-dev/hatchet/sdks/wego/examples/codec/payload"
 	pb "github.com/hatchet-dev/hatchet/sdks/wego/examples/proto"
 	"github.com/hatchet-dev/hatchet/sdks/wego/middleware"
+	"github.com/hatchet-dev/hatchet/sdks/wego/middleware/payload"
 	"github.com/hatchet-dev/hatchet/sdks/wego/model"
 	"github.com/hatchet-dev/hatchet/sdks/wego/runtime"
 	"github.com/hatchet-dev/hatchet/sdks/wego/task"
@@ -151,7 +151,7 @@ func MinIOCodec(ctx context.Context, report *Report) (err error) {
 			}
 		}),
 	}, worker.WithTask(pb.UnaryGreeter_SayHello_FullMethodName, task.WithConcurrency(model.Concurrency{
-		Expression: "input.routing.group", MaxRuns: pointer(int32(1)), LimitStrategy: model.GroupRoundRobin,
+		Expression: "input.routing.group", MaxRuns: 1, LimitStrategy: model.GroupRoundRobin,
 	})), worker.WithTask(pb.Greeter_WatchHellos_FullMethodName, task.WithRetries(1)))
 	if err != nil {
 		return err

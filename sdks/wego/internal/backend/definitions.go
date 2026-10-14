@@ -8,14 +8,21 @@ import (
 
 	v1 "github.com/hatchet-dev/hatchet/internal/services/shared/proto/v1"
 	clientconfig "github.com/hatchet-dev/hatchet/pkg/config/client"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/hatchet-dev/hatchet/sdks/wego/internal/ports"
 	"github.com/hatchet-dev/hatchet/sdks/wego/internal/spec"
+	"github.com/hatchet-dev/hatchet/sdks/wego/model"
 )
 
 // workflowDefinition 编码纯调度数据；例如 standalone hello 只生成 hello:hello 一个 action
 // 不构造官方 Workflow 对象，避免定义阶段创建不可关闭的 metadata 缓存
 func workflowDefinition(name string, policy spec.Task, namespace string) (*v1.CreateWorkflowVersionRequest, error) {
+	// 转换前校验完整策略，避免将无效 TTL 截断为 0 毫秒或忽略非法枚举。
+	if err := policy.Validate(); err != nil {
+		return nil, err
+	}
 	name = nativeWorkflowName(namespace, name)
 	// req 当前协议请求，编码完整后才发送，不能使用未初始化的调度字段
 	req := &v1.CreateWorkflowVersionRequest{Name: name, CronTriggers: append([]string(nil), policy.Cron...)}
@@ -42,7 +49,14 @@ func workflowDefinition(name string, policy spec.Task, namespace string) (*v1.Cr
 	// 逐项处理本组定义、成员或协议详情，保留每项身份；例如 run-1 的结果不能交给 run-2
 	for _, c := range policy.Concurrency {
 		// value 当前协议字段的独立值，指针不能借用调用方可变容器
-		value := &v1.Concurrency{Expression: c.Expression, MaxRuns: c.MaxRuns, MaxRunsExpression: c.MaxRunsExpression}
+		value := &v1.Concurrency{Expression: c.Expression, MaxRunsExpression: optionalPolicyString(c.MaxRunsExpression)}
+		if c.MaxRuns < 0 {
+			return nil, fmt.Errorf("wego: concurrency max runs must be nonnegative")
+		}
+		// 零值不发送 max_runs，保留服务端缺省值；正数转换为独立协议指针。
+		if c.MaxRuns > 0 {
+			value.MaxRuns = &c.MaxRuns
+		}
 		if c.Name != "" {
 			value.Name = &c.Name
 		}
@@ -77,13 +91,14 @@ func workflowDefinition(name string, policy spec.Task, namespace string) (*v1.Cr
 		}
 		req.DefaultFilters = append(req.DefaultFilters, &v1.DefaultFilter{Expression: filter.Expression, Scope: filter.Scope, Payload: data})
 	}
-	if policy.IdempotencyExpression != "" {
-		// method 取得 v1.IdempotencyMethod_TTL 的结果，确认成功后才进入下一处理阶段
+	if policy.Idempotency.Set {
+		// 空 Method 与显式 TTL 采用相同默认；只有 STATUS 才按终态释放。
+		config := policy.Idempotency.Value
 		method := v1.IdempotencyMethod_TTL
-		if policy.IdempotencyStatus {
+		if config.Method == model.IdempotencyMethodStatus {
 			method = v1.IdempotencyMethod_STATUS
 		}
-		req.Idempotency = &v1.IdempotencyConfig{Expression: policy.IdempotencyExpression, TtlMs: policy.IdempotencyTTL.Milliseconds(), Method: &method}
+		req.Idempotency = &v1.IdempotencyConfig{Expression: config.Expression, TtlMs: config.TTL.Milliseconds(), Method: &method}
 	}
 	return req, nil
 }
@@ -92,6 +107,9 @@ func workflowDefinition(name string, policy spec.Task, namespace string) (*v1.Cr
 func taskDefinition(workflow string, d ports.Definition) (*v1.CreateTaskOpts, error) {
 	// p 取得 d.Policy 的结果，确认成功后才进入下一处理阶段
 	p := d.Policy
+	if err := p.Validate(); err != nil {
+		return nil, err
+	}
 	// name 取得 d.Name 的结果，确认成功后才进入下一处理阶段
 	name := d.Name
 	if d.OnFailure {
@@ -124,6 +142,10 @@ func taskDefinition(workflow string, d ports.Definition) (*v1.CreateTaskOpts, er
 		task.BackoffFactor = &value
 	}
 	if p.BackoffMax.Set {
+		// 官方字段只接受 1..86400 整秒；先校验再转换，避免 10ns 被截成非法的 0。
+		if max := p.BackoffMax.Value; max < time.Second || max > 24*time.Hour || max%time.Second != 0 {
+			return nil, status.Error(codes.InvalidArgument, "wego: retry backoff max must be whole seconds in range 1s..24h")
+		}
 		// value 当前协议字段的独立值，指针不能借用调用方可变容器
 		value := int32(p.BackoffMax.Value.Seconds())
 		task.BackoffMaxSeconds = &value
@@ -131,7 +153,7 @@ func taskDefinition(workflow string, d ports.Definition) (*v1.CreateTaskOpts, er
 	// 逐项处理本组定义、成员或协议详情，保留每项身份；例如 run-1 的结果不能交给 run-2
 	for _, limit := range p.RateLimits {
 		// value 当前协议字段的独立值，指针不能借用调用方可变容器
-		value := &v1.CreateTaskRateLimit{Key: limit.Key, KeyExpr: limit.KeyExpr, UnitsExpr: limit.UnitsExpr, LimitValuesExpr: limit.LimitValueExpr}
+		value := &v1.CreateTaskRateLimit{Key: limit.Key, KeyExpr: optionalPolicyString(limit.KeyExpr), UnitsExpr: optionalPolicyString(limit.UnitsExpr), LimitValuesExpr: optionalPolicyString(limit.LimitValueExpr)}
 		if limit.Units != nil {
 			// units 本次执行的容量成本，例如容量 4、成本 2 最多同时执行两项
 			units := int32(*limit.Units)
@@ -153,8 +175,13 @@ func taskDefinition(workflow string, d ports.Definition) (*v1.CreateTaskOpts, er
 		// batch 取得 p.Batch 的结果，确认成功后才进入下一处理阶段
 		batch := p.Batch
 		task.Retries = 0
-		task.Batch = &v1.TaskBatchConfig{BatchMaxSize: batch.MaxSize, BatchGroupKey: batch.GroupKey, BatchGroupMaxRuns: batch.GroupMaxRuns}
-		if batch.MaxInterval != nil {
+		task.Batch = &v1.TaskBatchConfig{BatchMaxSize: batch.MaxSize, BatchGroupKey: optionalPolicyString(batch.GroupKey)}
+		if batch.GroupMaxRuns > 0 {
+			// maxRuns 是独立协议字段，后续修改公开配置不影响已准备的请求。
+			maxRuns := batch.GroupMaxRuns
+			task.Batch.BatchGroupMaxRuns = &maxRuns
+		}
+		if batch.MaxInterval > 0 {
 			// ms 取得 int32 的结果，确认成功后才进入下一处理阶段
 			ms := int32(batch.MaxInterval.Milliseconds())
 			task.Batch.BatchMaxIntervalMs = &ms
@@ -166,6 +193,14 @@ func taskDefinition(workflow string, d ports.Definition) (*v1.CreateTaskOpts, er
 		}
 	}
 	return task, nil
+}
+
+// optionalPolicyString 将空字符串保留为未指定；非空 CEL（包括 "0"）原样发送。
+func optionalPolicyString(value string) *string {
+	if value == "" {
+		return nil
+	}
+	return &value
 }
 
 // durationSeconds 保持引擎支持的秒单位；例如 1500ms 的策略编码为 1s

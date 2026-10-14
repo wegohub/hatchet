@@ -37,7 +37,7 @@ func TestIndependentReviewDurableSharedResult(t *testing.T) {
 		},
 		Wait: func(ctx context.Context, in *pb.Request) (*pb.Reply, error) {
 			// 借用连接保留父执行的 durable 账本，三个观察者共享同一 RunRef
-			conn, err := task.Client(ctx)
+			conn, err := task.Conn(ctx)
 			if err != nil {
 				return nil, err
 			}

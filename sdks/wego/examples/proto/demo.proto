@@ -124,6 +124,8 @@ message Reply {
   int32 invocation_count = 12;
   // child_run_ids 批量子任务的稳定运行身份集合
   repeated string child_run_ids = 13;
+  // child_results 按输入顺序收集的完整子任务响应，包含业务输出与父子运行身份
+  repeated Reply child_results = 14;
 }
 
 // ImageMetadata 受控图片处理结果，不访问真实外部业务系统

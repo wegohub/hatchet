@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/hatchet-dev/hatchet/sdks/wego/examples/codec/payload"
 	"github.com/hatchet-dev/hatchet/sdks/wego/internal/spec"
 	"github.com/hatchet-dev/hatchet/sdks/wego/middleware"
+	"github.com/hatchet-dev/hatchet/sdks/wego/middleware/payload"
 )
 
 // BenchmarkMessageProtocol 对比完整业务封包；S3 I/O 单独验收，不混入本地编码成本。

@@ -107,14 +107,14 @@ func stickyDAG(ctx context.Context, report *Report) (err error) {
 	return nil
 }
 
-// affinity 执行 task.Client/conn.Run/task.WithChildKey 对应的场景步骤；检查业务结果后将断言关联到当前报告，失败立即返回错误
+// affinity 执行 task.Conn/conn.Run/task.WithChildKey 对应的场景步骤；检查业务结果后将断言关联到当前报告，失败立即返回错误
 func affinity(ctx context.Context, report *Report, sticky bool) (err error) {
 	// service 本场景的受控业务服务，handler 注入明确行为并记录实际调用结果
 	service := &Service{}
 	if sticky {
 		service.Say = func(ctx context.Context, in *pb.Request) (*pb.Reply, error) {
 			// conn, e 借用当前执行所属连接，子调用复用父身份且不能关闭共享资源
-			conn, e := task.Client(ctx)
+			conn, e := task.Conn(ctx)
 			if e != nil {
 				return nil, e
 			}

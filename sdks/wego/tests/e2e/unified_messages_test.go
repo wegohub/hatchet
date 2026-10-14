@@ -18,10 +18,10 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/hatchet-dev/hatchet/sdks/wego/client"
-	"github.com/hatchet-dev/hatchet/sdks/wego/examples/codec/payload"
 	pb "github.com/hatchet-dev/hatchet/sdks/wego/examples/proto"
 	"github.com/hatchet-dev/hatchet/sdks/wego/examples/scenarios"
 	"github.com/hatchet-dev/hatchet/sdks/wego/middleware"
+	"github.com/hatchet-dev/hatchet/sdks/wego/middleware/payload"
 	"github.com/hatchet-dev/hatchet/sdks/wego/model"
 	"github.com/hatchet-dev/hatchet/sdks/wego/runtime"
 	"github.com/hatchet-dev/hatchet/sdks/wego/task"
@@ -137,7 +137,7 @@ func TestUnifiedMessages(t *testing.T) {
 					output[id] = &pb.Reply{Message: input.Message, Count: input.Count}
 				}
 				return output, nil
-			}, model.BatchConfig{MaxSize: 2, MaxInterval: &interval})
+			}, model.BatchConfig{MaxSize: 2, MaxInterval: interval})
 			worker, err := conn.NewWorker("", client.WithWorkflows(echo, async, nativeStream, nativeProto, durable, workflow, batch))
 			if err != nil {
 				t.Fatal(err)

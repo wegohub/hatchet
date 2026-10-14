@@ -32,6 +32,7 @@ import (
 	"github.com/hatchet-dev/hatchet/sdks/wego/internal/stream"
 	"github.com/hatchet-dev/hatchet/sdks/wego/internal/wire"
 	"github.com/hatchet-dev/hatchet/sdks/wego/model"
+	"github.com/hatchet-dev/hatchet/sdks/wego/option"
 )
 
 // admittedKey 把 CLAIM 门禁确认的 producer 传给同一次执行，不能由新 Function 猜测所有权
@@ -74,13 +75,16 @@ func StreamDefinition(e *engine.Engine, method binding.Method, policy spec.Task,
 		}
 	}
 	// 输出可恢复与提交幂等分别判断；client stream 也必须避免不明确提交产生两次执行
-	if policy.IdempotencyExpression != "" || policy.IdempotencyStatus || policy.IdempotencyTTL != 0 && policy.IdempotencyTTL != o.IdempotencyTTL {
+	if policy.Idempotency.Set {
 		return ports.Definition{}, fmt.Errorf("wego: stream reserves its submission idempotency policy")
 	}
 	// 同一事件触发多个 RPC 时分别占用幂等身份；直接 RPC 的已有 key 保持不变。
 	eventPrefix := stream.IdempotencyKey(e.Config.Namespace, method.FullName, "") + ":"
-	policy.IdempotencyExpression = fmt.Sprintf("input._wego.idempotency_key != '' ? %q + input._wego.idempotency_key : string(1 / size(input._wego.idempotency_key))", eventPrefix)
-	policy.IdempotencyTTL = o.IdempotencyTTL
+	policy.Idempotency = option.Some(model.Idempotency{
+		Expression: fmt.Sprintf("input._wego.idempotency_key != '' ? %q + input._wego.idempotency_key : string(1 / size(input._wego.idempotency_key))", eventPrefix),
+		Method:     model.IdempotencyMethodTTL,
+		TTL:        o.IdempotencyTTL,
+	})
 	if err := policy.Validate(); err != nil {
 		return ports.Definition{}, err
 	}

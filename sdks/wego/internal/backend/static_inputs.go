@@ -96,18 +96,25 @@ func (b *Backend) prepareStaticInput(ctx context.Context, key, data string, prev
 	}
 	digest, err := b.staticDigest(ctx, packet)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("wego: current static input %q: %w", key, err)
 	}
 	if saved, ok := previous[key]; ok && saved.Digest == digest {
-		// 摘要字段不构成认证；旧对象必须真实可还原，并重新核验业务身份。
+		// 摘要字段不构成认证；只有能还原且内容相同的旧封包才可复用。
 		actual, err := b.staticDigest(ctx, saved.Packet)
-		if err != nil {
-			return "", err
-		}
-		if actual != digest {
+		switch {
+		case status.Code(err) == codes.DataLoss:
+			// 旧对象过期或旧封包损坏时，当前封包已完成解码和摘要校验。
+			// 使用当前封包注册新版本，使静态触发输入不再指向不可读取的历史对象。
+			if b.config.Logger != nil {
+				b.config.Logger.Warn("registered static input cannot be restored; using current packet", "key", key, "error", err)
+			}
+		case err != nil:
+			return "", fmt.Errorf("wego: registered static input %q: %w", key, err)
+		case actual != digest:
 			return "", status.Error(codes.DataLoss, "wego: registered static input digest differs")
+		default:
+			packet = saved.Packet
 		}
-		packet = saved.Packet
 	}
 	prepared[key] = staticInput{Digest: digest, Packet: packet}
 	encoded, err := json.Marshal(packet)

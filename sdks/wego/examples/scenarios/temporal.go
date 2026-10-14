@@ -111,7 +111,7 @@ func (s *temporalService) execute(ctx context.Context, in *pb.Request, method st
 		quoted := strconv.Quote(in.CorrelationId)
 		// event 事件等待返回的普通 JSON 数据，用于检查匹配条件与 payload
 		var event map[string]any
-		event, err = task.WaitForEvent(ctx, "approval:granted", "input.routing.correlation_id == "+quoted, model.EventWait{})
+		event, err = task.WaitForEvent(ctx, "approval:granted", "input.routing.correlation_id == "+quoted)
 		if err != nil {
 			return nil, err
 		}
@@ -119,7 +119,7 @@ func (s *temporalService) execute(ctx context.Context, in *pb.Request, method st
 		out.Message = fmt.Sprint(event["approved_by"])
 	case "Process", "Onboard", "ShipItems":
 		// conn, e 借用当前执行所属连接，子调用复用父身份且不能关闭共享资源
-		conn, e := task.Client(ctx)
+		conn, e := task.Conn(ctx)
 		if e != nil {
 			return nil, e
 		}
@@ -281,7 +281,7 @@ func Temporal(ctx context.Context, report *Report) (err error) {
 			pb.Temporal_SyncRecords_FullMethodName,
 			task.WithConcurrency(model.Concurrency{
 				Expression:    "input.routing.account",
-				MaxRuns:       pointer(int32(1)),
+				MaxRuns:       1,
 				LimitStrategy: model.CancelInProgress,
 			}),
 		),

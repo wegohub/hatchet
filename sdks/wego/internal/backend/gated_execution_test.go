@@ -177,7 +177,7 @@ func TestGatedRunnerAdmissionPaths(t *testing.T) {
 					t.Fatal(e)
 				}
 				e := nextGateEvent(t, ctx, reporter)
-				if e.EventType != v0.ActionEventTypeFailed || status.Code(wire.DecodeError(e.EventPayload.(string))) != codes.Internal {
+				if e.EventType != v0.ActionEventTypeFailed || status.Code(wire.DecodeError(reportedErrorText(t, e.EventPayload))) != codes.Internal {
 					t.Fatal(e)
 				}
 			} else {

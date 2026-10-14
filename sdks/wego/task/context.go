@@ -2,8 +2,6 @@ package task
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"time"
 
 	"go.opentelemetry.io/otel/trace"
@@ -37,8 +35,8 @@ func Info(ctx context.Context) (model.TaskInfo, bool) {
 	return e.Info(), true
 }
 
-// Client 返回当前实例的借用连接，可调用子任务；它不能关闭共享资源
-func Client(ctx context.Context) (*client.Conn, error) {
+// Conn 返回当前实例的借用连接，可调用子任务；Close 和 Shutdown 返回 ErrBorrowedResource。
+func Conn(ctx context.Context) (*client.Conn, error) {
 	// s, ok 获取任务上下文能力与存在标记；普通网络入口没有任务身份，必须检查后再使用
 	s, ok := callctx.Get(ctx)
 	// 缺少所需的可选值、类型或上下文能力，走此入口定义的回退或失败路径，不使用无效值
@@ -96,17 +94,17 @@ func Sleep(ctx context.Context, d time.Duration) error {
 
 // WaitForEvent 等待指定事件键及 CEL 条件匹配的事件；支持 scope 和回溯时间
 // 例如 key="event-1"、scope="scope-a"，scope-b 的同键事件不能满足此等待
-func WaitForEvent(ctx context.Context, key, expression string, opts ...model.EventWait) (map[string]any, error) {
+func WaitForEvent(ctx context.Context, key, expression string, opts ...EventWaitOption) (map[string]any, error) {
 	// e, err 获取任务上下文能力与存在标记；普通网络入口没有任务身份，必须检查后再使用
 	e, err := execution(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	// options 构造当前步骤的数据对象，字段在提交、编码或断言之前一次性初始化
-	options := model.EventWait{}
-	if len(opts) > 0 {
-		options = opts[0]
+	// 每次调用独立解析选项；不复用其他等待的条件或序号。
+	options, err := eventWaitOptions(opts)
+	if err != nil {
+		return nil, err
 	}
 	return e.WaitEvent(ctx, key, expression, options)
 }
@@ -145,57 +143,8 @@ func ParentOutput(ctx context.Context, name string, out any) error {
 	return e.ParentOutput(ctx, name, out)
 }
 
-// WithRefreshTimeout 执行 fn 的同时定期续期任务预算；fn 结束或续期失败后取消后台续期并合并错误
-// 例如 interval=5 秒时每 5 秒把预算延长 10 秒，fn 返回后立即停止续期
-func WithRefreshTimeout[T any](ctx context.Context, interval time.Duration, fn func(context.Context) (T, error)) (T, error) {
-	// zero 泛型返回值的零值，用于配置或上下文无效时返回，不表示业务成功
-	var zero T
-	if interval <= 0 {
-		return zero, fmt.Errorf("wego: refresh interval must be positive")
-	}
-
-	// e, err 获取任务上下文能力与存在标记；普通网络入口没有任务身份，必须检查后再使用
-	e, err := execution(ctx)
-	if err != nil {
-		return zero, err
-	}
-
-	// derived, cancel 创建当前步骤的派生上下文及取消函数，退出时必须释放取消资源，避免后台等待泄漏
-	derived, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	// done 创建协调通知通道；等待方通过它确认步骤已经发生，而不靠固定 sleep 猜测时序
-	done := make(chan error, 1)
-	go func() {
-		// ticker 周期计时器，驱动轮询或续期；当前步骤结束时停止以释放资源
-		ticker := time.NewTicker(interval)
-		defer ticker.Stop()
-
-		// 重复当前步骤直到完成条件或取消信号满足；等待期间重新检查状态，避免把一次唤醒当作最终结果
-		for {
-			// 在业务进展和上下文取消之间等待；deadline 或 Stop 到达时结束阻塞并走清理路径
-			select {
-			case <-derived.Done():
-				done <- nil
-				return
-			case <-ticker.C:
-				// err 保存任务续期结果；续期失败取消业务上下文并结束后台 ticker
-				if err := e.Refresh(derived, interval*2); err != nil {
-					done <- err
-					cancel()
-					return
-				}
-			}
-		}
-	}()
-	// result, err 保存此步骤的并行结果或状态快照，后续逻辑分别使用对应值
-	result, err := fn(derived)
-	cancel()
-	return result, errors.Join(err, <-done)
-}
-
 // WaitForEventInto 用单次 durable 等待还原任意业务目标；例如事件中的 protobuf bytes 保持原值。
-func WaitForEventInto(ctx context.Context, key, expression string, target any, opts ...model.EventWait) error {
+func WaitForEventInto(ctx context.Context, key, expression string, target any, opts ...EventWaitOption) error {
 	execution, err := execution(ctx)
 	if err != nil {
 		return err
@@ -207,12 +156,9 @@ func WaitForEventInto(ctx context.Context, key, expression string, target any, o
 	if !ok {
 		return model.ErrDurableContext
 	}
-	option := model.EventWait{}
-	if len(opts) > 1 {
-		return fmt.Errorf("wego: event wait accepts one options value")
+	options, err := eventWaitOptions(opts)
+	if err != nil {
+		return err
 	}
-	if len(opts) == 1 {
-		option = opts[0]
-	}
-	return capability.WaitEventInto(ctx, key, expression, target, option)
+	return capability.WaitEventInto(ctx, key, expression, target, options)
 }

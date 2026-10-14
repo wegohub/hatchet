@@ -1,6 +1,6 @@
 # MinIO codec 示例
 
-使用 **AWS SDK for Go v2 的 S3 客户端**连接 MinIO，配置 `BaseEndpoint` 和 `UsePathStyle=true`。示例实现见 [payload](payload/s3.go)，业务调用及断言见 [MinIOCodec](../scenarios/minio_codec.go)。不依赖 MinIO 专用 Go 客户端。
+使用 **AWS SDK for Go v2 的 S3 客户端**连接 MinIO，配置 `BaseEndpoint` 和 `UsePathStyle=true`。正式组件见 [middleware/payload](../../middleware/payload/s3.go)，业务调用及断言见 [MinIOCodec](../scenarios/minio_codec.go)。不依赖 MinIO 专用 Go 客户端。
 
 先按 [部署说明](../../deployment/compose/README.md) 启动 MinIO。本机 Hatchet 租户需启用 Durable Streams，连接地址与现有示例相同。从仓库根目录运行：
 
@@ -21,7 +21,7 @@ python3 sdks/wego/scripts/local-test.py env GOWORK=off go -C sdks/wego test -rac
 | HATCHET_CLIENT_TOKEN | 现有 Hatchet 令牌 |
 | WEGO_COMPOSE_ENV | 覆盖脚本读取的私有部署文件路径 |
 
-业务配置直接组合 middleware：
+业务从 `github.com/hatchet-dev/hatchet/sdks/wego/middleware/payload` 导入组件，再组合 middleware：
 
 ```go
 objects, err := payload.NewS3(ctx, payload.ConfigFromEnv(), "application-streams/")

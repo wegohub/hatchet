@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/hatchet-dev/hatchet/sdks/wego/examples/codec/payload"
 	"github.com/hatchet-dev/hatchet/sdks/wego/internal/spec"
 	"github.com/hatchet-dev/hatchet/sdks/wego/middleware"
+	"github.com/hatchet-dev/hatchet/sdks/wego/middleware/payload"
 )
 
 // TestV6Representations 无标记字段始终属于业务；显式 null 不等于缺少 value。

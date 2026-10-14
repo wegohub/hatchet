@@ -76,6 +76,9 @@ func boundedStepReport(event *v0.ActionEvent, limit int) (*v0.ActionEvent, error
 		copy.EventTimestamp = &now
 	}
 	for attempt := 0; attempt < 2; attempt++ {
+		if !native && copy.EventType == v0.ActionEventTypeFailed {
+			copy.EventPayload = wire.ErrorReportPayload(copy.EventPayload)
+		}
 		payload, err := json.Marshal(copy.EventPayload)
 		code := codes.InvalidArgument
 		if err == nil {
@@ -141,6 +144,9 @@ func boundedBatchMember(base v0.BatchActionEvent, original *v0.BatchActionEventI
 	}
 	single := base
 	for attempt := 0; attempt < 2; attempt++ {
+		if kind == v0.ActionEventTypeFailed && !native[item.TaskRunExternalId] {
+			item.EventPayload = wire.ErrorReportPayload(item.EventPayload)
+		}
 		single.EventType, single.Items = kind, []*v0.BatchActionEventItem{&item}
 		size, err := batchReportSize(&single)
 		if err == nil && size <= limit {

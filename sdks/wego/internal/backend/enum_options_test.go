@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"math"
 	"strings"
 	"testing"
 
@@ -10,6 +11,46 @@ import (
 	"github.com/hatchet-dev/hatchet/sdks/wego/internal/spec"
 	"github.com/hatchet-dev/hatchet/sdks/wego/model"
 )
+
+// TestConcurrencyMaxRunsValue 验证零值保留服务端默认，正数映射及负数拒绝。
+func TestConcurrencyMaxRunsValue(t *testing.T) {
+	for _, maximum := range []int32{0, 1, 2, math.MaxInt32, -1} {
+		policy := spec.Task{Concurrency: []model.Concurrency{{MaxRuns: maximum}}}
+		request, err := workflowDefinition("fixture", policy, "")
+		if maximum < 0 {
+			if err == nil || policy.Validate() == nil {
+				t.Fatal("negative static concurrency accepted")
+			}
+			continue
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		actual := request.ConcurrencyArr[0].MaxRuns
+		if maximum == 0 {
+			if actual != nil {
+				t.Fatal("unspecified maximum must remain absent", actual)
+			}
+		} else if actual == nil || *actual != maximum {
+			t.Fatal("explicit maximum changed", actual, maximum)
+		}
+		// 转换后的协议字段不借用调用方的结构体字段。
+		policy.Concurrency[0].MaxRuns = 3
+		if actual != nil && *actual != maximum {
+			t.Fatal("protocol maximum aliases caller configuration")
+		}
+	}
+	// 动态表达式允许返回 0；静态字段未指定时不能主动填入 1 或改写表达式。
+	expression := "0"
+	request, err := workflowDefinition("fixture", spec.Task{Concurrency: []model.Concurrency{{MaxRunsExpression: expression}}}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	actual := request.ConcurrencyArr[0]
+	if actual.MaxRuns != nil || actual.MaxRunsExpression == nil || *actual.MaxRunsExpression != expression {
+		t.Fatal("dynamic limit changed", actual)
+	}
+}
 
 // TestEnumDefinitionPresence 验证空值保留协议缺省，显式常量映射到对应官方枚举。
 func TestEnumDefinitionPresence(t *testing.T) {

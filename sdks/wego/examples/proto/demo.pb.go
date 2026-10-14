@@ -260,6 +260,8 @@ type Reply struct {
 	InvocationCount int32 `protobuf:"varint,12,opt,name=invocation_count,json=invocationCount,proto3" json:"invocation_count,omitempty"`
 	// child_run_ids 批量子任务的稳定运行身份集合
 	ChildRunIds []string `protobuf:"bytes,13,rep,name=child_run_ids,json=childRunIds,proto3" json:"child_run_ids,omitempty"`
+	// child_results 按输入顺序收集的完整子任务响应，包含业务输出与父子运行身份
+	ChildResults []*Reply `protobuf:"bytes,14,rep,name=child_results,json=childResults,proto3" json:"child_results,omitempty"`
 	// unknownFields 保留当前版本不认识的字段，重新编码时保持协议前向兼容
 	unknownFields protoimpl.UnknownFields
 	// sizeCache protobuf 编码大小缓存，由运行时维护，不表示业务消息条数
@@ -420,6 +422,15 @@ func (x *Reply) GetChildRunIds() []string {
 	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问
 	if x != nil {
 		return x.ChildRunIds
+	}
+	return nil
+}
+
+// GetChildResults 读取 ChildResults；nil 接收者返回该字段零值，不创建业务结果
+func (x *Reply) GetChildResults() []*Reply {
+	// 非 nil 接收者读取实例状态；nil 路径返回字段零值或类型级描述，避免空指针访问
+	if x != nil {
+		return x.ChildResults
 	}
 	return nil
 }
@@ -605,7 +616,7 @@ const file_sdks_wego_examples_proto_demo_proto_rawDesc = "" +
 	"\tevent_key\x18\v \x01(\tR\beventKey\x12\x1b\n" +
 	"\timage_url\x18\f \x01(\tR\bimageUrl\x12\x18\n" +
 	"\afilters\x18\r \x03(\tR\afilters\x12+\n" +
-	"\x05items\x18\x0e \x03(\v2\x15.wego.example.v1.ItemR\x05items\"\xc0\x03\n" +
+	"\x05items\x18\x0e \x03(\v2\x15.wego.example.v1.ItemR\x05items\"\xfd\x03\n" +
 	"\x05Reply\x12\x18\n" +
 	"\amessage\x18\x01 \x01(\tR\amessage\x12\x15\n" +
 	"\x06run_id\x18\x02 \x01(\tR\x05runId\x12\x1b\n" +
@@ -622,7 +633,8 @@ const file_sdks_wego_examples_proto_demo_proto_rawDesc = "" +
 	" \x01(\tR\fprocessedUrl\x12E\n" +
 	"\x0eimage_metadata\x18\v \x01(\v2\x1e.wego.example.v1.ImageMetadataR\rimageMetadata\x12)\n" +
 	"\x10invocation_count\x18\f \x01(\x05R\x0finvocationCount\x12\"\n" +
-	"\rchild_run_ids\x18\r \x03(\tR\vchildRunIds\"d\n" +
+	"\rchild_run_ids\x18\r \x03(\tR\vchildRunIds\x12;\n" +
+	"\rchild_results\x18\x0e \x03(\v2\x16.wego.example.v1.ReplyR\fchildResults\"d\n" +
 	"\rImageMetadata\x12\x12\n" +
 	"\x04size\x18\x01 \x01(\x05R\x04size\x12\x16\n" +
 	"\x06format\x18\x02 \x01(\tR\x06format\x12'\n" +
@@ -694,61 +706,62 @@ var file_sdks_wego_examples_proto_demo_proto_goTypes = []any{
 var file_sdks_wego_examples_proto_demo_proto_depIdxs = []int32{
 	3,  // 0: wego.example.v1.Request.items:type_name -> wego.example.v1.Item
 	2,  // 1: wego.example.v1.Reply.image_metadata:type_name -> wego.example.v1.ImageMetadata
-	0,  // 2: wego.example.v1.UnaryGreeter.SayHello:input_type -> wego.example.v1.Request
-	0,  // 3: wego.example.v1.UnaryGreeter.WaitHello:input_type -> wego.example.v1.Request
-	0,  // 4: wego.example.v1.UnaryGreeter.ChildHello:input_type -> wego.example.v1.Request
-	0,  // 5: wego.example.v1.Greeter.SayHello:input_type -> wego.example.v1.Request
-	0,  // 6: wego.example.v1.Greeter.WaitHello:input_type -> wego.example.v1.Request
-	0,  // 7: wego.example.v1.Greeter.ChildHello:input_type -> wego.example.v1.Request
-	0,  // 8: wego.example.v1.Greeter.UploadHellos:input_type -> wego.example.v1.Request
-	0,  // 9: wego.example.v1.Greeter.WatchHellos:input_type -> wego.example.v1.Request
-	0,  // 10: wego.example.v1.Greeter.ChatHellos:input_type -> wego.example.v1.Request
-	0,  // 11: wego.example.v1.Temporal.Charge:input_type -> wego.example.v1.Request
-	0,  // 12: wego.example.v1.Temporal.Validate:input_type -> wego.example.v1.Request
-	0,  // 13: wego.example.v1.Temporal.Fulfill:input_type -> wego.example.v1.Request
-	0,  // 14: wego.example.v1.Temporal.Process:input_type -> wego.example.v1.Request
-	0,  // 15: wego.example.v1.Temporal.Welcome:input_type -> wego.example.v1.Request
-	0,  // 16: wego.example.v1.Temporal.Followup:input_type -> wego.example.v1.Request
-	0,  // 17: wego.example.v1.Temporal.Onboard:input_type -> wego.example.v1.Request
-	0,  // 18: wego.example.v1.Temporal.ChargeWithRetries:input_type -> wego.example.v1.Request
-	0,  // 19: wego.example.v1.Temporal.Digest:input_type -> wego.example.v1.Request
-	0,  // 20: wego.example.v1.Temporal.Approval:input_type -> wego.example.v1.Request
-	0,  // 21: wego.example.v1.Temporal.Item:input_type -> wego.example.v1.Request
-	0,  // 22: wego.example.v1.Temporal.ShipItems:input_type -> wego.example.v1.Request
-	0,  // 23: wego.example.v1.Temporal.Report:input_type -> wego.example.v1.Request
-	0,  // 24: wego.example.v1.Temporal.SyncRecords:input_type -> wego.example.v1.Request
-	0,  // 25: wego.example.v1.Temporal.CallModel:input_type -> wego.example.v1.Request
-	0,  // 26: wego.example.v1.Temporal.LoggedCharge:input_type -> wego.example.v1.Request
-	1,  // 27: wego.example.v1.UnaryGreeter.SayHello:output_type -> wego.example.v1.Reply
-	1,  // 28: wego.example.v1.UnaryGreeter.WaitHello:output_type -> wego.example.v1.Reply
-	1,  // 29: wego.example.v1.UnaryGreeter.ChildHello:output_type -> wego.example.v1.Reply
-	1,  // 30: wego.example.v1.Greeter.SayHello:output_type -> wego.example.v1.Reply
-	1,  // 31: wego.example.v1.Greeter.WaitHello:output_type -> wego.example.v1.Reply
-	1,  // 32: wego.example.v1.Greeter.ChildHello:output_type -> wego.example.v1.Reply
-	1,  // 33: wego.example.v1.Greeter.UploadHellos:output_type -> wego.example.v1.Reply
-	1,  // 34: wego.example.v1.Greeter.WatchHellos:output_type -> wego.example.v1.Reply
-	1,  // 35: wego.example.v1.Greeter.ChatHellos:output_type -> wego.example.v1.Reply
-	1,  // 36: wego.example.v1.Temporal.Charge:output_type -> wego.example.v1.Reply
-	1,  // 37: wego.example.v1.Temporal.Validate:output_type -> wego.example.v1.Reply
-	1,  // 38: wego.example.v1.Temporal.Fulfill:output_type -> wego.example.v1.Reply
-	1,  // 39: wego.example.v1.Temporal.Process:output_type -> wego.example.v1.Reply
-	1,  // 40: wego.example.v1.Temporal.Welcome:output_type -> wego.example.v1.Reply
-	1,  // 41: wego.example.v1.Temporal.Followup:output_type -> wego.example.v1.Reply
-	1,  // 42: wego.example.v1.Temporal.Onboard:output_type -> wego.example.v1.Reply
-	1,  // 43: wego.example.v1.Temporal.ChargeWithRetries:output_type -> wego.example.v1.Reply
-	1,  // 44: wego.example.v1.Temporal.Digest:output_type -> wego.example.v1.Reply
-	1,  // 45: wego.example.v1.Temporal.Approval:output_type -> wego.example.v1.Reply
-	1,  // 46: wego.example.v1.Temporal.Item:output_type -> wego.example.v1.Reply
-	1,  // 47: wego.example.v1.Temporal.ShipItems:output_type -> wego.example.v1.Reply
-	1,  // 48: wego.example.v1.Temporal.Report:output_type -> wego.example.v1.Reply
-	1,  // 49: wego.example.v1.Temporal.SyncRecords:output_type -> wego.example.v1.Reply
-	1,  // 50: wego.example.v1.Temporal.CallModel:output_type -> wego.example.v1.Reply
-	1,  // 51: wego.example.v1.Temporal.LoggedCharge:output_type -> wego.example.v1.Reply
-	27, // [27:52] is the sub-list for method output_type
-	2,  // [2:27] is the sub-list for method input_type
-	2,  // [2:2] is the sub-list for extension type_name
-	2,  // [2:2] is the sub-list for extension extendee
-	0,  // [0:2] is the sub-list for field type_name
+	1,  // 2: wego.example.v1.Reply.child_results:type_name -> wego.example.v1.Reply
+	0,  // 3: wego.example.v1.UnaryGreeter.SayHello:input_type -> wego.example.v1.Request
+	0,  // 4: wego.example.v1.UnaryGreeter.WaitHello:input_type -> wego.example.v1.Request
+	0,  // 5: wego.example.v1.UnaryGreeter.ChildHello:input_type -> wego.example.v1.Request
+	0,  // 6: wego.example.v1.Greeter.SayHello:input_type -> wego.example.v1.Request
+	0,  // 7: wego.example.v1.Greeter.WaitHello:input_type -> wego.example.v1.Request
+	0,  // 8: wego.example.v1.Greeter.ChildHello:input_type -> wego.example.v1.Request
+	0,  // 9: wego.example.v1.Greeter.UploadHellos:input_type -> wego.example.v1.Request
+	0,  // 10: wego.example.v1.Greeter.WatchHellos:input_type -> wego.example.v1.Request
+	0,  // 11: wego.example.v1.Greeter.ChatHellos:input_type -> wego.example.v1.Request
+	0,  // 12: wego.example.v1.Temporal.Charge:input_type -> wego.example.v1.Request
+	0,  // 13: wego.example.v1.Temporal.Validate:input_type -> wego.example.v1.Request
+	0,  // 14: wego.example.v1.Temporal.Fulfill:input_type -> wego.example.v1.Request
+	0,  // 15: wego.example.v1.Temporal.Process:input_type -> wego.example.v1.Request
+	0,  // 16: wego.example.v1.Temporal.Welcome:input_type -> wego.example.v1.Request
+	0,  // 17: wego.example.v1.Temporal.Followup:input_type -> wego.example.v1.Request
+	0,  // 18: wego.example.v1.Temporal.Onboard:input_type -> wego.example.v1.Request
+	0,  // 19: wego.example.v1.Temporal.ChargeWithRetries:input_type -> wego.example.v1.Request
+	0,  // 20: wego.example.v1.Temporal.Digest:input_type -> wego.example.v1.Request
+	0,  // 21: wego.example.v1.Temporal.Approval:input_type -> wego.example.v1.Request
+	0,  // 22: wego.example.v1.Temporal.Item:input_type -> wego.example.v1.Request
+	0,  // 23: wego.example.v1.Temporal.ShipItems:input_type -> wego.example.v1.Request
+	0,  // 24: wego.example.v1.Temporal.Report:input_type -> wego.example.v1.Request
+	0,  // 25: wego.example.v1.Temporal.SyncRecords:input_type -> wego.example.v1.Request
+	0,  // 26: wego.example.v1.Temporal.CallModel:input_type -> wego.example.v1.Request
+	0,  // 27: wego.example.v1.Temporal.LoggedCharge:input_type -> wego.example.v1.Request
+	1,  // 28: wego.example.v1.UnaryGreeter.SayHello:output_type -> wego.example.v1.Reply
+	1,  // 29: wego.example.v1.UnaryGreeter.WaitHello:output_type -> wego.example.v1.Reply
+	1,  // 30: wego.example.v1.UnaryGreeter.ChildHello:output_type -> wego.example.v1.Reply
+	1,  // 31: wego.example.v1.Greeter.SayHello:output_type -> wego.example.v1.Reply
+	1,  // 32: wego.example.v1.Greeter.WaitHello:output_type -> wego.example.v1.Reply
+	1,  // 33: wego.example.v1.Greeter.ChildHello:output_type -> wego.example.v1.Reply
+	1,  // 34: wego.example.v1.Greeter.UploadHellos:output_type -> wego.example.v1.Reply
+	1,  // 35: wego.example.v1.Greeter.WatchHellos:output_type -> wego.example.v1.Reply
+	1,  // 36: wego.example.v1.Greeter.ChatHellos:output_type -> wego.example.v1.Reply
+	1,  // 37: wego.example.v1.Temporal.Charge:output_type -> wego.example.v1.Reply
+	1,  // 38: wego.example.v1.Temporal.Validate:output_type -> wego.example.v1.Reply
+	1,  // 39: wego.example.v1.Temporal.Fulfill:output_type -> wego.example.v1.Reply
+	1,  // 40: wego.example.v1.Temporal.Process:output_type -> wego.example.v1.Reply
+	1,  // 41: wego.example.v1.Temporal.Welcome:output_type -> wego.example.v1.Reply
+	1,  // 42: wego.example.v1.Temporal.Followup:output_type -> wego.example.v1.Reply
+	1,  // 43: wego.example.v1.Temporal.Onboard:output_type -> wego.example.v1.Reply
+	1,  // 44: wego.example.v1.Temporal.ChargeWithRetries:output_type -> wego.example.v1.Reply
+	1,  // 45: wego.example.v1.Temporal.Digest:output_type -> wego.example.v1.Reply
+	1,  // 46: wego.example.v1.Temporal.Approval:output_type -> wego.example.v1.Reply
+	1,  // 47: wego.example.v1.Temporal.Item:output_type -> wego.example.v1.Reply
+	1,  // 48: wego.example.v1.Temporal.ShipItems:output_type -> wego.example.v1.Reply
+	1,  // 49: wego.example.v1.Temporal.Report:output_type -> wego.example.v1.Reply
+	1,  // 50: wego.example.v1.Temporal.SyncRecords:output_type -> wego.example.v1.Reply
+	1,  // 51: wego.example.v1.Temporal.CallModel:output_type -> wego.example.v1.Reply
+	1,  // 52: wego.example.v1.Temporal.LoggedCharge:output_type -> wego.example.v1.Reply
+	28, // [28:53] is the sub-list for method output_type
+	3,  // [3:28] is the sub-list for method input_type
+	3,  // [3:3] is the sub-list for extension type_name
+	3,  // [3:3] is the sub-list for extension extendee
+	0,  // [0:3] is the sub-list for field type_name
 }
 
 // init 初始化文件类型描述和依赖关联；已初始化时立即返回，构建后释放临时类型索引

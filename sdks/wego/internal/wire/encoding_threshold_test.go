@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/hatchet-dev/hatchet/sdks/wego/examples/codec/payload"
 	"github.com/hatchet-dev/hatchet/sdks/wego/internal/spec"
 	"github.com/hatchet-dev/hatchet/sdks/wego/middleware"
+	"github.com/hatchet-dev/hatchet/sdks/wego/middleware/payload"
 	"google.golang.org/protobuf/proto"
 )
 

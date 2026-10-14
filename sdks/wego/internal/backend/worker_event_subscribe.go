@@ -3,6 +3,7 @@ package backend
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -178,7 +179,7 @@ func (n *workerEvents) listen(topic, cursor string) {
 			frame, err := n.codec.Decode(budget, stream.EventMethod, entry.Payload)
 			cancel()
 			if err != nil {
-				return err
+				return fmt.Errorf("wego: worker event topic=%q cursor=%q: %w", topic, entry.Cursor, err)
 			}
 			if err := n.accept(topic, frame); err != nil {
 				return err

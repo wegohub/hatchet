@@ -14,12 +14,12 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/hatchet-dev/hatchet/sdks/wego/client"
+	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
 
-	"github.com/hatchet-dev/hatchet/sdks/wego/examples/codec/payload"
 	pb "github.com/hatchet-dev/hatchet/sdks/wego/examples/proto"
 	"github.com/hatchet-dev/hatchet/sdks/wego/examples/scenarios"
 	"github.com/hatchet-dev/hatchet/sdks/wego/internal/backend"
@@ -27,8 +27,86 @@ import (
 	"github.com/hatchet-dev/hatchet/sdks/wego/internal/spec"
 	"github.com/hatchet-dev/hatchet/sdks/wego/internal/wire"
 	"github.com/hatchet-dev/hatchet/sdks/wego/middleware"
+	"github.com/hatchet-dev/hatchet/sdks/wego/middleware/payload"
 	"github.com/hatchet-dev/hatchet/sdks/wego/runtime"
 )
+
+// TestReadableFailureInConsole 验证真实引擎保存 JSON 错误对象，控制台与客户端读取同一失败。
+func TestReadableFailureInConsole(t *testing.T) {
+	preflight(t)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	// 服务返回带详情的参数错误，例如缺少 id；任务必须失败而非返回成功载荷。
+	service := &scenarios.Service{Say: func(context.Context, *pb.Request) (*pb.Reply, error) {
+		detailed, err := status.New(codes.InvalidArgument, "missing id").WithDetails(&errdetails.BadRequest{
+			FieldViolations: []*errdetails.BadRequest_FieldViolation{{Field: "id", Description: "required"}},
+		})
+		if err != nil {
+			return nil, err
+		}
+		return nil, detailed.Err()
+	}}
+	h, err := scenarios.Start(ctx, "readable_failure", &scenarios.Report{}, service, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := h.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	ref, err := h.Conn.RunNoWait(ctx, pb.UnaryGreeter_SayHello_FullMethodName, &pb.Request{Message: "missing id"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ref.Result(ctx); status.Code(err) != codes.InvalidArgument || len(status.Convert(err).Details()) != 1 {
+		t.Fatalf("客户端错误详情未恢复: %v", err)
+	}
+	// Console 的运行错误必须是对象 JSON，不能成为带引号的 base64 字符串。
+	config := spec.Defaults()
+	for _, option := range h.Runtime {
+		option(&config)
+	}
+	check := time.NewTicker(200 * time.Millisecond)
+	defer check.Stop()
+	for ctx.Err() == nil {
+		request, err := http.NewRequestWithContext(ctx, http.MethodGet, config.ServerURL+"/api/v1/stable/workflow-runs/"+ref.RunID, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		request.Header.Set("Authorization", "Bearer "+config.Token)
+		response, err := http.DefaultClient.Do(request)
+		if err != nil {
+			t.Fatal(err)
+		}
+		// details 读取 Output 页签使用的运行错误正文。
+		var details struct {
+			// Run 保存运行终态的错误正文。
+			Run struct {
+				// ErrorMessage 是控制台显示的原始错误字符串。
+				ErrorMessage string `json:"errorMessage"`
+			} `json:"run"`
+		}
+		decodeErr := json.NewDecoder(io.LimitReader(response.Body, 4<<20)).Decode(&details)
+		response.Body.Close()
+		if response.StatusCode != http.StatusOK || decodeErr != nil {
+			t.Fatalf("读取 Console 运行详情失败: status=%d error=%v", response.StatusCode, decodeErr)
+		}
+		if details.Run.ErrorMessage != "" {
+			// stored 必须是结构化 JSON 对象；带引号的序列化字符串不能通过此断言。
+			var stored map[string]any
+			if err := json.Unmarshal([]byte(details.Run.ErrorMessage), &stored); err != nil || stored["message"] != "missing id" || stored["code_name"] != "InvalidArgument" {
+				t.Fatalf("控制台运行错误不可读: %q (%v)", details.Run.ErrorMessage, err)
+			}
+			return
+		}
+		select {
+		case <-ctx.Done():
+		case <-check.C:
+		}
+	}
+	t.Fatal("控制台未收到运行错误:", ctx.Err())
+}
 
 // consoleRequest 使用 Console 的公开 REST 路径；Token 仅用于请求，不写日志和报告。
 func consoleRequest(t *testing.T, ctx context.Context, config spec.Runtime, path string, body any) json.RawMessage {

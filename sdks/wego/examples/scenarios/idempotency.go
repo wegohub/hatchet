@@ -21,6 +21,11 @@ func Idempotency(ctx context.Context, report *Report) (err error) {
 		if basedOnStatus {
 			ttl = 10 * time.Second
 		}
+		// method 明确区分固定时间窗口与运行终态释放，TTL 在后者中作为兜底。
+		method := model.IdempotencyMethodTTL
+		if basedOnStatus {
+			method = model.IdempotencyMethodStatus
+		}
 		// started 创建协调通知通道；等待方通过它确认步骤已经发生，而不靠固定 sleep 猜测时序
 		started := make(chan struct{}, 2)
 		// release 创建协调通知通道；等待方通过它确认步骤已经发生，而不靠固定 sleep 猜测时序
@@ -37,7 +42,11 @@ func Idempotency(ctx context.Context, report *Report) (err error) {
 					return nil, ctx.Err()
 				}
 			},
-		}, nil, worker.WithTask(pb.UnaryGreeter_SayHello_FullMethodName, task.WithIdempotencyTTL("input.routing.id", basedOnStatus, ttl)))
+		}, nil, worker.WithTask(pb.UnaryGreeter_SayHello_FullMethodName, task.WithIdempotency(model.Idempotency{
+			Expression: "input.routing.id",
+			Method:     method,
+			TTL:        ttl,
+		})))
 		if e != nil {
 			return e
 		}

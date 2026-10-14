@@ -90,7 +90,7 @@ func TestDurableStreamsGatedWorkerP0(t *testing.T) {
 	releaseSecond := make(chan struct{})
 	// invocations 统计真正进入业务的执行，落选分发不得增加
 	var invocations atomic.Int32
-	definition := ports.Definition{Name: binding.Name("/fixture/Probe"), RPCMethod: "/fixture/Probe", Policy: spec.Task{Retries: option.Some(1), IdempotencyExpression: "input._wego.idempotency_key", IdempotencyTTL: 24 * time.Hour}}
+	definition := ports.Definition{Name: binding.Name("/fixture/Probe"), RPCMethod: "/fixture/Probe", Policy: spec.Task{Retries: option.Some(1), Idempotency: option.Some(model.Idempotency{Expression: "input._wego.idempotency_key", TTL: 24 * time.Hour})}}
 	definition.BeforeStart = func(ctx context.Context, info ports.StartInfo) (ports.Admission, error) {
 		request := stream.ClaimRequest{Namespace: config.Namespace, TaskID: info.Task.TaskRunID, RunID: info.Task.RunID, Method: "/fixture/Probe",
 			WorkerKey: info.WorkerKey, Writer: uuid.NewString(), Epoch: int32(info.Task.RetryCount), InputDigest: digest}

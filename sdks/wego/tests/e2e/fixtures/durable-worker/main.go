@@ -59,8 +59,8 @@ func run() error {
 				return nil, err
 			}
 
-			// conn, err 接收 task.Client 的返回值，同时保存错误供紧接着的分支检查；失败时不继续使用结果
-			conn, err := task.Client(ctx)
+			// conn, err 接收 task.Conn 的返回值，同时保存错误供紧接着的分支检查；失败时不继续使用结果
+			conn, err := task.Conn(ctx)
 			if err != nil {
 				return nil, err
 			}

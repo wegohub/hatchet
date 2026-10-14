@@ -334,7 +334,7 @@ func Middleware(ctx context.Context, report *Report) (err error) {
 			pb.UnaryGreeter_SayHello_FullMethodName,
 			task.WithConcurrency(model.Concurrency{
 				Expression:    "input.routing.group",
-				MaxRuns:       pointer(int32(1)),
+				MaxRuns:       1,
 				LimitStrategy: model.GroupRoundRobin,
 			}),
 		),

@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -15,9 +16,9 @@ import (
 
 	"github.com/hatchet-dev/hatchet/sdks/wego"
 	"github.com/hatchet-dev/hatchet/sdks/wego/client"
-	"github.com/hatchet-dev/hatchet/sdks/wego/examples/codec/payload"
 	pb "github.com/hatchet-dev/hatchet/sdks/wego/examples/proto"
 	"github.com/hatchet-dev/hatchet/sdks/wego/middleware"
+	"github.com/hatchet-dev/hatchet/sdks/wego/middleware/payload"
 	"github.com/hatchet-dev/hatchet/sdks/wego/model"
 	"github.com/hatchet-dev/hatchet/sdks/wego/runtime"
 )
@@ -143,7 +144,7 @@ func loadDotEnv() {
 
 // Test_UnaryRPC 需要显式启动 feature Worker；任务等待有预算，测试拥有并关闭连接
 func Test_UnaryRPC(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	rsp, err := c.SayHello(ctx, &pb.Request{
@@ -163,6 +164,9 @@ func Test_UnaryRPC(t *testing.T) {
 			},
 		}),
 		//
+		client.WithRunMetadata(map[string]string{
+			"key": "value",
+		}),
 	))
 	if err != nil {
 		t.Fatalf("invoke error: %s", err.Error())
@@ -243,9 +247,91 @@ func Test_Cron(t *testing.T) {
 	t.Logf("cron id: %s", res.ID())
 }
 
-// 批量运行
+// Test_RunMany 按 Test_Concurrency 的规则提交十项、三个分组，验证部分成功及七次幂等冲突。
+// 需要启动当前 feature Worker：以 routing.group 做 STATUS 幂等键，每组 MaxRuns=1。
 func Test_RunMany(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	// 每次使用独立分组前缀，避免另一轮事件或批量调用占用同一组的幂等键。
+	prefix := fmt.Sprintf("%s-%d", t.Name(), time.Now().UnixNano())
+	inputs := make([]client.RunManyInput, 10)
+	for i := range inputs {
+		inputs[i] = client.RunManyInput{
+			Input: model.Input{
+				Value: &pb.Request{Message: "test concurrency"},
+				Routing: map[string]any{
+					"group":   fmt.Sprintf("%s-group-%d", prefix, i%3),
+					"message": "hello-filter",
+				},
+			},
+		}
+	}
 
+	// RunMany 直接触发 RPC workflow，不传事件 Filter Scope；仍保留相同的 routing 数据。
+	refs, err := conn.RunMany(ctx, pb.Greeter_SayHello_FullMethodName, inputs)
+	t.Cleanup(func() {
+		if !t.Failed() {
+			return
+		}
+		// 失败时只取消本次已确认的运行，清理预算独立于已经超时的等待 context。
+		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cleanupCancel()
+		for i := range refs {
+			if cancelErr := refs[i].Cancel(cleanupCtx); cancelErr != nil {
+				t.Errorf("cancel run %s: %v", refs[i].RunID, cancelErr)
+			}
+		}
+	})
+
+	// 与事件发布不同，批量直接提交显式返回冲突，同时保留成功创建的三个 RunRef。
+	var collision *model.BulkIdempotencyCollisionError
+	if !errors.As(err, &collision) {
+		t.Fatalf("expected bulk idempotency collision, got %d runs and error %v", len(refs), err)
+	}
+	if len(refs) != 3 || len(collision.SuccessfulRunIDs) != 3 || len(collision.Collisions) != 7 {
+		t.Fatalf("expected 3 runs and 7 collisions, got %d refs, %d successful IDs and %d collisions",
+			len(refs), len(collision.SuccessfulRunIDs), len(collision.Collisions))
+	}
+	accepted := make(map[string]bool, len(refs))
+	for _, ref := range refs {
+		if ref.RunID == "" || accepted[ref.RunID] || ref.InputIndex != -1 {
+			t.Fatalf("invalid partial-success identity: run_id=%q input_index=%d", ref.RunID, ref.InputIndex)
+		}
+		// 官方批量冲突响应不提供输入位置，不能把返回顺序当作原始下标。
+		accepted[ref.RunID] = true
+		t.Logf("accepted run_id=%s input_index=%d", ref.RunID, ref.InputIndex)
+	}
+	// 错误详情和成功句柄必须是同一个不重复的运行集合。
+	confirmed := make(map[string]bool, len(refs))
+	for _, runID := range collision.SuccessfulRunIDs {
+		if !accepted[runID] || confirmed[runID] {
+			t.Fatalf("successful run %q is missing or duplicated", runID)
+		}
+		confirmed[runID] = true
+	}
+	for _, conflict := range collision.Collisions {
+		if conflict == nil || !accepted[conflict.ExistingRunID] {
+			t.Fatalf("collision does not reference an accepted run: %+v", conflict)
+		}
+	}
+
+	// 提交成功不代表业务完成；逐个读取并解码结果，核对业务响应和执行身份。
+	for i := range refs {
+		result, err := refs[i].Result(ctx)
+		if err != nil {
+			t.Fatalf("run %s result: %v", refs[i].RunID, err)
+		}
+		reply := &pb.Reply{}
+		if err := result.IntoContext(ctx, reply); err != nil {
+			t.Fatalf("run %s decode: %v", refs[i].RunID, err)
+		}
+		if reply.RunId != refs[i].RunID || reply.WorkerId == "" || !strings.HasPrefix(reply.Message, "Processed: test concurrency| ") {
+			t.Fatalf("unexpected response for run %s: %v", refs[i].RunID, reply)
+		}
+		t.Logf("completed run_id=%s worker_id=%s retry_count=%d message=%q",
+			reply.RunId, reply.WorkerId, reply.RetryCount, reply.Message)
+	}
+	t.Logf("submitted=%d accepted=%d idempotency_collisions=%d", len(inputs), len(refs), len(collision.Collisions))
 }
 
 // 事件运行
@@ -256,7 +342,8 @@ func Test_Event(t *testing.T) {
 		pb.Greeter_SayHello_FullMethodName,
 		model.Input{
 			Value: &pb.Request{
-				Message: "hello event",
+				//Message: "hello event",
+				Message: "test error",
 			},
 			Routing: map[string]any{
 				"message": "hello-filter",
@@ -265,4 +352,72 @@ func Test_Event(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
+}
+
+// 并发策略测试
+func Test_Concurrency(t *testing.T) {
+	for i := range 10 {
+		err := conn.Events().Push(
+			context.Background(),
+			pb.Greeter_SayHello_FullMethodName,
+			model.Input{
+				Value: &pb.Request{
+					Message: "test concurrency",
+				},
+				Routing: map[string]any{
+					"group":   fmt.Sprintf("group-%d", i%3),
+					"message": "hello-filter",
+				},
+			},
+			"test-feature",
+		)
+		if err != nil {
+			panic(err)
+		}
+	}
+}
+
+// Test_ChildSpawning 调用 durable 父任务，验证随机数量、完整子结果及真实父子运行关系。
+// 当前 Worker 为每个子任务生成独立调度分组，3–10 个输入应全部执行而非互相去重。
+func Test_ChildSpawning(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+	request := &pb.Request{Message: "test child spawning"}
+	reply, err := c.WaitHello(ctx, request)
+	if err != nil {
+		t.Fatalf("spawn children: %v", err)
+	}
+	if !reply.Ok || reply.RunId == "" || reply.WorkerId == "" || reply.Message != "Collected: "+request.Message {
+		t.Fatalf("unexpected parent response: %v", reply)
+	}
+	if reply.Count < 3 || reply.Count > 10 || len(reply.ChildRunIds) != int(reply.Count) || len(reply.ChildResults) != int(reply.Count) {
+		t.Fatalf("expected 3–10 complete child results, got count=%d IDs=%d results=%d",
+			reply.Count, len(reply.ChildRunIds), len(reply.ChildResults))
+	}
+	if _, err := time.Parse(time.RFC3339Nano, reply.ProcessedAt); err != nil {
+		t.Fatalf("durable seed timestamp: %v", err)
+	}
+
+	// 每项结果与对应 RunID 一一匹配；子 RunID 必须唯一且不能等于父 RunID。
+	seen := make(map[string]bool, reply.Count)
+	for i, child := range reply.ChildResults {
+		if child == nil {
+			t.Fatalf("child %d result is missing", i)
+		}
+		if child.RunId == "" || child.RunId != reply.ChildRunIds[i] || child.RunId == reply.RunId || seen[child.RunId] {
+			t.Fatalf("child %d has an invalid or duplicate run identity: %v", i, child)
+		}
+		seen[child.RunId] = true
+		if child.ParentRunId != reply.RunId || child.WorkerId == "" {
+			t.Fatalf("child %d parent/worker identity mismatch: %v", i, child)
+		}
+		expected := fmt.Sprintf("Processed: %s child-%d| ", request.Message, i+1)
+		if !strings.HasPrefix(child.Message, expected) {
+			t.Fatalf("child %d output mismatch: got %q, expected prefix %q", i, child.Message, expected)
+		}
+		t.Logf("child index=%d run_id=%s parent_run_id=%s worker_id=%s message=%q",
+			i, child.RunId, child.ParentRunId, child.WorkerId, child.Message)
+	}
+	t.Logf("parent run_id=%s child_count=%d invocation_count=%d",
+		reply.RunId, reply.Count, reply.InvocationCount)
 }

@@ -150,7 +150,9 @@ func (b *Backend) Worker(
 	// runner 只接管配置持久门禁的任务，注册和容量仍使用同一官方 Worker
 	view.dispatcher.runner = newGatedRunner(view.dispatcher, config, panicHandler)
 	// native 公开执行器，仅通过已发布的方法使用，不读取私有字段
-	native, err := oldworker.NewWorker(oldworker.WithClient(view), oldworker.WithName(name), oldworker.WithSlotConfig(map[string]int32{"default": int32(config.Slots), "durable": int32(config.DurableSlots)}), oldworker.WithLabels(config.Labels), oldworker.WithLogger(b.raw.Logger()))
+	// 只替换执行器的日志出口；workflow/action 注册及任务下发仍使用摘要 ID。
+	workerLogger := b.raw.Logger().Output(workerLogWriter(config.Logger, b.config.Namespace, definitions))
+	native, err := oldworker.NewWorker(oldworker.WithClient(view), oldworker.WithName(name), oldworker.WithSlotConfig(map[string]int32{"default": int32(config.Slots), "durable": int32(config.DurableSlots)}), oldworker.WithLabels(config.Labels), oldworker.WithLogger(&workerLogger))
 	if err != nil {
 		return nil, Normalize(err)
 	}

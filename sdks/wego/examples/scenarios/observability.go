@@ -96,7 +96,7 @@ func Observability(ctx context.Context, report *Report) (err error) {
 			}
 
 			// conn, e 借用当前执行所属连接，子调用复用父身份且不能关闭共享资源
-			conn, e := task.Client(ctx)
+			conn, e := task.Conn(ctx)
 			if e != nil {
 				return nil, e
 			}
@@ -356,7 +356,7 @@ func observabilityGraph(ctx context.Context, h *Harness) (runID string, err erro
 		_, charged := task.Tracer(ctx).Start(paymentCtx, "payment.charge")
 		charged.End()
 		// conn, e 借用当前执行所属连接，子调用复用父身份且不能关闭共享资源
-		conn, e := task.Client(ctx)
+		conn, e := task.Conn(ctx)
 		if e != nil {
 			return nil, e
 		}
@@ -392,7 +392,7 @@ func observabilityGraph(ctx context.Context, h *Harness) (runID string, err erro
 		}
 
 		// conn, e 借用当前执行所属连接，子调用复用父身份且不能关闭共享资源
-		conn, e := task.Client(ctx)
+		conn, e := task.Conn(ctx)
 		if e != nil {
 			return nil, e
 		}

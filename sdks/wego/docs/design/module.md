@@ -1,6 +1,10 @@
 # wego SDK 功能与包结构
 
-SDK `0.4.10`，统一消息与流日志协议 `6`，依赖未经修改的官方 Hatchet `v0.110.5`。0.2.0 的 18 项门禁、28 源文件/74 构造片段及完整验收见 [历史验收报告](acceptance-report.md) 和 [交付报告](v0.2.0-p5-report.md)。0.2.1 增加 AWS S3 SDK / MinIO codec 示例，部署及专项验证见 [专项报告](minio-codec-report.md)。0.2.2 增加经 API 认证的租户 Durable Streams 部署脚本；数据库授权由部署管理处理，SDK 运行时不直接操作数据库。设计与约束见 [v0.2.0.md](v0.2.0.md)，完整 option 与使用示例见 [worker.md](worker.md)。
+SDK `0.4.26`，统一消息与流日志协议 `6`，依赖未经修改的官方 Hatchet `v0.110.5`。0.2.0 的 18 项门禁、28 源文件/74 构造片段及完整验收见 [历史验收报告](acceptance-report.md) 和 [交付报告](v0.2.0-p5-report.md)。0.2.1 增加 AWS S3 SDK / MinIO codec 示例，部署及专项验证见 [专项报告](minio-codec-report.md)。0.2.2 增加经 API 认证的租户 Durable Streams 部署脚本；数据库授权由部署管理处理，SDK 运行时不直接操作数据库。设计与约束见 [v0.2.0.md](v0.2.0.md)，完整 option 与使用示例见 [worker.md](worker.md)。
+
+0.4.20 将任务幂等统一为 `task.WithIdempotency(model.Idempotency{Expression, Method, TTL})`；Method 缺省使用 TTL，STATUS 按终态释放并使用 TTL 兜底。配置整体覆盖，注册前校验表达式、枚举与至少 1 毫秒的有效期；流任务的提交幂等仍由 SDK 保留。
+
+0.4.19 仅增加上游[分组加权公平调度提案](../issue/weighted-fair-scheduling.md)及英文 issue 草稿；该策略仍待实现，不属于当前 SDK 或官方引擎已支持的能力。
 
 0.4.1 修复协议解析、混合 Batch 响应边界、流终态及关闭竞态；详见 [复审报告](v0.4.1-review.md)。协议保持 6。
 
@@ -32,6 +36,8 @@ SDK `0.4.10`，统一消息与流日志协议 `6`，依赖未经修改的官方 
 
 `client.WithRouting` / `runtime.WithRoutingDefaults` 为所有任务配置 CEL 数据；`WithRunOptions` 将相同 RunOption 用于生成客户端。`WithStreamIdempotencyKey` 只控制流提交，普通任务仍使用定义级幂等 CEL。`StreamResumeToken` 是 Client 消费凭证，`task.Checkpoint` 是 Worker 发布历史。SDK 的业务输入输出使用统一 codec 链路；原生输入按业务 JSON 解码，原生响应不执行输出 codec。调度统一显式读取 routing，不从密文业务字段推导。
 
+任务失败不进入业务 payload codec。wego 响应的错误以 JSON 对象上报 Hatchet，明文展示 gRPC code、message 和可识别的 details；每个 detail 仍保留原始字节，客户端无需与 Worker 注册相同的 protobuf 类型即可还原。原生响应继续使用官方错误格式。
+
 | 包 | 功能 | 边界 |
 |---|---|---|
 | `wego` | `NewConn`、`NewServer`、自有类型别名、版本 | 只提供构造门面，不重复持有状态。 |
@@ -39,10 +45,11 @@ SDK `0.4.10`，统一消息与流日志协议 `6`，依赖未经修改的官方 
 | `server` | 共享注册表、服务信息、网络 gRPC、Worker 入口、Serve/Stop/GracefulStop | 原生 gRPC 选项仅作用于网络入口；不提供 ServeHTTP、外部 listener 或网络请求转任务。 |
 | `runtime` | 连接、TLS、namespace、实例名称、容量、Worker 开关、routing 默认值、流模式与预算、事件回调、观测和关闭策略 | 实例配置，不启动资源；WithLogger 应用时设置 wego 共享输出。Worker 开关属于 Runtime，任务策略属于 worker/task。 |
 | `worker` | 按完整 RPC 方法选择任务入口，配置方法禁用及普通/durable 默认/覆盖策略 | 不建立连接。禁用仅影响本实例的任务注册和消费，网络服务完整保留。流必须是普通 standalone，可靠输出允许明确配置应用重试；不参与 durable eviction/replay。 |
-| `task` | 策略、任务身份、借用连接、持久等待、Now、稳定子调用、续期、不可重试错误、输出历史 checkpoint | 通过 context 查询执行能力。网络 handler 或不支持的执行类型返回明确错误。 |
+| `task` | 策略、任务身份、`Conn(ctx)` 借用连接、持久等待、Now、稳定子调用、续期、不可重试错误、输出历史 checkpoint | 通过 context 查询执行能力。WaitForEvent / Into 使用 EventWaitOption，保留未设置与显式空范围；历史回溯必须指定 scope。网络 handler 或不支持的执行类型返回明确错误。 |
 | `features` | Crons、Schedules、Events、Filters、Runs、Workers 和管理客户端 | 参数与结果为 wego 类型；Worker 定向/广播事件与任务事件触发分别提供入口。 |
 | `model` | 自有 DTO、枚举、错误、运行信息、checkpoint 与 WorkerEvent | 不持有后端连接；不别名或嵌入 Hatchet 类型。 |
-| `middleware` | unary/stream 拦截器、统一消息与完整帧有界 codec、压缩/加密/卸载适配 | routing 保持可读 JSON；所有流帧统一 codec。自定义 payload codec 必须提供稳定标识及有界解码。 |
+| `middleware` | unary/stream 拦截器及 payload codec 契约 | routing 保持可读 JSON；所有流帧统一 codec。自定义组件必须提供稳定标识及有界解码。 |
+| `middleware/payload` | gzip、zstd、AES-GCM、S3 正式组件 | 只实现 `middleware.Payload`；S3 连接和密钥由应用配置及关闭，CodecID 和持久格式稳定。 |
 | `log` | 共享输出、上下文属性、标准 slog Handler 与显式任务上报 | context 不选日志器；WithLogger 原子设置共享出口，不修改 slog.Default。R 系列打印后同步上报。 |
 | `telemetry` | Trace/Metrics 配置 | provider/registry 属于实例，metrics 默认关闭；不替换全局 OTel provider，借用 exporter 由应用关闭。 |
 | `option` | 泛型显式值 | 区分未配置与显式 0/false，无生命周期或运行状态。 |
@@ -71,7 +78,9 @@ sdks/wego/
 ├── server/                       # 注册、网络入口、Worker 入口、生命周期
 ├── runtime/ / worker/ / task/     # 实例配置、方法策略、执行能力
 ├── features/ / model/            # 管理门面、自有数据与错误
-├── middleware/ / log/ / telemetry/ / option/
+├── middleware/                   # 拦截器、载荷接口和注册入口
+│   └── payload/                  # gzip、zstd、AES-GCM、S3 组件
+├── log/ / telemetry/ / option/
 ├── internal/
 │   ├── spec/                     # 配置默认值、合并、复制与校验
 │   ├── ports/                    # 后端能力与观测接口
@@ -91,7 +100,7 @@ sdks/wego/
 └── deployment/                   # 本机部署和受控故障 fixture；不参与 SDK 初始化
 ```
 
-`examples/codec/payload` 是示例专属压缩、加密及 S3 适配，不作为核心 SDK API 发布；由应用持有 S3 连接与密钥。通过 `middleware.Payload` 接入，核心不依赖对象存储类型。真实 S3 场景由独立示例和 `TestMinIOCodec` 执行，验收运行器要求其单独证据；存储对象随持久历史保留，停止时只释放客户端资源。
+`middleware/payload` 提供可直接导入的压缩、加密及 S3 组件，实现 `middleware.Payload`；核心协议包只依赖接口，父包不导入具体组件，依赖方向为 `middleware/payload → middleware`。旧 `examples/codec/payload` 仅保留兼容转发，不复制实现。应用持有 S3 连接与密钥；存储对象随持久历史保留，停止时只释放客户端资源。真实 S3 场景由独立示例和 `TestMinIOCodec` 验证。
 
 | 内部包 | 当前规则 |
 |---|---|
@@ -136,7 +145,7 @@ Result 等待和 ResumeStream 仅观察已有运行；同步调用才持有取�
 
 由于实例通知也依赖 Durable Streams，仅注册 unary 的 Worker 同样要求部署启用租户 entitlement；纯网络模式没有此启动依赖。
 
-事件 JOIN 扫描保留历史；相同 namespace 使用一致 codec profile，历史密钥和卸载对象需覆盖 topic 实际保留期。事件已过逻辑 TTL 不代表其整帧可以不解码。
+事件 JOIN 扫描按本次发布的完整编码字节定位游标，加入前的历史只计入扫描预算，不执行 codec。JOIN 本身与加入后的通知仍需可解码；相同 namespace 的活跃 Worker 应具备对应历史消息的解码组件、密钥和卸载对象。断线重连从已处理游标继续，不跳过故障消息。
 
 ```mermaid
 flowchart LR
@@ -266,3 +275,5 @@ python3 sdks/wego/scripts/acceptance.py
 - 单元测试覆盖选项复用隔离、重复禁用、策略顺序、四种 RPC、手写网络方法及服务、未知配置和空 Worker；纯网络测试验证 Worker 配置不影响标准调用。`scripts/unit.py -race`、`go vet ./...`、API / 导入边界、中文声明注释及生成 / manifest 一致性门禁通过。
 - 官方 `v0.110.5`、PostgreSQL MQ 下，`TestDisabledWorkerMethods` 验证六个 RPC 禁用四个后仅注册两个 workflow，启用的 unary / server stream 有真实执行身份，禁用的 unary / client stream / bidi stream 仍能从网络调用。两个测试 workflow 已清理，运行及 Worker / topic 历史保留。
 - `TestExamples/simple`、`grpc-streams`、`dual-entry`、`durable-sleep` 的真实引擎 race 回归通过。专项命令及输出保存在 `.test-results/disabled-methods-*.log`；证据为 `.test-results/selective_1791542867403450000-methods.json`，包括两个 RunID、WorkerID、服务版本、断言及清理结果，不包含凭证。协议仍为 4，仅修改 `sdks/wego/**`。
+
+事件等待函数选项与此前可选字段迁移的复核见 [0.4.26 说明](v0.4.26-event-wait-and-option-audit.md)。

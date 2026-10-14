@@ -86,11 +86,11 @@ type TaskInfo struct {
 	WorkerLabels map[string]any
 }
 
-// EventWait durable 事件等待配置，区分 scope 过滤和历史事件回溯
+// EventWait 保存已解析的 durable 等待参数；业务通过 task 的函数选项配置。
 type EventWait struct {
-	// Scope 事件或过滤器的隔离范围；例如 scope-a 与 scope-b 互不匹配
+	// Scope 为 nil 时不限制范围；指向空字符串仍表示匹配空范围，不能合并为零值。
 	Scope *string
-	// ConsiderEventsSince 事件回溯起点，可接收等待开始前已经发生的匹配事件
+	// ConsiderEventsSince 为 nil 时不回溯；显式起点需要同时指定 Scope。
 	ConsiderEventsSince *time.Time
 }
 

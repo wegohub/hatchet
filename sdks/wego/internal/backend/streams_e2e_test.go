@@ -86,6 +86,51 @@ func (p *lostPublishResponse) PublishDurable(ctx context.Context, message ports.
 	return nil
 }
 
+// TestDurableJoinSkipsIrrelevantHistory 验证正式引擎的订阅会原样返回历史字节，
+// 新实例能够在无法解码的加入前消息之后确认自己的屏障游标。
+func TestDurableJoinSkipsIrrelevantHistory(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	config := spec.Defaults()
+	config.Token = os.Getenv("HATCHET_CLIENT_TOKEN")
+	if config.Token == "" {
+		t.Fatal("required real-engine token missing")
+	}
+	config.Address, config.ServerURL = "localhost:7077", "http://localhost:8080"
+	config.TLS, config.TLSSet = nil, true
+	config.Logger = slog.New(slog.NewTextHandler(io.Discard, nil))
+	b, err := New(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer b.Close()
+	block, err := aes.NewCipher(bytes.Repeat([]byte{9}, 32))
+	if err != nil {
+		t.Fatal(err)
+	}
+	aead, err := cipher.NewGCM(block)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// 自己的 JOIN 使用随机 nonce；历史损坏帧不会触发解密。
+	codec, err := wire.NewFrameCodec(spec.Runtime{Middleware: []middleware.Option{middleware.WithPayload(&probeCipher{aead})}}, 4096, 8192)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// 该 topic 与业务 namespace 隔离；只发布本次测试的损坏历史，不触碰现有通知。
+	namespace := "join-" + uuid.NewString()
+	if err := b.PublishDurable(ctx, ports.DurableMessage{
+		Namespace: namespace, Topic: stream.BroadcastTopic,
+		Producer: uuid.NewString(), Sequence: 0, Payload: []byte("unreadable historical frame"),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	cursor, err := stream.Join(ctx, b, codec, namespace, stream.BroadcastTopic, uuid.NewString())
+	if err != nil || cursor == "" {
+		t.Fatalf("JOIN cursor=%q error=%v", cursor, err)
+	}
+}
+
 // TestDurableStreamsP0Probe 验证正式引擎的持久竞争、去重、跨代次过滤和显式错误
 // 此探针不宣称已经验证 dispatcher 的真实执行/终态上报隔离
 func TestDurableStreamsP0Probe(t *testing.T) {

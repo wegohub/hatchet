@@ -30,10 +30,10 @@ import (
 // ioBudget 给单次 S3 操作独立上限；外层 context 的更短截止时间仍然优先
 const ioBudget = 10 * time.Second
 
-// prefixPattern 只允许显式测试目录，禁止通过 ../ 或绝对路径读取其他对象
+// prefixPattern 只允许安全的相对目录，禁止通过 ../ 或绝对路径读取其他对象。
 var prefixPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9/_-]{0,120}/$`)
 
-// Config 保存 S3 连接配置；示例不打印此结构，避免泄露凭证
+// Config 保存 S3 连接配置；调用方不得在日志中输出凭证。
 type Config struct {
 	// Endpoint 使用完整 URL，例如 http://127.0.0.1:9000；只用于初始化客户端
 	Endpoint string
@@ -69,7 +69,7 @@ type Objects struct {
 	encoding encodingConfig
 	// client 使用 AWS S3 SDK；endpoint 与 bucket 固定，不信任载荷中的外部地址
 	client *s3.Client
-	// httpClient 只属于此示例，结束时释放其空闲连接
+	// httpClient 只属于此组件，结束时释放其空闲连接。
 	httpClient *http.Client
 	// bucket, prefix 限制此轮允许访问的对象范围，例如 codec-<UUID>/
 	bucket, prefix string
@@ -89,8 +89,8 @@ type reference struct {
 	SHA256 string `json:"sha256"`
 }
 
-// NewS3 使用 BaseEndpoint 和路径寻址连接 MinIO，检查或创建专用示例桶
-// 桶创建仅是示例初始化；实际应用可预先建桶并移除此处的创建权限
+// NewS3 使用自定义端点和路径寻址连接兼容 S3 的存储服务，并检查或创建桶。
+// 当前构造需要桶检查及按需创建权限；应用应为该组件配置独立存储范围。
 func NewS3(ctx context.Context, config Config, prefix string, opts ...Option) (*Objects, error) {
 	encoding, err := configureEncoding(opts)
 	if err != nil {
@@ -103,7 +103,7 @@ func NewS3(ctx context.Context, config Config, prefix string, opts ...Option) (*
 	if config.AccessKey == "" || config.SecretKey == "" || config.Bucket == "" || config.Region != "us-east-1" || !prefixPattern.MatchString(prefix) {
 		return nil, status.Error(codes.InvalidArgument, "codec: S3 credentials, bucket, us-east-1 region and scoped prefix required")
 	}
-	// transport 独立克隆，关闭此示例不会影响进程中其他 HTTP 客户端
+	// transport 独立克隆，关闭此组件不会影响进程中其他 HTTP 客户端。
 	transport := &http.Transport{
 		Proxy:             http.ProxyFromEnvironment,
 		DialContext:       (&net.Dialer{Timeout: 5 * time.Second, KeepAlive: 30 * time.Second}).DialContext,

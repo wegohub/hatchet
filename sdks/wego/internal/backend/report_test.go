@@ -33,8 +33,8 @@ func TestReviewV6MixedBatchFailureContracts(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, item := range reporter.batches[0].Items {
-		text := item.EventPayload.(string)
-		if strings.Contains(text, wire.ErrorPrefix) != (item.TaskRunExternalId == "wego") || !strings.Contains(nativeFailurePayload(text).(string), "batch rejected") {
+		text := reportedErrorText(t, item.EventPayload)
+		if strings.Contains(text, wire.ErrorMarker) != (item.TaskRunExternalId == "wego") || !strings.Contains(nativeFailurePayload(text).(string), "batch rejected") {
 			t.Fatalf("wrong member error contract: %s %s", item.TaskRunExternalId, text)
 		}
 	}
@@ -48,7 +48,7 @@ func TestReviewV6NativeOversizedReport(t *testing.T) {
 	action := &v0.Action{ActionType: v0.ActionTypeStartStepRun, StepRunId: "native", ActionPayload: json.RawMessage(`{"input":{"message":"plain"}}`)}
 	event := &v0.ActionEvent{Action: action, EventType: v0.ActionEventTypeCompleted, EventPayload: strings.Repeat("x", 4096)}
 	bounded, err := boundedStepReport(event, 1024)
-	if err != nil || bounded.EventType != v0.ActionEventTypeFailed || strings.Contains(bounded.EventPayload.(string), wire.ErrorPrefix) {
+	if err != nil || bounded.EventType != v0.ActionEventTypeFailed || strings.Contains(bounded.EventPayload.(string), wire.ErrorMarker) {
 		t.Fatal("native single failure contract", bounded, err)
 	}
 	batch := &v0.BatchActionEvent{EventType: v0.ActionEventTypeCompleted, Items: []*v0.BatchActionEventItem{{TaskRunExternalId: "native", EventPayload: event.EventPayload}}}
@@ -57,7 +57,7 @@ func TestReviewV6NativeOversizedReport(t *testing.T) {
 		t.Fatal(chunks, err)
 	}
 	item := chunks[0].Items[0]
-	if strings.Contains(item.EventPayload.(string), wire.ErrorPrefix) || item.ShouldNotRetry == nil || !*item.ShouldNotRetry {
+	if strings.Contains(item.EventPayload.(string), wire.ErrorMarker) || item.ShouldNotRetry == nil || !*item.ShouldNotRetry {
 		t.Fatal("native batch failure contract", item)
 	}
 }
@@ -95,13 +95,27 @@ func TestBoundedReportFailure(t *testing.T) {
 			if err != nil || bounded.EventType != v0.ActionEventTypeFailed || bounded.ShouldNotRetry == nil || !*bounded.ShouldNotRetry {
 				t.Fatal(bounded, err)
 			}
-			if status.Code(wire.DecodeError(bounded.EventPayload.(string))) != item.code {
+			if status.Code(wire.DecodeError(reportedErrorText(t, bounded.EventPayload))) != item.code {
 				t.Fatal("failure code lost")
 			}
 			if event.EventType != v0.ActionEventTypeCompleted || event.ShouldNotRetry != nil || bounded.RetryCount != 2 {
 				t.Fatal("original report identity or payload mutated")
 			}
 		})
+	}
+}
+
+// reportedErrorText 读取官方上报前的错误值：原生为字符串，wego 为 JSON 对象。
+func reportedErrorText(t *testing.T, value any) string {
+	t.Helper()
+	switch typed := value.(type) {
+	case string:
+		return typed
+	case json.RawMessage:
+		return string(typed)
+	default:
+		t.Fatalf("unexpected error payload type %T", value)
+		return ""
 	}
 }
 

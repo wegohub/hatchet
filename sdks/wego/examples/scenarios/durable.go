@@ -29,20 +29,19 @@ func DurableEvents(ctx context.Context, report *Report) (err error) {
 				return nil, err
 			}
 
-			// opts 当前入口使用的原生 gRPC 选项
-			opts := model.EventWait{}
+			// opts 只为历史匹配设置 scope 和回溯时间；普通等待不限制事件范围。
+			var opts []task.EventWaitOption
 			// expression 当前步骤使用的字符串值 ""，用于路由、请求或断言
 			expression := ""
 			if in.Message == "filter" {
 				expression = "input.routing.user_id == 'target'"
 			}
 			if in.Message == "lookback" {
-				opts.Scope = pointer("user:target")
-				opts.ConsiderEventsSince = pointer(now.Add(-time.Minute))
+				opts = append(opts, task.WithEventScope("user:target"), task.WithConsiderEventsSince(now.Add(-time.Minute)))
 			}
 			started <- in.Message
 			// event, err 接收 task.WaitForEvent 的返回值，同时保存错误供紧接着的分支检查；失败时不继续使用结果
-			event, err := task.WaitForEvent(ctx, "durable:update", expression, opts)
+			event, err := task.WaitForEvent(ctx, "durable:update", expression, opts...)
 			if err != nil {
 				return nil, err
 			}
@@ -235,7 +234,8 @@ func Eviction(ctx context.Context, report *Report) (err error) {
 					return nil, e
 				}
 				if variant == "ttl-event" {
-					_, e = task.WaitForEvent(ctx, "eviction:event", "true", model.EventWait{ConsiderEventsSince: pointer(now)})
+					_, e = task.WaitForEvent(ctx, "eviction:event", "true",
+						task.WithEventScope("eviction:resume"), task.WithConsiderEventsSince(now))
 				} else {
 					e = task.Sleep(ctx, time.Duration(in.DelayMillis)*time.Millisecond)
 				}
@@ -296,7 +296,7 @@ func Eviction(ctx context.Context, report *Report) (err error) {
 			assertion = waitEvicted(ctx, h, ref.RunID)
 		}
 		if variant == "ttl-event" && assertion == nil {
-			assertion = pushUntilCompleted(ctx, h, ref, "eviction:event", map[string]any{})
+			assertion = pushUntilCompleted(ctx, h, ref, "eviction:event", map[string]any{}, "eviction:resume")
 		}
 		if assertion == nil {
 			// result, e 等待此运行的业务结果；等待失败不能作为正常完成，返回的 RunID 可用于关联证据

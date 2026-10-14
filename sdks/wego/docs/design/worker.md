@@ -130,7 +130,7 @@ cfg = append(cfg,
 
 ```go
 // 四个 interceptor 是业务提供的标准 gRPC 拦截器。
-// encrypted、objects 是已初始化的 AES-GCM 和 S3 组件，payload 来自示例组件包。
+// encrypted、objects 是已初始化的 AES-GCM 和 S3 组件，payload 来自 wego/middleware/payload。
 gzipCodec, err := payload.NewGzip(payload.WithThreshold(256 << 10))
 if err != nil {
     return err
@@ -151,9 +151,11 @@ cfg = append(cfg, runtime.WithMiddleware(
 // runtime.WithEncodingCodecs() 表示发送无变换，保留已注册的解码能力。
 ```
 
-注册顺序只决定默认编码顺序；解码依据消息记录的 CodecID，逆序查找组件。接收端可注册额外组件。所有任务及 Worker 通知要求 codec 实现稳定 `CodecID` 与有界 `DecodeLimit`，支持并发调用，I/O 尊重 context。可运行实现见 [codec 示例](../../examples/codec)。网络入口通过 `server.WithGRPC` 的原生选项配置 interceptor / codec。
+注册顺序只决定默认编码顺序；解码依据消息记录的 CodecID，逆序查找组件。接收端可注册额外组件。所有任务及 Worker 通知要求 codec 实现稳定 `CodecID` 与有界 `DecodeLimit`，支持并发调用，I/O 尊重 context。正式组件见 [`middleware/payload`](../../middleware/payload)，运行配置见 [codec 示例](../../examples/codec)。网络入口通过 `server.WithGRPC` 的原生选项配置 interceptor / codec。
 
 ### Server / Worker：注册与任务策略
+
+策略中的可选 CEL 表达式使用字符串：空值表示未指定，`"0"` 仍是有效表达式。Batch 的 `MaxInterval`、`GroupMaxRuns` 为值类型，0 保留服务端默认；`GroupKey` 为空使用默认分组。`RateLimit.Units` 保留指针：nil 表示未指定，`ptr(0)` 明确表示零消耗。
 
 ```go
 // ptr 区分未配置与显式零值，用于下面模型的指针字段。
@@ -177,17 +179,17 @@ srv := wego.NewServer(
 			task.WithSticky(task.StickySoft), // 关联执行优先复用 Worker；StickyHard 不允许回退。
 			task.WithConcurrency(task.Concurrency{
 				Expression:     "input.routing.group",      // group-a / group-b 各自分组。
-				MaxRuns:        ptr(int32(2)),              // 同组最多两次同时执行。
+				MaxRuns:        2,                          // 同组最多两次同时执行。
 				LimitStrategy:  model.GroupRoundRobin,      // 分组轮转；空值使用服务端默认策略。
 				Name:           "group-budget",             // 并发约束名称。
 				IsTenantScoped: false,                      // true 在租户内共享同名约束。
-				// MaxRunsExpression: ptr("input.routing.max_runs"), // 动态上限，替代固定 MaxRuns。
+				// MaxRunsExpression: "input.routing.max_runs", // 动态上限，替代固定 MaxRuns。
 			}),
 			task.WithRateLimits(task.RateLimit{
-				KeyExpr:        ptr("input.routing.group"), // 各 group 使用独立限流键。
-				UnitsExpr:      ptr("input.routing.cost"),  // cost=3 消耗三单位额度。
-				LimitValueExpr: ptr("10"),                  // 每周期最多十单位。
-				Duration:       model.Minute,             // 显式周期；空值不覆盖后端周期配置。
+				KeyExpr:        "input.routing.group", // 各 group 使用独立限流键。
+				UnitsExpr:      "input.routing.cost",  // cost=3 消耗三单位额度。
+				LimitValueExpr: "10",                  // 每周期最多十单位。
+				Duration:       model.Minute,          // 显式周期；空值不覆盖后端周期配置。
 				// 静态替代：RateLimit{Key: "api-budget", Units: ptr(1)}，先创建同名限流资源。
 			}),
 			task.WithCron("* * * * *"), // 每分钟触发；不需要时省略，避免自动执行。
@@ -235,12 +237,22 @@ if err := srv.Serve(); err != nil {       // 阻塞到停止或故障；应用�
 以下为普通任务的两种**替代**幂等策略，二选一传入 `worker.WithTask`，每次输入必须提供 `routing.id`。可靠流使用内部提交幂等规则，通过 `WithStreamIdempotencyTTL` 调整，不能同时注册冲突的任务幂等策略。
 
 ```go
-// TTL 策略：24 小时内相同 id 返回含 ExistingRunID 的冲突错误。
-dedup := task.WithIdempotencyTTL("input.routing.id", false, 24*time.Hour)
-// 状态策略：按运行状态判定；此选项不显式设置 TTL。
-// dedup = task.WithIdempotency("input.routing.id", true)
+// TTL 策略：24 小时内相同 id 的直接提交返回含 ExistingRunID 的冲突错误。
+dedup := task.WithIdempotency(model.Idempotency{
+	Expression: "input.routing.id",
+	Method:     model.IdempotencyMethodTTL, // 省略 Method 也使用 TTL。
+	TTL:        24 * time.Hour,
+})
+// 状态策略：运行成功、失败或取消后释放键，TTL 是兜底有效期。
+// dedup = task.WithIdempotency(model.Idempotency{
+//     Expression: "input.routing.id",
+//     Method:     model.IdempotencyMethodStatus,
+//     TTL:        time.Hour,
+// })
 // 注册：worker.WithTask(pb.Greeter_SayHello_FullMethodName, dedup)。
 ```
+
+幂等配置整体覆盖默认值，表达式不能为空、TTL 至少为 1 毫秒。事件发布遇到重复键仍可成功，但不创建重复运行；幂等键释放后不会补执行已拒绝的触发。需要同组任务全部排队执行时，使用 Concurrency，将幂等键另设为业务操作 ID。
 
 ### Client：连接与单次调用
 
@@ -251,7 +263,7 @@ conn, err := client.New(client.WithRuntime(cfg...)) // 连接只配置 Runtime�
 if err != nil {
 	return err
 }
-defer conn.Close() // 按 WithShutdown 关闭；task.Client 借用连接禁止关闭共享资源。
+defer conn.Close() // 按 WithShutdown 关闭；task.Conn 借用连接禁止关闭共享资源。
 rpc := pb.NewGreeterClient(conn)
 
 runOpts := []client.RunOption{
@@ -401,7 +413,7 @@ func (g *greeter) WaitHello(ctx context.Context, in *pb.Request) (*pb.Reply, err
     now, err := task.Now(ctx) // memo，重放复用
     if err != nil { return nil, err }
     if err := task.Sleep(ctx, time.Second); err != nil { return nil, err }
-    conn, err := task.Client(ctx) // 借用连接，Close 返回 ErrBorrowedResource
+    conn, err := task.Conn(ctx) // 借用连接，Close 返回 ErrBorrowedResource
     if err != nil { return nil, err }
     child, err := pb.NewGreeterClient(conn).SayHello(task.WithChildKey(ctx, "greet"), in)
     if err != nil { return nil, err }
@@ -409,6 +421,22 @@ func (g *greeter) WaitHello(ctx context.Context, in *pb.Request) (*pb.Reply, err
     return child, nil
 }
 ```
+
+```go
+now, err := task.Now(ctx)
+if err != nil { return nil, err }
+opts := []task.EventWaitOption{
+    task.WithEventScope("user:123"), // 不传则不限制范围；传 "" 明确匹配空范围。
+    task.WithConsiderEventsSince(now.Add(-time.Minute)), // 回溯必须同时设置 scope。
+}
+event, err := task.WaitForEvent(ctx, "user:update", "", opts...)
+
+// 与上面的 map 结果入口二选一；同样只登记一次持久等待。
+request := new(pb.Request)
+err = task.WaitForEventInto(ctx, "user:update", "", request, opts...)
+```
+
+两种入口的选项按顺序应用，重复设置最后一次生效；选项可复用，每次等待使用独立配置快照。
 
 `task.WaitForEvent` 支持 CEL、scope 和 lookback；驱逐与 Worker 重启后保留等待序号、memo 和稳定子调用身份。错误使用 gRPC status / details 或 `task.NonRetryable(err)`；`task.Info(ctx)` 返回 wego 执行信息。
 
@@ -540,6 +568,26 @@ srv.GracefulStop() // 停止接收新工作，等待已有业务完成。
 ```
 
 SDK 不安装进程信号监听。Conn 与原生 Worker 沿用 Runtime 关闭策略，默认独立清理预算 30 秒；原生 Worker 保留 Start / StartBlocking / WaitReady / Shutdown。
+
+任务超时从每次执行开始计算；运行中的辅助函数按固定间隔累加截止时间。下面的默认增量也是 5 秒，持续运行时不会把剩余预算越攒越长：
+
+```go
+// 注册时：本次执行最初有 10 秒预算。
+task.WithExecutionTimeout(10 * time.Second)
+
+// unary handler：每 5 秒增加 5 秒；可选总上限从调用辅助函数时开始计时。
+reply, err := task.WithRefreshTimeout(ctx, 5*time.Second, handle,
+    task.WithRefreshMaxDuration(30*time.Second),
+)
+
+// client/server/bidi stream handler 均只返回 error，使用对应入口。
+err = task.WithRefreshStreamTimeout(stream.Context(), 5*time.Second,
+    func(ctx context.Context) error { return sendReplies(ctx, stream) },
+    task.WithRefreshIncrement(6*time.Second), // 按需覆盖每次增量。
+)
+```
+
+没有总上限选项时可一直续期；重试重新计算总上限。网络 gRPC 入口照常运行回调，但不向 Hatchet 续期。回调要检查传入的 context；仅取消派生 context 不会强制中断阻塞中的 `stream.Send` / `stream.Recv`。
 
 ```mermaid
 flowchart LR
