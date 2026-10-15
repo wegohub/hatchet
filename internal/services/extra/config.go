@@ -8,7 +8,7 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	pb "github.com/hatchet-dev/hatchet/internal/services/extra/proto/v1"
+	pb "github.com/hatchet-dev/hatchet/pkg/extra/v1"
 )
 
 // checkTimes 在调用 NATS 前拒绝非法 Timestamp；AsTime 本身会规范化而不是报错。

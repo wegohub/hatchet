@@ -3,9 +3,13 @@ syntax = "proto3";
 package hatchet.extra.v1;
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
-option go_package = "github.com/hatchet-dev/hatchet/internal/services/extra/proto/v1;extrav1";
+option go_package = "github.com/hatchet-dev/hatchet/pkg/extra/v1;extrav1";
 
 service StreamService {
+  // GetLimits 返回已生效的实例限额，不包含账户身份或秘密。
+  rpc GetLimits(google.protobuf.Empty) returns (ServiceLimits);
+  // Read 用服务端临时 consumer 读取精确 subject 的有界快照。
+  rpc Read(ReadRequest) returns (stream NatsRawStreamMsg);
   // CreateOrUpdateStream 校验并映射当前租户的 stream 配置，创建或更新后返回逻辑名称。
   rpc CreateOrUpdateStream(StreamConfigRequest) returns (NatsStreamInfo);
   // GetStream 查询当前租户和 namespace 的 stream，不接受物理资源地址。
@@ -23,6 +27,8 @@ service PublisherService {
   rpc Publish(PublishRequest) returns (NatsPubAck);
   // PublishAsync 处理当前租户的持久资源操作。
   rpc PublishAsync(stream PublishRequest) returns (stream PublishResult);
+  // PublishBatch 缓冲并校验完整批次，原子提交同一 subject 的独立消息，返回最终确认。
+  rpc PublishBatch(stream PublishBatchRequest) returns (PublishBatchAck);
 }
 
 service ConsumerService {
@@ -38,6 +44,8 @@ service ConsumerService {
   rpc Fetch(FetchRequest) returns (stream Delivery);
   // Ack 验证签名投递身份后执行确认、拒绝、续期或终止；仅 ACK 支持服务端确认。
   rpc Ack(AckRequest) returns (google.protobuf.Empty);
+  // AckBatch 按输入顺序确认各条投递，返回逐项结果；不是原子 ACK 事务。
+  rpc AckBatch(AckBatchRequest) returns (AckBatchResponse);
 }
 
 service KeyValueService {
@@ -102,6 +110,7 @@ message NatsError {
   string message = 2;
   optional int32 api_code = 3;
   optional uint32 nats_error_code = 4;
+  string reason = 5;
 }
 
 message Message {
@@ -116,6 +125,8 @@ message Message {
 message StreamConfigRequest {
   Scope scope = 1;
   NatsStreamConfig config = 2;
+  // 为 true 时只创建；已存在返回 AlreadyExists，不修改配置。
+  bool create_only = 3;
 }
 
 message StreamInfoRequest {
@@ -188,11 +199,29 @@ message PublishResult {
   }
 }
 
+message PublishBatchRequest {
+  // 每条记录使用同一 scope 和 batch_id；发送半关闭后才开始 NATS 提交。
+  Scope scope = 1;
+  string batch_id = 2;
+  Message message = 3;
+  // 批次仅支持 expected_stream、message_id 和首条的 expected_last_subject_sequence。
+  PublishOptions options = 4;
+}
+
+message PublishBatchAck {
+  string native_batch_id = 4;
+  string batch_id = 1;
+  uint32 batch_size = 2;
+  // sequence 为批次最后一条消息的实际 Stream Sequence。
+  NatsPubAck ack = 3;
+}
+
 message ConsumerConfigRequest {
   StreamRef stream = 1;
   NatsConsumerConfig config = 2;
   // 本服务只提供 durable pull consumer；push=true 明确拒绝。
   bool push = 3;
+  bool create_only = 4;
 }
 
 message FetchOptions {
@@ -239,9 +268,24 @@ message AckRequest {
   bool confirm = 5;
 }
 
+message AckBatchRequest {
+  repeated AckRequest items = 1;
+}
+
+message AckBatchResult {
+  uint32 index = 1;
+  // 缺省表示该条提交成功；confirm=false 不保证服务端确认已持久化。
+  NatsError error = 2;
+}
+
+message AckBatchResponse {
+  repeated AckBatchResult results = 1;
+}
+
 message KeyValueConfigRequest {
   Scope scope = 1;
   NatsKeyValueConfig config = 2;
+  bool create_only = 3;
 }
 
 message KeyValuePutRequest {
@@ -858,4 +902,36 @@ message NatsMsgMetadata {
   // MsgMetadata.Consumer: string
   optional string domain = 7;
   // MsgMetadata.Domain: string
+}
+
+// ServiceLimits 中数值均为实际生效值；max_consumers=0 表示不强制账户上限。
+message ServiceLimits {
+  uint64 max_message_bytes = 1;
+  uint32 max_fetch_messages = 2;
+  uint64 max_fetch_bytes = 3;
+  uint32 max_publish_batch_messages = 4;
+  uint64 max_publish_batch_bytes = 5;
+  uint32 publish_batch_per_message_overhead = 6;
+  uint32 max_publish_batches_inflight = 7;
+  uint32 max_ack_batch_messages = 8;
+  uint32 max_concurrent_unary = 9;
+  uint32 max_concurrent_streams = 10;
+  uint32 max_concurrent_reads = 11;
+  int64 max_store_bytes = 12;
+  int64 max_memory_bytes = 13;
+  int64 batch_commit_timeout_ns = 14;
+  int64 batch_abandon_timeout_ns = 15;
+  uint32 publish_batch_flow_control = 16;
+  uint32 max_consumers = 17;
+  bool single_node = 18;
+}
+
+// ReadRequest 对精确 subject 做有限读取，预算作用于本次 RPC，不跟随快照之后的消息。
+message ReadRequest {
+  StreamRef stream = 1;
+  string subject = 2;
+  uint64 start_sequence = 3;
+  uint64 end_sequence = 4;
+  uint32 max_messages = 5;
+  uint64 max_bytes = 6;
 }

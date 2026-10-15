@@ -80,7 +80,7 @@ import (
  "time"
  
  "github.com/nats-io/nats.go/jetstream"
- pb "github.com/hatchet-dev/hatchet/internal/services/extra/proto/v1"
+ pb "github.com/hatchet-dev/hatchet/pkg/extra/v1"
  "google.golang.org/protobuf/types/known/timestamppb"
 )
 '''

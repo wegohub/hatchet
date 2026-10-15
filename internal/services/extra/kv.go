@@ -2,14 +2,17 @@ package extra
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"time"
 
 	"github.com/nats-io/nats.go/jetstream"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	pb "github.com/hatchet-dev/hatchet/internal/services/extra/proto/v1"
+	pb "github.com/hatchet-dev/hatchet/pkg/extra/v1"
 )
 
 // key 在加载 KV 桶前验证 key，避免无效路径触发后端 I/O。
@@ -50,6 +53,17 @@ func (s *Service) CreateOrUpdateBucket(ctx context.Context, r *pb.KeyValueConfig
 		return nil, err
 	}
 	c := decodeKeyValueConfig(r.Config)
+	if c.Replicas > 1 {
+		return nil, reasonError(codes.FailedPrecondition, ReasonReplicasUnsupported, "single node supports one replica")
+	}
+	budget := s.cfg.MaxStoreBytes
+	if c.Storage == jetstream.MemoryStorage {
+		budget = s.cfg.MaxMemoryBytes
+	}
+	if c.MaxBytes > budget {
+		return nil, exhausted(ReasonStoreExhausted, "bucket byte limit exceeds account budget")
+	}
+
 	if c.Storage < jetstream.FileStorage ||
 		c.Storage > jetstream.MemoryStorage ||
 		c.Replicas < 0 ||
@@ -74,7 +88,22 @@ func (s *Service) CreateOrUpdateBucket(ctx context.Context, r *pb.KeyValueConfig
 		// #nosec G115 -- New 将 MaxMessageBytes 限定在 1..64 MiB，必定能表示为 int32。
 		c.MaxValueSize = int32(s.cfg.MaxMessageBytes)
 	}
-	kv, err := s.js.CreateOrUpdateKeyValue(ctx, c)
+	release, err := s.configurationWrite(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer release()
+	var kv jetstream.KeyValue
+	if r.CreateOnly {
+		if _, err := s.js.KeyValue(ctx, c.Bucket); err == nil {
+			return nil, status.Error(codes.AlreadyExists, "bucket already exists")
+		} else if !errors.Is(err, jetstream.ErrBucketNotFound) {
+			return nil, rpcError(err)
+		}
+		kv, err = s.js.CreateKeyValue(ctx, c)
+	} else {
+		kv, err = s.js.CreateOrUpdateKeyValue(ctx, c)
+	}
 	if err != nil {
 		return nil, rpcError(err)
 	}

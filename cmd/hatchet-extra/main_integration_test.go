@@ -21,7 +21,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
-	pb "github.com/hatchet-dev/hatchet/internal/services/extra/proto/v1"
+	pb "github.com/hatchet-dev/hatchet/pkg/extra/v1"
 )
 
 // TestLiveProcess 使用真实 Hatchet 数据库/token 与命令进程，测试未配置时明确失败。
@@ -84,7 +84,7 @@ func TestLiveProcess(t *testing.T) {
 	}
 }
 
-// verifyRPCs 在真实服务上逐一执行 24 个 RPC，只删除本轮独立 namespace 的资源。
+// verifyRPCs 在真实服务上逐一执行全部 RPC，只删除本轮独立 namespace 的资源。
 func verifyRPCs(t *testing.T, conn *grpc.ClientConn, ctx context.Context) {
 	t.Helper()
 	var err error
@@ -284,6 +284,7 @@ func verifyRPCs(t *testing.T, conn *grpc.ClientConn, ctx context.Context) {
 	check(t, err)
 	_, err = s.DeleteStream(ctx, sr)
 	check(t, err)
+	verifyBatchRPCs(t, conn, ctx)
 }
 
 // point 为验收请求保存可选值，避免引用循环中的可变变量。

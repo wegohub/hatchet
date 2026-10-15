@@ -18,7 +18,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	pb "github.com/hatchet-dev/hatchet/internal/services/extra/proto/v1"
+	pb "github.com/hatchet-dev/hatchet/pkg/extra/v1"
 )
 
 // ptr、mapPtr、mapSlice 仅复制边界值；例如修改请求的 labels map 不会修改原生配置。
@@ -115,7 +115,7 @@ func rpcError(err error) error {
 		code = codes.NotFound
 	case errors.Is(err, jetstream.ErrKeyExists):
 		code = codes.AlreadyExists
-	case errors.Is(err, nats.ErrConnectionClosed), errors.Is(err, nats.ErrNoServers), errors.Is(err, jetstream.ErrNoStreamResponse), errors.Is(err, nats.ErrDisconnected):
+	case errors.Is(err, nats.ErrConnectionClosed), errors.Is(err, nats.ErrNoServers), errors.Is(err, nats.ErrNoResponders), errors.Is(err, jetstream.ErrNoStreamResponse), errors.Is(err, nats.ErrDisconnected):
 		code = codes.Unavailable
 	}
 	var api *jetstream.APIError
@@ -131,6 +131,8 @@ func rpcError(err error) error {
 			code = codes.NotFound
 		case 409:
 			code = codes.FailedPrecondition
+		case 429:
+			code = codes.ResourceExhausted
 		case 503:
 			code = codes.Unavailable
 		}
@@ -142,11 +144,31 @@ func rpcError(err error) error {
 			code = codes.FailedPrecondition
 		}
 		switch ns.ErrorIdentifier(api.ErrorCode) {
-		case ns.JSAccountResourcesExceededErr, ns.JSMaximumConsumersLimitErr, ns.JSMaximumStreamsLimitErr, ns.JSMemoryResourcesExceededErr, ns.JSStorageResourcesExceededErr, ns.JSStreamMaxStreamBytesExceeded:
-			code = codes.ResourceExhausted
+		case ns.JSStreamStoreFailedF:
+			// 原生存储错误共用编号，仅按固定存储哨兵识别容量失败，不能把 IO 故障当过载。
+			switch api.Description {
+			case ns.ErrMaxBytes.Error(), ns.ErrMaxMsgs.Error(), ns.ErrMaxMsgsPerSubject.Error():
+				code, detail.Reason = codes.ResourceExhausted, ReasonStoreExhausted
+			case ns.ErrMsgTooLarge.Error():
+				code, detail.Reason = codes.ResourceExhausted, ReasonMessageTooLarge
+			}
+		case ns.JSStreamMessageExceedsMaximumErr:
+			code, detail.Reason = codes.ResourceExhausted, ReasonMessageTooLarge
+		case ns.JSAtomicPublishTooManyInflight, ns.JSBatchPublishTooManyInflight:
+			code, detail.Reason = codes.ResourceExhausted, ReasonBatchCapacity
+		case ns.JSMaximumConsumersLimitErr:
+			code, detail.Reason = codes.ResourceExhausted, ReasonConsumerLimit
+		case ns.JSInsufficientResourcesErr, ns.JSAccountResourcesExceededErr, ns.JSMaximumStreamsLimitErr, ns.JSMemoryResourcesExceededErr, ns.JSStorageResourcesExceededErr, ns.JSStreamMaxStreamBytesExceeded:
+			code, detail.Reason = codes.ResourceExhausted, ReasonStoreExhausted
 		}
 		detail.ApiCode = apiCode(api.Code)
 		detail.NatsErrorCode = ptr(uint32(api.ErrorCode))
+	}
+	if code == codes.ResourceExhausted && detail.Reason == "" {
+		detail.Reason = ReasonStoreExhausted
+		if errors.Is(err, nats.ErrMaxPayload) {
+			detail.Reason = ReasonMessageTooLarge
+		}
 	}
 	detail.GrpcCode = int32(code)
 	detail.Message = code.String()
@@ -262,7 +284,7 @@ func validSubject(s string, wild bool) bool {
 
 // statusTooLarge 用于拒绝业务数据与头部超限，不能依赖 gRPC 封包大小代替业务预算。
 func statusTooLarge() error {
-	return status.Error(codes.ResourceExhausted, "message exceeds configured limit")
+	return exhausted(ReasonMessageTooLarge, "message exceeds configured limit")
 }
 
 // casError 把 KV 版本冲突映射为 Aborted，同时保留原生错误码。

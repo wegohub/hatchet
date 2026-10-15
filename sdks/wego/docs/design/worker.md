@@ -1,5 +1,7 @@
 # wego Worker
 
+> Client stream、server stream、bidi stream 的目标协议和新历史 API 见 [NATS 双向流统一设计](nats-rpc-stream-design.md)。本文现有流配置与 Checkpoint 示例描述协议 6；协议 7 的替换项、配置和迁移以新方案为准。
+
 业务使用标准 gRPC handler 与生成桩；`Conn` 同时提供 wego 运行和管理 API。公开类型与回调均不依赖 Hatchet。
 
 ## 注册与连接

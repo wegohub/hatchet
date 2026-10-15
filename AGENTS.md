@@ -1,5 +1,13 @@
 # AGENTS
 
+## Design Documents and Implementation Plans
+
+- Keep the main document short enough to understand in a few minutes: lead with the goal, key decisions and tradeoffs, then implementation stages.
+- Prefer small Mermaid diagrams for flows, state transitions, interactions, and component relationships. Each diagram should answer one question; prose explains the rationale and boundaries.
+- Keep decision-critical constraints and risks in the main document. Link to focused appendices for full APIs, configuration, error matrices, detailed examples, and test cases.
+- Use roughly 3–5 implementation stages, each with a deliverable and completion criterion. Keep execution checklists in implementation references.
+- Consolidate repeated rules and replace outdated conclusions instead of continually appending detail. Do not disguise length with dense paragraphs or oversized diagrams.
+
 ## CI
 
 - Any CI surface that boots a Hatchet server instance (engine, API, `hatchet-lite`, docker-compose, or helm) must set `SERVER_SECURITY_CHECK_ENABLED=false`. The check defaults to enabled and phones home to `security.hatchet.run`; CI must never do that. `go test`-based boots are already covered by the test harness; every other boot site sets the var explicitly.

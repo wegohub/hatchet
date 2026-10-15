@@ -12,6 +12,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	authtoken "github.com/hatchet-dev/hatchet/pkg/auth/token"
+	pb "github.com/hatchet-dev/hatchet/pkg/extra/v1"
 )
 
 // Authenticator 校验 Hatchet token；禁止由 RPC 请求指定 tenant。
@@ -123,25 +124,27 @@ func unaryAdmission(slots chan struct{}) grpc.UnaryServerInterceptor {
 			}()
 			return next(ctx, req)
 		default:
-			return nil, status.Error(codes.ResourceExhausted, "RPC capacity exhausted")
+			return nil, exhausted(ReasonRPCCapacity, "RPC capacity exhausted")
 		}
 	}
 }
 
 // streamAdmission 为长期流保留独立预算，订阅满额不能占用普通查询和 ACK 的预算。
-func streamAdmission(slots chan struct{}) grpc.StreamServerInterceptor {
+func streamAdmission(slots chan struct{}, reads chan struct{}) grpc.StreamServerInterceptor {
 	return func(srv any, s grpc.ServerStream, info *grpc.StreamServerInfo, next grpc.StreamHandler) error {
 		if !admitted(s.Context()) {
 			return status.Error(codes.Unavailable, "server draining")
 		}
+		budget, reason := slots, ReasonStreamCapacity
+		if info.FullMethod == pb.StreamService_Read_FullMethodName {
+			budget, reason = reads, ReasonReadCapacity
+		}
 		select {
-		case slots <- struct{}{}:
-			defer func() {
-				<-slots
-			}()
+		case budget <- struct{}{}:
+			defer func() { <-budget }()
 			return next(srv, s)
 		default:
-			return status.Error(codes.ResourceExhausted, "stream capacity exhausted")
+			return exhausted(reason, "stream capacity exhausted")
 		}
 	}
 }

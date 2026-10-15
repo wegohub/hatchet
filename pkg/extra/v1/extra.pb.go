@@ -74,7 +74,7 @@ func (x AckRequest_Kind) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use AckRequest_Kind.Descriptor instead.
 func (AckRequest_Kind) EnumDescriptor() ([]byte, []int) {
-	return file_extra_proto_rawDescGZIP(), []int{21, 0}
+	return file_extra_proto_rawDescGZIP(), []int{23, 0}
 }
 
 type KeyValueEntry_Operation int32
@@ -123,7 +123,7 @@ func (x KeyValueEntry_Operation) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use KeyValueEntry_Operation.Descriptor instead.
 func (KeyValueEntry_Operation) EnumDescriptor() ([]byte, []int) {
-	return file_extra_proto_rawDescGZIP(), []int{31, 0}
+	return file_extra_proto_rawDescGZIP(), []int{36, 0}
 }
 
 type Scope struct {
@@ -472,6 +472,7 @@ type NatsError struct {
 	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
 	ApiCode       *int32                 `protobuf:"varint,3,opt,name=api_code,json=apiCode,proto3,oneof" json:"api_code,omitempty"`
 	NatsErrorCode *uint32                `protobuf:"varint,4,opt,name=nats_error_code,json=natsErrorCode,proto3,oneof" json:"nats_error_code,omitempty"`
+	Reason        string                 `protobuf:"bytes,5,opt,name=reason,proto3" json:"reason,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -532,6 +533,13 @@ func (x *NatsError) GetNatsErrorCode() uint32 {
 		return *x.NatsErrorCode
 	}
 	return 0
+}
+
+func (x *NatsError) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
 }
 
 type Message struct {
@@ -612,9 +620,11 @@ func (x *Message) GetReplyToken() []byte {
 }
 
 type StreamConfigRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Scope         *Scope                 `protobuf:"bytes,1,opt,name=scope,proto3" json:"scope,omitempty"`
-	Config        *NatsStreamConfig      `protobuf:"bytes,2,opt,name=config,proto3" json:"config,omitempty"`
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	Scope  *Scope                 `protobuf:"bytes,1,opt,name=scope,proto3" json:"scope,omitempty"`
+	Config *NatsStreamConfig      `protobuf:"bytes,2,opt,name=config,proto3" json:"config,omitempty"`
+	// 为 true 时只创建；已存在返回 AlreadyExists，不修改配置。
+	CreateOnly    bool `protobuf:"varint,3,opt,name=create_only,json=createOnly,proto3" json:"create_only,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -661,6 +671,13 @@ func (x *StreamConfigRequest) GetConfig() *NatsStreamConfig {
 		return x.Config
 	}
 	return nil
+}
+
+func (x *StreamConfigRequest) GetCreateOnly() bool {
+	if x != nil {
+		return x.CreateOnly
+	}
+	return false
 }
 
 type StreamInfoRequest struct {
@@ -1350,19 +1367,159 @@ func (*PublishResult_Ack) isPublishResult_Result() {}
 
 func (*PublishResult_Error) isPublishResult_Result() {}
 
+type PublishBatchRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// 每条记录使用同一 scope 和 batch_id；发送半关闭后才开始 NATS 提交。
+	Scope   *Scope   `protobuf:"bytes,1,opt,name=scope,proto3" json:"scope,omitempty"`
+	BatchId string   `protobuf:"bytes,2,opt,name=batch_id,json=batchId,proto3" json:"batch_id,omitempty"`
+	Message *Message `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`
+	// 批次仅支持 expected_stream、message_id 和首条的 expected_last_subject_sequence。
+	Options       *PublishOptions `protobuf:"bytes,4,opt,name=options,proto3" json:"options,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PublishBatchRequest) Reset() {
+	*x = PublishBatchRequest{}
+	mi := &file_extra_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PublishBatchRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PublishBatchRequest) ProtoMessage() {}
+
+func (x *PublishBatchRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_extra_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PublishBatchRequest.ProtoReflect.Descriptor instead.
+func (*PublishBatchRequest) Descriptor() ([]byte, []int) {
+	return file_extra_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *PublishBatchRequest) GetScope() *Scope {
+	if x != nil {
+		return x.Scope
+	}
+	return nil
+}
+
+func (x *PublishBatchRequest) GetBatchId() string {
+	if x != nil {
+		return x.BatchId
+	}
+	return ""
+}
+
+func (x *PublishBatchRequest) GetMessage() *Message {
+	if x != nil {
+		return x.Message
+	}
+	return nil
+}
+
+func (x *PublishBatchRequest) GetOptions() *PublishOptions {
+	if x != nil {
+		return x.Options
+	}
+	return nil
+}
+
+type PublishBatchAck struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	NativeBatchId string                 `protobuf:"bytes,4,opt,name=native_batch_id,json=nativeBatchId,proto3" json:"native_batch_id,omitempty"`
+	BatchId       string                 `protobuf:"bytes,1,opt,name=batch_id,json=batchId,proto3" json:"batch_id,omitempty"`
+	BatchSize     uint32                 `protobuf:"varint,2,opt,name=batch_size,json=batchSize,proto3" json:"batch_size,omitempty"`
+	// sequence 为批次最后一条消息的实际 Stream Sequence。
+	Ack           *NatsPubAck `protobuf:"bytes,3,opt,name=ack,proto3" json:"ack,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PublishBatchAck) Reset() {
+	*x = PublishBatchAck{}
+	mi := &file_extra_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PublishBatchAck) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PublishBatchAck) ProtoMessage() {}
+
+func (x *PublishBatchAck) ProtoReflect() protoreflect.Message {
+	mi := &file_extra_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PublishBatchAck.ProtoReflect.Descriptor instead.
+func (*PublishBatchAck) Descriptor() ([]byte, []int) {
+	return file_extra_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *PublishBatchAck) GetNativeBatchId() string {
+	if x != nil {
+		return x.NativeBatchId
+	}
+	return ""
+}
+
+func (x *PublishBatchAck) GetBatchId() string {
+	if x != nil {
+		return x.BatchId
+	}
+	return ""
+}
+
+func (x *PublishBatchAck) GetBatchSize() uint32 {
+	if x != nil {
+		return x.BatchSize
+	}
+	return 0
+}
+
+func (x *PublishBatchAck) GetAck() *NatsPubAck {
+	if x != nil {
+		return x.Ack
+	}
+	return nil
+}
+
 type ConsumerConfigRequest struct {
 	state  protoimpl.MessageState `protogen:"open.v1"`
 	Stream *StreamRef             `protobuf:"bytes,1,opt,name=stream,proto3" json:"stream,omitempty"`
 	Config *NatsConsumerConfig    `protobuf:"bytes,2,opt,name=config,proto3" json:"config,omitempty"`
 	// 本服务只提供 durable pull consumer；push=true 明确拒绝。
 	Push          bool `protobuf:"varint,3,opt,name=push,proto3" json:"push,omitempty"`
+	CreateOnly    bool `protobuf:"varint,4,opt,name=create_only,json=createOnly,proto3" json:"create_only,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ConsumerConfigRequest) Reset() {
 	*x = ConsumerConfigRequest{}
-	mi := &file_extra_proto_msgTypes[17]
+	mi := &file_extra_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1374,7 +1531,7 @@ func (x *ConsumerConfigRequest) String() string {
 func (*ConsumerConfigRequest) ProtoMessage() {}
 
 func (x *ConsumerConfigRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_extra_proto_msgTypes[17]
+	mi := &file_extra_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1387,7 +1544,7 @@ func (x *ConsumerConfigRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConsumerConfigRequest.ProtoReflect.Descriptor instead.
 func (*ConsumerConfigRequest) Descriptor() ([]byte, []int) {
-	return file_extra_proto_rawDescGZIP(), []int{17}
+	return file_extra_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *ConsumerConfigRequest) GetStream() *StreamRef {
@@ -1411,6 +1568,13 @@ func (x *ConsumerConfigRequest) GetPush() bool {
 	return false
 }
 
+func (x *ConsumerConfigRequest) GetCreateOnly() bool {
+	if x != nil {
+		return x.CreateOnly
+	}
+	return false
+}
+
 type FetchOptions struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	MaxWaitNs     *int64                 `protobuf:"varint,1,opt,name=max_wait_ns,json=maxWaitNs,proto3,oneof" json:"max_wait_ns,omitempty"`
@@ -1425,7 +1589,7 @@ type FetchOptions struct {
 
 func (x *FetchOptions) Reset() {
 	*x = FetchOptions{}
-	mi := &file_extra_proto_msgTypes[18]
+	mi := &file_extra_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1437,7 +1601,7 @@ func (x *FetchOptions) String() string {
 func (*FetchOptions) ProtoMessage() {}
 
 func (x *FetchOptions) ProtoReflect() protoreflect.Message {
-	mi := &file_extra_proto_msgTypes[18]
+	mi := &file_extra_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1450,7 +1614,7 @@ func (x *FetchOptions) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FetchOptions.ProtoReflect.Descriptor instead.
 func (*FetchOptions) Descriptor() ([]byte, []int) {
-	return file_extra_proto_rawDescGZIP(), []int{18}
+	return file_extra_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *FetchOptions) GetMaxWaitNs() int64 {
@@ -1513,7 +1677,7 @@ type FetchRequest struct {
 
 func (x *FetchRequest) Reset() {
 	*x = FetchRequest{}
-	mi := &file_extra_proto_msgTypes[19]
+	mi := &file_extra_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1525,7 +1689,7 @@ func (x *FetchRequest) String() string {
 func (*FetchRequest) ProtoMessage() {}
 
 func (x *FetchRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_extra_proto_msgTypes[19]
+	mi := &file_extra_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1538,7 +1702,7 @@ func (x *FetchRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FetchRequest.ProtoReflect.Descriptor instead.
 func (*FetchRequest) Descriptor() ([]byte, []int) {
-	return file_extra_proto_rawDescGZIP(), []int{19}
+	return file_extra_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *FetchRequest) GetConsumer() *ConsumerRef {
@@ -1623,7 +1787,7 @@ type Delivery struct {
 
 func (x *Delivery) Reset() {
 	*x = Delivery{}
-	mi := &file_extra_proto_msgTypes[20]
+	mi := &file_extra_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1635,7 +1799,7 @@ func (x *Delivery) String() string {
 func (*Delivery) ProtoMessage() {}
 
 func (x *Delivery) ProtoReflect() protoreflect.Message {
-	mi := &file_extra_proto_msgTypes[20]
+	mi := &file_extra_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1648,7 +1812,7 @@ func (x *Delivery) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Delivery.ProtoReflect.Descriptor instead.
 func (*Delivery) Descriptor() ([]byte, []int) {
-	return file_extra_proto_rawDescGZIP(), []int{20}
+	return file_extra_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *Delivery) GetMessage() *Message {
@@ -1686,7 +1850,7 @@ type AckRequest struct {
 
 func (x *AckRequest) Reset() {
 	*x = AckRequest{}
-	mi := &file_extra_proto_msgTypes[21]
+	mi := &file_extra_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1698,7 +1862,7 @@ func (x *AckRequest) String() string {
 func (*AckRequest) ProtoMessage() {}
 
 func (x *AckRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_extra_proto_msgTypes[21]
+	mi := &file_extra_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1711,7 +1875,7 @@ func (x *AckRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AckRequest.ProtoReflect.Descriptor instead.
 func (*AckRequest) Descriptor() ([]byte, []int) {
-	return file_extra_proto_rawDescGZIP(), []int{21}
+	return file_extra_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *AckRequest) GetAckToken() []byte {
@@ -1749,17 +1913,159 @@ func (x *AckRequest) GetConfirm() bool {
 	return false
 }
 
+type AckBatchRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Items         []*AckRequest          `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AckBatchRequest) Reset() {
+	*x = AckBatchRequest{}
+	mi := &file_extra_proto_msgTypes[24]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AckBatchRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AckBatchRequest) ProtoMessage() {}
+
+func (x *AckBatchRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_extra_proto_msgTypes[24]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AckBatchRequest.ProtoReflect.Descriptor instead.
+func (*AckBatchRequest) Descriptor() ([]byte, []int) {
+	return file_extra_proto_rawDescGZIP(), []int{24}
+}
+
+func (x *AckBatchRequest) GetItems() []*AckRequest {
+	if x != nil {
+		return x.Items
+	}
+	return nil
+}
+
+type AckBatchResult struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Index uint32                 `protobuf:"varint,1,opt,name=index,proto3" json:"index,omitempty"`
+	// 缺省表示该条提交成功；confirm=false 不保证服务端确认已持久化。
+	Error         *NatsError `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AckBatchResult) Reset() {
+	*x = AckBatchResult{}
+	mi := &file_extra_proto_msgTypes[25]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AckBatchResult) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AckBatchResult) ProtoMessage() {}
+
+func (x *AckBatchResult) ProtoReflect() protoreflect.Message {
+	mi := &file_extra_proto_msgTypes[25]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AckBatchResult.ProtoReflect.Descriptor instead.
+func (*AckBatchResult) Descriptor() ([]byte, []int) {
+	return file_extra_proto_rawDescGZIP(), []int{25}
+}
+
+func (x *AckBatchResult) GetIndex() uint32 {
+	if x != nil {
+		return x.Index
+	}
+	return 0
+}
+
+func (x *AckBatchResult) GetError() *NatsError {
+	if x != nil {
+		return x.Error
+	}
+	return nil
+}
+
+type AckBatchResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Results       []*AckBatchResult      `protobuf:"bytes,1,rep,name=results,proto3" json:"results,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AckBatchResponse) Reset() {
+	*x = AckBatchResponse{}
+	mi := &file_extra_proto_msgTypes[26]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AckBatchResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AckBatchResponse) ProtoMessage() {}
+
+func (x *AckBatchResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_extra_proto_msgTypes[26]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AckBatchResponse.ProtoReflect.Descriptor instead.
+func (*AckBatchResponse) Descriptor() ([]byte, []int) {
+	return file_extra_proto_rawDescGZIP(), []int{26}
+}
+
+func (x *AckBatchResponse) GetResults() []*AckBatchResult {
+	if x != nil {
+		return x.Results
+	}
+	return nil
+}
+
 type KeyValueConfigRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Scope         *Scope                 `protobuf:"bytes,1,opt,name=scope,proto3" json:"scope,omitempty"`
 	Config        *NatsKeyValueConfig    `protobuf:"bytes,2,opt,name=config,proto3" json:"config,omitempty"`
+	CreateOnly    bool                   `protobuf:"varint,3,opt,name=create_only,json=createOnly,proto3" json:"create_only,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *KeyValueConfigRequest) Reset() {
 	*x = KeyValueConfigRequest{}
-	mi := &file_extra_proto_msgTypes[22]
+	mi := &file_extra_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1771,7 +2077,7 @@ func (x *KeyValueConfigRequest) String() string {
 func (*KeyValueConfigRequest) ProtoMessage() {}
 
 func (x *KeyValueConfigRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_extra_proto_msgTypes[22]
+	mi := &file_extra_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1784,7 +2090,7 @@ func (x *KeyValueConfigRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use KeyValueConfigRequest.ProtoReflect.Descriptor instead.
 func (*KeyValueConfigRequest) Descriptor() ([]byte, []int) {
-	return file_extra_proto_rawDescGZIP(), []int{22}
+	return file_extra_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *KeyValueConfigRequest) GetScope() *Scope {
@@ -1801,6 +2107,13 @@ func (x *KeyValueConfigRequest) GetConfig() *NatsKeyValueConfig {
 	return nil
 }
 
+func (x *KeyValueConfigRequest) GetCreateOnly() bool {
+	if x != nil {
+		return x.CreateOnly
+	}
+	return false
+}
+
 type KeyValuePutRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Key           *KeyRef                `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
@@ -1811,7 +2124,7 @@ type KeyValuePutRequest struct {
 
 func (x *KeyValuePutRequest) Reset() {
 	*x = KeyValuePutRequest{}
-	mi := &file_extra_proto_msgTypes[23]
+	mi := &file_extra_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1823,7 +2136,7 @@ func (x *KeyValuePutRequest) String() string {
 func (*KeyValuePutRequest) ProtoMessage() {}
 
 func (x *KeyValuePutRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_extra_proto_msgTypes[23]
+	mi := &file_extra_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1836,7 +2149,7 @@ func (x *KeyValuePutRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use KeyValuePutRequest.ProtoReflect.Descriptor instead.
 func (*KeyValuePutRequest) Descriptor() ([]byte, []int) {
-	return file_extra_proto_rawDescGZIP(), []int{23}
+	return file_extra_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *KeyValuePutRequest) GetKey() *KeyRef {
@@ -1864,7 +2177,7 @@ type KeyValueCreateRequest struct {
 
 func (x *KeyValueCreateRequest) Reset() {
 	*x = KeyValueCreateRequest{}
-	mi := &file_extra_proto_msgTypes[24]
+	mi := &file_extra_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1876,7 +2189,7 @@ func (x *KeyValueCreateRequest) String() string {
 func (*KeyValueCreateRequest) ProtoMessage() {}
 
 func (x *KeyValueCreateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_extra_proto_msgTypes[24]
+	mi := &file_extra_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1889,7 +2202,7 @@ func (x *KeyValueCreateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use KeyValueCreateRequest.ProtoReflect.Descriptor instead.
 func (*KeyValueCreateRequest) Descriptor() ([]byte, []int) {
-	return file_extra_proto_rawDescGZIP(), []int{24}
+	return file_extra_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *KeyValueCreateRequest) GetKey() *KeyRef {
@@ -1924,7 +2237,7 @@ type KeyValueUpdateRequest struct {
 
 func (x *KeyValueUpdateRequest) Reset() {
 	*x = KeyValueUpdateRequest{}
-	mi := &file_extra_proto_msgTypes[25]
+	mi := &file_extra_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1936,7 +2249,7 @@ func (x *KeyValueUpdateRequest) String() string {
 func (*KeyValueUpdateRequest) ProtoMessage() {}
 
 func (x *KeyValueUpdateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_extra_proto_msgTypes[25]
+	mi := &file_extra_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1949,7 +2262,7 @@ func (x *KeyValueUpdateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use KeyValueUpdateRequest.ProtoReflect.Descriptor instead.
 func (*KeyValueUpdateRequest) Descriptor() ([]byte, []int) {
-	return file_extra_proto_rawDescGZIP(), []int{25}
+	return file_extra_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *KeyValueUpdateRequest) GetKey() *KeyRef {
@@ -1983,7 +2296,7 @@ type KeyValueGetRequest struct {
 
 func (x *KeyValueGetRequest) Reset() {
 	*x = KeyValueGetRequest{}
-	mi := &file_extra_proto_msgTypes[26]
+	mi := &file_extra_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1995,7 +2308,7 @@ func (x *KeyValueGetRequest) String() string {
 func (*KeyValueGetRequest) ProtoMessage() {}
 
 func (x *KeyValueGetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_extra_proto_msgTypes[26]
+	mi := &file_extra_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2008,7 +2321,7 @@ func (x *KeyValueGetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use KeyValueGetRequest.ProtoReflect.Descriptor instead.
 func (*KeyValueGetRequest) Descriptor() ([]byte, []int) {
-	return file_extra_proto_rawDescGZIP(), []int{26}
+	return file_extra_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *KeyValueGetRequest) GetKey() *KeyRef {
@@ -2037,7 +2350,7 @@ type KeyValueDeleteRequest struct {
 
 func (x *KeyValueDeleteRequest) Reset() {
 	*x = KeyValueDeleteRequest{}
-	mi := &file_extra_proto_msgTypes[27]
+	mi := &file_extra_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2049,7 +2362,7 @@ func (x *KeyValueDeleteRequest) String() string {
 func (*KeyValueDeleteRequest) ProtoMessage() {}
 
 func (x *KeyValueDeleteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_extra_proto_msgTypes[27]
+	mi := &file_extra_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2062,7 +2375,7 @@ func (x *KeyValueDeleteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use KeyValueDeleteRequest.ProtoReflect.Descriptor instead.
 func (*KeyValueDeleteRequest) Descriptor() ([]byte, []int) {
-	return file_extra_proto_rawDescGZIP(), []int{27}
+	return file_extra_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *KeyValueDeleteRequest) GetKey() *KeyRef {
@@ -2099,7 +2412,7 @@ type WatchOptions struct {
 
 func (x *WatchOptions) Reset() {
 	*x = WatchOptions{}
-	mi := &file_extra_proto_msgTypes[28]
+	mi := &file_extra_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2111,7 +2424,7 @@ func (x *WatchOptions) String() string {
 func (*WatchOptions) ProtoMessage() {}
 
 func (x *WatchOptions) ProtoReflect() protoreflect.Message {
-	mi := &file_extra_proto_msgTypes[28]
+	mi := &file_extra_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2124,7 +2437,7 @@ func (x *WatchOptions) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WatchOptions.ProtoReflect.Descriptor instead.
 func (*WatchOptions) Descriptor() ([]byte, []int) {
-	return file_extra_proto_rawDescGZIP(), []int{28}
+	return file_extra_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *WatchOptions) GetIncludeHistory() bool {
@@ -2172,7 +2485,7 @@ type KeyValueHistoryRequest struct {
 
 func (x *KeyValueHistoryRequest) Reset() {
 	*x = KeyValueHistoryRequest{}
-	mi := &file_extra_proto_msgTypes[29]
+	mi := &file_extra_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2184,7 +2497,7 @@ func (x *KeyValueHistoryRequest) String() string {
 func (*KeyValueHistoryRequest) ProtoMessage() {}
 
 func (x *KeyValueHistoryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_extra_proto_msgTypes[29]
+	mi := &file_extra_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2197,7 +2510,7 @@ func (x *KeyValueHistoryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use KeyValueHistoryRequest.ProtoReflect.Descriptor instead.
 func (*KeyValueHistoryRequest) Descriptor() ([]byte, []int) {
-	return file_extra_proto_rawDescGZIP(), []int{29}
+	return file_extra_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *KeyValueHistoryRequest) GetKey() *KeyRef {
@@ -2225,7 +2538,7 @@ type KeyValueWatchRequest struct {
 
 func (x *KeyValueWatchRequest) Reset() {
 	*x = KeyValueWatchRequest{}
-	mi := &file_extra_proto_msgTypes[30]
+	mi := &file_extra_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2237,7 +2550,7 @@ func (x *KeyValueWatchRequest) String() string {
 func (*KeyValueWatchRequest) ProtoMessage() {}
 
 func (x *KeyValueWatchRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_extra_proto_msgTypes[30]
+	mi := &file_extra_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2250,7 +2563,7 @@ func (x *KeyValueWatchRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use KeyValueWatchRequest.ProtoReflect.Descriptor instead.
 func (*KeyValueWatchRequest) Descriptor() ([]byte, []int) {
-	return file_extra_proto_rawDescGZIP(), []int{30}
+	return file_extra_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *KeyValueWatchRequest) GetBucket() *BucketRef {
@@ -2289,7 +2602,7 @@ type KeyValueEntry struct {
 
 func (x *KeyValueEntry) Reset() {
 	*x = KeyValueEntry{}
-	mi := &file_extra_proto_msgTypes[31]
+	mi := &file_extra_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2301,7 +2614,7 @@ func (x *KeyValueEntry) String() string {
 func (*KeyValueEntry) ProtoMessage() {}
 
 func (x *KeyValueEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_extra_proto_msgTypes[31]
+	mi := &file_extra_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2314,7 +2627,7 @@ func (x *KeyValueEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use KeyValueEntry.ProtoReflect.Descriptor instead.
 func (*KeyValueEntry) Descriptor() ([]byte, []int) {
-	return file_extra_proto_rawDescGZIP(), []int{31}
+	return file_extra_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *KeyValueEntry) GetBucket() string {
@@ -2381,7 +2694,7 @@ type KeyValueWatchEvent struct {
 
 func (x *KeyValueWatchEvent) Reset() {
 	*x = KeyValueWatchEvent{}
-	mi := &file_extra_proto_msgTypes[32]
+	mi := &file_extra_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2393,7 +2706,7 @@ func (x *KeyValueWatchEvent) String() string {
 func (*KeyValueWatchEvent) ProtoMessage() {}
 
 func (x *KeyValueWatchEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_extra_proto_msgTypes[32]
+	mi := &file_extra_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2406,7 +2719,7 @@ func (x *KeyValueWatchEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use KeyValueWatchEvent.ProtoReflect.Descriptor instead.
 func (*KeyValueWatchEvent) Descriptor() ([]byte, []int) {
-	return file_extra_proto_rawDescGZIP(), []int{32}
+	return file_extra_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *KeyValueWatchEvent) GetEvent() isKeyValueWatchEvent_Event {
@@ -2470,7 +2783,7 @@ type KeyValueStatus struct {
 
 func (x *KeyValueStatus) Reset() {
 	*x = KeyValueStatus{}
-	mi := &file_extra_proto_msgTypes[33]
+	mi := &file_extra_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2482,7 +2795,7 @@ func (x *KeyValueStatus) String() string {
 func (*KeyValueStatus) ProtoMessage() {}
 
 func (x *KeyValueStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_extra_proto_msgTypes[33]
+	mi := &file_extra_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2495,7 +2808,7 @@ func (x *KeyValueStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use KeyValueStatus.ProtoReflect.Descriptor instead.
 func (*KeyValueStatus) Descriptor() ([]byte, []int) {
-	return file_extra_proto_rawDescGZIP(), []int{33}
+	return file_extra_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *KeyValueStatus) GetBucket() string {
@@ -2584,7 +2897,7 @@ type StringValues struct {
 
 func (x *StringValues) Reset() {
 	*x = StringValues{}
-	mi := &file_extra_proto_msgTypes[34]
+	mi := &file_extra_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2596,7 +2909,7 @@ func (x *StringValues) String() string {
 func (*StringValues) ProtoMessage() {}
 
 func (x *StringValues) ProtoReflect() protoreflect.Message {
-	mi := &file_extra_proto_msgTypes[34]
+	mi := &file_extra_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2609,7 +2922,7 @@ func (x *StringValues) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StringValues.ProtoReflect.Descriptor instead.
 func (*StringValues) Descriptor() ([]byte, []int) {
-	return file_extra_proto_rawDescGZIP(), []int{34}
+	return file_extra_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *StringValues) GetValues() []string {
@@ -2630,7 +2943,7 @@ type NatsPlacement struct {
 
 func (x *NatsPlacement) Reset() {
 	*x = NatsPlacement{}
-	mi := &file_extra_proto_msgTypes[35]
+	mi := &file_extra_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2642,7 +2955,7 @@ func (x *NatsPlacement) String() string {
 func (*NatsPlacement) ProtoMessage() {}
 
 func (x *NatsPlacement) ProtoReflect() protoreflect.Message {
-	mi := &file_extra_proto_msgTypes[35]
+	mi := &file_extra_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2655,7 +2968,7 @@ func (x *NatsPlacement) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NatsPlacement.ProtoReflect.Descriptor instead.
 func (*NatsPlacement) Descriptor() ([]byte, []int) {
-	return file_extra_proto_rawDescGZIP(), []int{35}
+	return file_extra_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *NatsPlacement) GetCluster() string {
@@ -2683,7 +2996,7 @@ type NatsSubjectTransformConfig struct {
 
 func (x *NatsSubjectTransformConfig) Reset() {
 	*x = NatsSubjectTransformConfig{}
-	mi := &file_extra_proto_msgTypes[36]
+	mi := &file_extra_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2695,7 +3008,7 @@ func (x *NatsSubjectTransformConfig) String() string {
 func (*NatsSubjectTransformConfig) ProtoMessage() {}
 
 func (x *NatsSubjectTransformConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_extra_proto_msgTypes[36]
+	mi := &file_extra_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2708,7 +3021,7 @@ func (x *NatsSubjectTransformConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NatsSubjectTransformConfig.ProtoReflect.Descriptor instead.
 func (*NatsSubjectTransformConfig) Descriptor() ([]byte, []int) {
-	return file_extra_proto_rawDescGZIP(), []int{36}
+	return file_extra_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *NatsSubjectTransformConfig) GetSource() string {
@@ -2736,7 +3049,7 @@ type NatsExternalStream struct {
 
 func (x *NatsExternalStream) Reset() {
 	*x = NatsExternalStream{}
-	mi := &file_extra_proto_msgTypes[37]
+	mi := &file_extra_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2748,7 +3061,7 @@ func (x *NatsExternalStream) String() string {
 func (*NatsExternalStream) ProtoMessage() {}
 
 func (x *NatsExternalStream) ProtoReflect() protoreflect.Message {
-	mi := &file_extra_proto_msgTypes[37]
+	mi := &file_extra_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2761,7 +3074,7 @@ func (x *NatsExternalStream) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NatsExternalStream.ProtoReflect.Descriptor instead.
 func (*NatsExternalStream) Descriptor() ([]byte, []int) {
-	return file_extra_proto_rawDescGZIP(), []int{37}
+	return file_extra_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *NatsExternalStream) GetApiPrefix() string {
@@ -2789,7 +3102,7 @@ type NatsStreamConsumerSource struct {
 
 func (x *NatsStreamConsumerSource) Reset() {
 	*x = NatsStreamConsumerSource{}
-	mi := &file_extra_proto_msgTypes[38]
+	mi := &file_extra_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2801,7 +3114,7 @@ func (x *NatsStreamConsumerSource) String() string {
 func (*NatsStreamConsumerSource) ProtoMessage() {}
 
 func (x *NatsStreamConsumerSource) ProtoReflect() protoreflect.Message {
-	mi := &file_extra_proto_msgTypes[38]
+	mi := &file_extra_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2814,7 +3127,7 @@ func (x *NatsStreamConsumerSource) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NatsStreamConsumerSource.ProtoReflect.Descriptor instead.
 func (*NatsStreamConsumerSource) Descriptor() ([]byte, []int) {
-	return file_extra_proto_rawDescGZIP(), []int{38}
+	return file_extra_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *NatsStreamConsumerSource) GetName() string {
@@ -2855,7 +3168,7 @@ type NatsStreamSource struct {
 
 func (x *NatsStreamSource) Reset() {
 	*x = NatsStreamSource{}
-	mi := &file_extra_proto_msgTypes[39]
+	mi := &file_extra_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2867,7 +3180,7 @@ func (x *NatsStreamSource) String() string {
 func (*NatsStreamSource) ProtoMessage() {}
 
 func (x *NatsStreamSource) ProtoReflect() protoreflect.Message {
-	mi := &file_extra_proto_msgTypes[39]
+	mi := &file_extra_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2880,7 +3193,7 @@ func (x *NatsStreamSource) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NatsStreamSource.ProtoReflect.Descriptor instead.
 func (*NatsStreamSource) Descriptor() ([]byte, []int) {
-	return file_extra_proto_rawDescGZIP(), []int{39}
+	return file_extra_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *NatsStreamSource) GetName() string {
@@ -2952,7 +3265,7 @@ type NatsRePublish struct {
 
 func (x *NatsRePublish) Reset() {
 	*x = NatsRePublish{}
-	mi := &file_extra_proto_msgTypes[40]
+	mi := &file_extra_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2964,7 +3277,7 @@ func (x *NatsRePublish) String() string {
 func (*NatsRePublish) ProtoMessage() {}
 
 func (x *NatsRePublish) ProtoReflect() protoreflect.Message {
-	mi := &file_extra_proto_msgTypes[40]
+	mi := &file_extra_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2977,7 +3290,7 @@ func (x *NatsRePublish) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NatsRePublish.ProtoReflect.Descriptor instead.
 func (*NatsRePublish) Descriptor() ([]byte, []int) {
-	return file_extra_proto_rawDescGZIP(), []int{40}
+	return file_extra_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *NatsRePublish) GetSource() string {
@@ -3013,7 +3326,7 @@ type NatsStreamConsumerLimits struct {
 
 func (x *NatsStreamConsumerLimits) Reset() {
 	*x = NatsStreamConsumerLimits{}
-	mi := &file_extra_proto_msgTypes[41]
+	mi := &file_extra_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3025,7 +3338,7 @@ func (x *NatsStreamConsumerLimits) String() string {
 func (*NatsStreamConsumerLimits) ProtoMessage() {}
 
 func (x *NatsStreamConsumerLimits) ProtoReflect() protoreflect.Message {
-	mi := &file_extra_proto_msgTypes[41]
+	mi := &file_extra_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3038,7 +3351,7 @@ func (x *NatsStreamConsumerLimits) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NatsStreamConsumerLimits.ProtoReflect.Descriptor instead.
 func (*NatsStreamConsumerLimits) Descriptor() ([]byte, []int) {
-	return file_extra_proto_rawDescGZIP(), []int{41}
+	return file_extra_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *NatsStreamConsumerLimits) GetInactiveThreshold() int64 {
@@ -3148,7 +3461,7 @@ type NatsStreamConfig struct {
 
 func (x *NatsStreamConfig) Reset() {
 	*x = NatsStreamConfig{}
-	mi := &file_extra_proto_msgTypes[42]
+	mi := &file_extra_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3160,7 +3473,7 @@ func (x *NatsStreamConfig) String() string {
 func (*NatsStreamConfig) ProtoMessage() {}
 
 func (x *NatsStreamConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_extra_proto_msgTypes[42]
+	mi := &file_extra_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3173,7 +3486,7 @@ func (x *NatsStreamConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NatsStreamConfig.ProtoReflect.Descriptor instead.
 func (*NatsStreamConfig) Descriptor() ([]byte, []int) {
-	return file_extra_proto_rawDescGZIP(), []int{42}
+	return file_extra_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *NatsStreamConfig) GetName() string {
@@ -3480,7 +3793,7 @@ type NatsStreamState struct {
 
 func (x *NatsStreamState) Reset() {
 	*x = NatsStreamState{}
-	mi := &file_extra_proto_msgTypes[43]
+	mi := &file_extra_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3492,7 +3805,7 @@ func (x *NatsStreamState) String() string {
 func (*NatsStreamState) ProtoMessage() {}
 
 func (x *NatsStreamState) ProtoReflect() protoreflect.Message {
-	mi := &file_extra_proto_msgTypes[43]
+	mi := &file_extra_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3505,7 +3818,7 @@ func (x *NatsStreamState) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NatsStreamState.ProtoReflect.Descriptor instead.
 func (*NatsStreamState) Descriptor() ([]byte, []int) {
-	return file_extra_proto_rawDescGZIP(), []int{43}
+	return file_extra_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *NatsStreamState) GetMsgs() uint64 {
@@ -3607,7 +3920,7 @@ type NatsPeerInfo struct {
 
 func (x *NatsPeerInfo) Reset() {
 	*x = NatsPeerInfo{}
-	mi := &file_extra_proto_msgTypes[44]
+	mi := &file_extra_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3619,7 +3932,7 @@ func (x *NatsPeerInfo) String() string {
 func (*NatsPeerInfo) ProtoMessage() {}
 
 func (x *NatsPeerInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_extra_proto_msgTypes[44]
+	mi := &file_extra_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3632,7 +3945,7 @@ func (x *NatsPeerInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NatsPeerInfo.ProtoReflect.Descriptor instead.
 func (*NatsPeerInfo) Descriptor() ([]byte, []int) {
-	return file_extra_proto_rawDescGZIP(), []int{44}
+	return file_extra_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *NatsPeerInfo) GetName() string {
@@ -3697,7 +4010,7 @@ type NatsDesiredPeerInfo struct {
 
 func (x *NatsDesiredPeerInfo) Reset() {
 	*x = NatsDesiredPeerInfo{}
-	mi := &file_extra_proto_msgTypes[45]
+	mi := &file_extra_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3709,7 +4022,7 @@ func (x *NatsDesiredPeerInfo) String() string {
 func (*NatsDesiredPeerInfo) ProtoMessage() {}
 
 func (x *NatsDesiredPeerInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_extra_proto_msgTypes[45]
+	mi := &file_extra_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3722,7 +4035,7 @@ func (x *NatsDesiredPeerInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NatsDesiredPeerInfo.ProtoReflect.Descriptor instead.
 func (*NatsDesiredPeerInfo) Descriptor() ([]byte, []int) {
-	return file_extra_proto_rawDescGZIP(), []int{45}
+	return file_extra_proto_rawDescGZIP(), []int{50}
 }
 
 func (x *NatsDesiredPeerInfo) GetName() string {
@@ -3760,7 +4073,7 @@ type NatsDesiredClusterInfoOrigin struct {
 
 func (x *NatsDesiredClusterInfoOrigin) Reset() {
 	*x = NatsDesiredClusterInfoOrigin{}
-	mi := &file_extra_proto_msgTypes[46]
+	mi := &file_extra_proto_msgTypes[51]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3772,7 +4085,7 @@ func (x *NatsDesiredClusterInfoOrigin) String() string {
 func (*NatsDesiredClusterInfoOrigin) ProtoMessage() {}
 
 func (x *NatsDesiredClusterInfoOrigin) ProtoReflect() protoreflect.Message {
-	mi := &file_extra_proto_msgTypes[46]
+	mi := &file_extra_proto_msgTypes[51]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3785,7 +4098,7 @@ func (x *NatsDesiredClusterInfoOrigin) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NatsDesiredClusterInfoOrigin.ProtoReflect.Descriptor instead.
 func (*NatsDesiredClusterInfoOrigin) Descriptor() ([]byte, []int) {
-	return file_extra_proto_rawDescGZIP(), []int{46}
+	return file_extra_proto_rawDescGZIP(), []int{51}
 }
 
 func (x *NatsDesiredClusterInfoOrigin) GetReplicas() int64 {
@@ -3823,7 +4136,7 @@ type NatsDesiredClusterInfoStatus struct {
 
 func (x *NatsDesiredClusterInfoStatus) Reset() {
 	*x = NatsDesiredClusterInfoStatus{}
-	mi := &file_extra_proto_msgTypes[47]
+	mi := &file_extra_proto_msgTypes[52]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3835,7 +4148,7 @@ func (x *NatsDesiredClusterInfoStatus) String() string {
 func (*NatsDesiredClusterInfoStatus) ProtoMessage() {}
 
 func (x *NatsDesiredClusterInfoStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_extra_proto_msgTypes[47]
+	mi := &file_extra_proto_msgTypes[52]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3848,7 +4161,7 @@ func (x *NatsDesiredClusterInfoStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NatsDesiredClusterInfoStatus.ProtoReflect.Descriptor instead.
 func (*NatsDesiredClusterInfoStatus) Descriptor() ([]byte, []int) {
-	return file_extra_proto_rawDescGZIP(), []int{47}
+	return file_extra_proto_rawDescGZIP(), []int{52}
 }
 
 func (x *NatsDesiredClusterInfoStatus) GetDescription() string {
@@ -3890,7 +4203,7 @@ type NatsDesiredClusterInfo struct {
 
 func (x *NatsDesiredClusterInfo) Reset() {
 	*x = NatsDesiredClusterInfo{}
-	mi := &file_extra_proto_msgTypes[48]
+	mi := &file_extra_proto_msgTypes[53]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3902,7 +4215,7 @@ func (x *NatsDesiredClusterInfo) String() string {
 func (*NatsDesiredClusterInfo) ProtoMessage() {}
 
 func (x *NatsDesiredClusterInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_extra_proto_msgTypes[48]
+	mi := &file_extra_proto_msgTypes[53]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3915,7 +4228,7 @@ func (x *NatsDesiredClusterInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NatsDesiredClusterInfo.ProtoReflect.Descriptor instead.
 func (*NatsDesiredClusterInfo) Descriptor() ([]byte, []int) {
-	return file_extra_proto_rawDescGZIP(), []int{48}
+	return file_extra_proto_rawDescGZIP(), []int{53}
 }
 
 func (x *NatsDesiredClusterInfo) GetCreated() *timestamppb.Timestamp {
@@ -3977,7 +4290,7 @@ type NatsClusterInfo struct {
 
 func (x *NatsClusterInfo) Reset() {
 	*x = NatsClusterInfo{}
-	mi := &file_extra_proto_msgTypes[49]
+	mi := &file_extra_proto_msgTypes[54]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3989,7 +4302,7 @@ func (x *NatsClusterInfo) String() string {
 func (*NatsClusterInfo) ProtoMessage() {}
 
 func (x *NatsClusterInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_extra_proto_msgTypes[49]
+	mi := &file_extra_proto_msgTypes[54]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4002,7 +4315,7 @@ func (x *NatsClusterInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NatsClusterInfo.ProtoReflect.Descriptor instead.
 func (*NatsClusterInfo) Descriptor() ([]byte, []int) {
-	return file_extra_proto_rawDescGZIP(), []int{49}
+	return file_extra_proto_rawDescGZIP(), []int{54}
 }
 
 func (x *NatsClusterInfo) GetName() string {
@@ -4081,7 +4394,7 @@ type NatsStreamSourceInfo struct {
 
 func (x *NatsStreamSourceInfo) Reset() {
 	*x = NatsStreamSourceInfo{}
-	mi := &file_extra_proto_msgTypes[50]
+	mi := &file_extra_proto_msgTypes[55]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4093,7 +4406,7 @@ func (x *NatsStreamSourceInfo) String() string {
 func (*NatsStreamSourceInfo) ProtoMessage() {}
 
 func (x *NatsStreamSourceInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_extra_proto_msgTypes[50]
+	mi := &file_extra_proto_msgTypes[55]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4106,7 +4419,7 @@ func (x *NatsStreamSourceInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NatsStreamSourceInfo.ProtoReflect.Descriptor instead.
 func (*NatsStreamSourceInfo) Descriptor() ([]byte, []int) {
-	return file_extra_proto_rawDescGZIP(), []int{50}
+	return file_extra_proto_rawDescGZIP(), []int{55}
 }
 
 func (x *NatsStreamSourceInfo) GetName() string {
@@ -4174,7 +4487,7 @@ type NatsStreamInfo struct {
 
 func (x *NatsStreamInfo) Reset() {
 	*x = NatsStreamInfo{}
-	mi := &file_extra_proto_msgTypes[51]
+	mi := &file_extra_proto_msgTypes[56]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4186,7 +4499,7 @@ func (x *NatsStreamInfo) String() string {
 func (*NatsStreamInfo) ProtoMessage() {}
 
 func (x *NatsStreamInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_extra_proto_msgTypes[51]
+	mi := &file_extra_proto_msgTypes[56]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4199,7 +4512,7 @@ func (x *NatsStreamInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NatsStreamInfo.ProtoReflect.Descriptor instead.
 func (*NatsStreamInfo) Descriptor() ([]byte, []int) {
-	return file_extra_proto_rawDescGZIP(), []int{51}
+	return file_extra_proto_rawDescGZIP(), []int{56}
 }
 
 func (x *NatsStreamInfo) GetConfig() *NatsStreamConfig {
@@ -4336,7 +4649,7 @@ type NatsConsumerConfig struct {
 
 func (x *NatsConsumerConfig) Reset() {
 	*x = NatsConsumerConfig{}
-	mi := &file_extra_proto_msgTypes[52]
+	mi := &file_extra_proto_msgTypes[57]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4348,7 +4661,7 @@ func (x *NatsConsumerConfig) String() string {
 func (*NatsConsumerConfig) ProtoMessage() {}
 
 func (x *NatsConsumerConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_extra_proto_msgTypes[52]
+	mi := &file_extra_proto_msgTypes[57]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4361,7 +4674,7 @@ func (x *NatsConsumerConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NatsConsumerConfig.ProtoReflect.Descriptor instead.
 func (*NatsConsumerConfig) Descriptor() ([]byte, []int) {
-	return file_extra_proto_rawDescGZIP(), []int{52}
+	return file_extra_proto_rawDescGZIP(), []int{57}
 }
 
 func (x *NatsConsumerConfig) GetName() string {
@@ -4609,7 +4922,7 @@ type NatsSequenceInfo struct {
 
 func (x *NatsSequenceInfo) Reset() {
 	*x = NatsSequenceInfo{}
-	mi := &file_extra_proto_msgTypes[53]
+	mi := &file_extra_proto_msgTypes[58]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4621,7 +4934,7 @@ func (x *NatsSequenceInfo) String() string {
 func (*NatsSequenceInfo) ProtoMessage() {}
 
 func (x *NatsSequenceInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_extra_proto_msgTypes[53]
+	mi := &file_extra_proto_msgTypes[58]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4634,7 +4947,7 @@ func (x *NatsSequenceInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NatsSequenceInfo.ProtoReflect.Descriptor instead.
 func (*NatsSequenceInfo) Descriptor() ([]byte, []int) {
-	return file_extra_proto_rawDescGZIP(), []int{53}
+	return file_extra_proto_rawDescGZIP(), []int{58}
 }
 
 func (x *NatsSequenceInfo) GetConsumer() uint64 {
@@ -4672,7 +4985,7 @@ type NatsPriorityGroupState struct {
 
 func (x *NatsPriorityGroupState) Reset() {
 	*x = NatsPriorityGroupState{}
-	mi := &file_extra_proto_msgTypes[54]
+	mi := &file_extra_proto_msgTypes[59]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4684,7 +4997,7 @@ func (x *NatsPriorityGroupState) String() string {
 func (*NatsPriorityGroupState) ProtoMessage() {}
 
 func (x *NatsPriorityGroupState) ProtoReflect() protoreflect.Message {
-	mi := &file_extra_proto_msgTypes[54]
+	mi := &file_extra_proto_msgTypes[59]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4697,7 +5010,7 @@ func (x *NatsPriorityGroupState) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NatsPriorityGroupState.ProtoReflect.Descriptor instead.
 func (*NatsPriorityGroupState) Descriptor() ([]byte, []int) {
-	return file_extra_proto_rawDescGZIP(), []int{54}
+	return file_extra_proto_rawDescGZIP(), []int{59}
 }
 
 func (x *NatsPriorityGroupState) GetGroup() string {
@@ -4763,7 +5076,7 @@ type NatsConsumerInfo struct {
 
 func (x *NatsConsumerInfo) Reset() {
 	*x = NatsConsumerInfo{}
-	mi := &file_extra_proto_msgTypes[55]
+	mi := &file_extra_proto_msgTypes[60]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4775,7 +5088,7 @@ func (x *NatsConsumerInfo) String() string {
 func (*NatsConsumerInfo) ProtoMessage() {}
 
 func (x *NatsConsumerInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_extra_proto_msgTypes[55]
+	mi := &file_extra_proto_msgTypes[60]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4788,7 +5101,7 @@ func (x *NatsConsumerInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NatsConsumerInfo.ProtoReflect.Descriptor instead.
 func (*NatsConsumerInfo) Descriptor() ([]byte, []int) {
-	return file_extra_proto_rawDescGZIP(), []int{55}
+	return file_extra_proto_rawDescGZIP(), []int{60}
 }
 
 func (x *NatsConsumerInfo) GetStream() string {
@@ -4943,7 +5256,7 @@ type NatsKeyValueConfig struct {
 
 func (x *NatsKeyValueConfig) Reset() {
 	*x = NatsKeyValueConfig{}
-	mi := &file_extra_proto_msgTypes[56]
+	mi := &file_extra_proto_msgTypes[61]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4955,7 +5268,7 @@ func (x *NatsKeyValueConfig) String() string {
 func (*NatsKeyValueConfig) ProtoMessage() {}
 
 func (x *NatsKeyValueConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_extra_proto_msgTypes[56]
+	mi := &file_extra_proto_msgTypes[61]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4968,7 +5281,7 @@ func (x *NatsKeyValueConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NatsKeyValueConfig.ProtoReflect.Descriptor instead.
 func (*NatsKeyValueConfig) Descriptor() ([]byte, []int) {
-	return file_extra_proto_rawDescGZIP(), []int{56}
+	return file_extra_proto_rawDescGZIP(), []int{61}
 }
 
 func (x *NatsKeyValueConfig) GetBucket() string {
@@ -5093,7 +5406,7 @@ type NatsPubAck struct {
 
 func (x *NatsPubAck) Reset() {
 	*x = NatsPubAck{}
-	mi := &file_extra_proto_msgTypes[57]
+	mi := &file_extra_proto_msgTypes[62]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5105,7 +5418,7 @@ func (x *NatsPubAck) String() string {
 func (*NatsPubAck) ProtoMessage() {}
 
 func (x *NatsPubAck) ProtoReflect() protoreflect.Message {
-	mi := &file_extra_proto_msgTypes[57]
+	mi := &file_extra_proto_msgTypes[62]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5118,7 +5431,7 @@ func (x *NatsPubAck) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NatsPubAck.ProtoReflect.Descriptor instead.
 func (*NatsPubAck) Descriptor() ([]byte, []int) {
-	return file_extra_proto_rawDescGZIP(), []int{57}
+	return file_extra_proto_rawDescGZIP(), []int{62}
 }
 
 func (x *NatsPubAck) GetStream() string {
@@ -5176,7 +5489,7 @@ type NatsRawStreamMsg struct {
 
 func (x *NatsRawStreamMsg) Reset() {
 	*x = NatsRawStreamMsg{}
-	mi := &file_extra_proto_msgTypes[58]
+	mi := &file_extra_proto_msgTypes[63]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5188,7 +5501,7 @@ func (x *NatsRawStreamMsg) String() string {
 func (*NatsRawStreamMsg) ProtoMessage() {}
 
 func (x *NatsRawStreamMsg) ProtoReflect() protoreflect.Message {
-	mi := &file_extra_proto_msgTypes[58]
+	mi := &file_extra_proto_msgTypes[63]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5201,7 +5514,7 @@ func (x *NatsRawStreamMsg) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NatsRawStreamMsg.ProtoReflect.Descriptor instead.
 func (*NatsRawStreamMsg) Descriptor() ([]byte, []int) {
-	return file_extra_proto_rawDescGZIP(), []int{58}
+	return file_extra_proto_rawDescGZIP(), []int{63}
 }
 
 func (x *NatsRawStreamMsg) GetSubject() string {
@@ -5250,7 +5563,7 @@ type NatsSequencePair struct {
 
 func (x *NatsSequencePair) Reset() {
 	*x = NatsSequencePair{}
-	mi := &file_extra_proto_msgTypes[59]
+	mi := &file_extra_proto_msgTypes[64]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5262,7 +5575,7 @@ func (x *NatsSequencePair) String() string {
 func (*NatsSequencePair) ProtoMessage() {}
 
 func (x *NatsSequencePair) ProtoReflect() protoreflect.Message {
-	mi := &file_extra_proto_msgTypes[59]
+	mi := &file_extra_proto_msgTypes[64]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5275,7 +5588,7 @@ func (x *NatsSequencePair) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NatsSequencePair.ProtoReflect.Descriptor instead.
 func (*NatsSequencePair) Descriptor() ([]byte, []int) {
-	return file_extra_proto_rawDescGZIP(), []int{59}
+	return file_extra_proto_rawDescGZIP(), []int{64}
 }
 
 func (x *NatsSequencePair) GetConsumer() uint64 {
@@ -5314,7 +5627,7 @@ type NatsMsgMetadata struct {
 
 func (x *NatsMsgMetadata) Reset() {
 	*x = NatsMsgMetadata{}
-	mi := &file_extra_proto_msgTypes[60]
+	mi := &file_extra_proto_msgTypes[65]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5326,7 +5639,7 @@ func (x *NatsMsgMetadata) String() string {
 func (*NatsMsgMetadata) ProtoMessage() {}
 
 func (x *NatsMsgMetadata) ProtoReflect() protoreflect.Message {
-	mi := &file_extra_proto_msgTypes[60]
+	mi := &file_extra_proto_msgTypes[65]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5339,7 +5652,7 @@ func (x *NatsMsgMetadata) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NatsMsgMetadata.ProtoReflect.Descriptor instead.
 func (*NatsMsgMetadata) Descriptor() ([]byte, []int) {
-	return file_extra_proto_rawDescGZIP(), []int{60}
+	return file_extra_proto_rawDescGZIP(), []int{65}
 }
 
 func (x *NatsMsgMetadata) GetSequence() *NatsSequencePair {
@@ -5391,6 +5704,272 @@ func (x *NatsMsgMetadata) GetDomain() string {
 	return ""
 }
 
+// ServiceLimits 中数值均为实际生效值；max_consumers=0 表示不强制账户上限。
+type ServiceLimits struct {
+	state                          protoimpl.MessageState `protogen:"open.v1"`
+	MaxMessageBytes                uint64                 `protobuf:"varint,1,opt,name=max_message_bytes,json=maxMessageBytes,proto3" json:"max_message_bytes,omitempty"`
+	MaxFetchMessages               uint32                 `protobuf:"varint,2,opt,name=max_fetch_messages,json=maxFetchMessages,proto3" json:"max_fetch_messages,omitempty"`
+	MaxFetchBytes                  uint64                 `protobuf:"varint,3,opt,name=max_fetch_bytes,json=maxFetchBytes,proto3" json:"max_fetch_bytes,omitempty"`
+	MaxPublishBatchMessages        uint32                 `protobuf:"varint,4,opt,name=max_publish_batch_messages,json=maxPublishBatchMessages,proto3" json:"max_publish_batch_messages,omitempty"`
+	MaxPublishBatchBytes           uint64                 `protobuf:"varint,5,opt,name=max_publish_batch_bytes,json=maxPublishBatchBytes,proto3" json:"max_publish_batch_bytes,omitempty"`
+	PublishBatchPerMessageOverhead uint32                 `protobuf:"varint,6,opt,name=publish_batch_per_message_overhead,json=publishBatchPerMessageOverhead,proto3" json:"publish_batch_per_message_overhead,omitempty"`
+	MaxPublishBatchesInflight      uint32                 `protobuf:"varint,7,opt,name=max_publish_batches_inflight,json=maxPublishBatchesInflight,proto3" json:"max_publish_batches_inflight,omitempty"`
+	MaxAckBatchMessages            uint32                 `protobuf:"varint,8,opt,name=max_ack_batch_messages,json=maxAckBatchMessages,proto3" json:"max_ack_batch_messages,omitempty"`
+	MaxConcurrentUnary             uint32                 `protobuf:"varint,9,opt,name=max_concurrent_unary,json=maxConcurrentUnary,proto3" json:"max_concurrent_unary,omitempty"`
+	MaxConcurrentStreams           uint32                 `protobuf:"varint,10,opt,name=max_concurrent_streams,json=maxConcurrentStreams,proto3" json:"max_concurrent_streams,omitempty"`
+	MaxConcurrentReads             uint32                 `protobuf:"varint,11,opt,name=max_concurrent_reads,json=maxConcurrentReads,proto3" json:"max_concurrent_reads,omitempty"`
+	MaxStoreBytes                  int64                  `protobuf:"varint,12,opt,name=max_store_bytes,json=maxStoreBytes,proto3" json:"max_store_bytes,omitempty"`
+	MaxMemoryBytes                 int64                  `protobuf:"varint,13,opt,name=max_memory_bytes,json=maxMemoryBytes,proto3" json:"max_memory_bytes,omitempty"`
+	BatchCommitTimeoutNs           int64                  `protobuf:"varint,14,opt,name=batch_commit_timeout_ns,json=batchCommitTimeoutNs,proto3" json:"batch_commit_timeout_ns,omitempty"`
+	BatchAbandonTimeoutNs          int64                  `protobuf:"varint,15,opt,name=batch_abandon_timeout_ns,json=batchAbandonTimeoutNs,proto3" json:"batch_abandon_timeout_ns,omitempty"`
+	PublishBatchFlowControl        uint32                 `protobuf:"varint,16,opt,name=publish_batch_flow_control,json=publishBatchFlowControl,proto3" json:"publish_batch_flow_control,omitempty"`
+	MaxConsumers                   uint32                 `protobuf:"varint,17,opt,name=max_consumers,json=maxConsumers,proto3" json:"max_consumers,omitempty"`
+	SingleNode                     bool                   `protobuf:"varint,18,opt,name=single_node,json=singleNode,proto3" json:"single_node,omitempty"`
+	unknownFields                  protoimpl.UnknownFields
+	sizeCache                      protoimpl.SizeCache
+}
+
+func (x *ServiceLimits) Reset() {
+	*x = ServiceLimits{}
+	mi := &file_extra_proto_msgTypes[66]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ServiceLimits) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ServiceLimits) ProtoMessage() {}
+
+func (x *ServiceLimits) ProtoReflect() protoreflect.Message {
+	mi := &file_extra_proto_msgTypes[66]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ServiceLimits.ProtoReflect.Descriptor instead.
+func (*ServiceLimits) Descriptor() ([]byte, []int) {
+	return file_extra_proto_rawDescGZIP(), []int{66}
+}
+
+func (x *ServiceLimits) GetMaxMessageBytes() uint64 {
+	if x != nil {
+		return x.MaxMessageBytes
+	}
+	return 0
+}
+
+func (x *ServiceLimits) GetMaxFetchMessages() uint32 {
+	if x != nil {
+		return x.MaxFetchMessages
+	}
+	return 0
+}
+
+func (x *ServiceLimits) GetMaxFetchBytes() uint64 {
+	if x != nil {
+		return x.MaxFetchBytes
+	}
+	return 0
+}
+
+func (x *ServiceLimits) GetMaxPublishBatchMessages() uint32 {
+	if x != nil {
+		return x.MaxPublishBatchMessages
+	}
+	return 0
+}
+
+func (x *ServiceLimits) GetMaxPublishBatchBytes() uint64 {
+	if x != nil {
+		return x.MaxPublishBatchBytes
+	}
+	return 0
+}
+
+func (x *ServiceLimits) GetPublishBatchPerMessageOverhead() uint32 {
+	if x != nil {
+		return x.PublishBatchPerMessageOverhead
+	}
+	return 0
+}
+
+func (x *ServiceLimits) GetMaxPublishBatchesInflight() uint32 {
+	if x != nil {
+		return x.MaxPublishBatchesInflight
+	}
+	return 0
+}
+
+func (x *ServiceLimits) GetMaxAckBatchMessages() uint32 {
+	if x != nil {
+		return x.MaxAckBatchMessages
+	}
+	return 0
+}
+
+func (x *ServiceLimits) GetMaxConcurrentUnary() uint32 {
+	if x != nil {
+		return x.MaxConcurrentUnary
+	}
+	return 0
+}
+
+func (x *ServiceLimits) GetMaxConcurrentStreams() uint32 {
+	if x != nil {
+		return x.MaxConcurrentStreams
+	}
+	return 0
+}
+
+func (x *ServiceLimits) GetMaxConcurrentReads() uint32 {
+	if x != nil {
+		return x.MaxConcurrentReads
+	}
+	return 0
+}
+
+func (x *ServiceLimits) GetMaxStoreBytes() int64 {
+	if x != nil {
+		return x.MaxStoreBytes
+	}
+	return 0
+}
+
+func (x *ServiceLimits) GetMaxMemoryBytes() int64 {
+	if x != nil {
+		return x.MaxMemoryBytes
+	}
+	return 0
+}
+
+func (x *ServiceLimits) GetBatchCommitTimeoutNs() int64 {
+	if x != nil {
+		return x.BatchCommitTimeoutNs
+	}
+	return 0
+}
+
+func (x *ServiceLimits) GetBatchAbandonTimeoutNs() int64 {
+	if x != nil {
+		return x.BatchAbandonTimeoutNs
+	}
+	return 0
+}
+
+func (x *ServiceLimits) GetPublishBatchFlowControl() uint32 {
+	if x != nil {
+		return x.PublishBatchFlowControl
+	}
+	return 0
+}
+
+func (x *ServiceLimits) GetMaxConsumers() uint32 {
+	if x != nil {
+		return x.MaxConsumers
+	}
+	return 0
+}
+
+func (x *ServiceLimits) GetSingleNode() bool {
+	if x != nil {
+		return x.SingleNode
+	}
+	return false
+}
+
+// ReadRequest 对精确 subject 做有限读取，预算作用于本次 RPC，不跟随快照之后的消息。
+type ReadRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Stream        *StreamRef             `protobuf:"bytes,1,opt,name=stream,proto3" json:"stream,omitempty"`
+	Subject       string                 `protobuf:"bytes,2,opt,name=subject,proto3" json:"subject,omitempty"`
+	StartSequence uint64                 `protobuf:"varint,3,opt,name=start_sequence,json=startSequence,proto3" json:"start_sequence,omitempty"`
+	EndSequence   uint64                 `protobuf:"varint,4,opt,name=end_sequence,json=endSequence,proto3" json:"end_sequence,omitempty"`
+	MaxMessages   uint32                 `protobuf:"varint,5,opt,name=max_messages,json=maxMessages,proto3" json:"max_messages,omitempty"`
+	MaxBytes      uint64                 `protobuf:"varint,6,opt,name=max_bytes,json=maxBytes,proto3" json:"max_bytes,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReadRequest) Reset() {
+	*x = ReadRequest{}
+	mi := &file_extra_proto_msgTypes[67]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReadRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReadRequest) ProtoMessage() {}
+
+func (x *ReadRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_extra_proto_msgTypes[67]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReadRequest.ProtoReflect.Descriptor instead.
+func (*ReadRequest) Descriptor() ([]byte, []int) {
+	return file_extra_proto_rawDescGZIP(), []int{67}
+}
+
+func (x *ReadRequest) GetStream() *StreamRef {
+	if x != nil {
+		return x.Stream
+	}
+	return nil
+}
+
+func (x *ReadRequest) GetSubject() string {
+	if x != nil {
+		return x.Subject
+	}
+	return ""
+}
+
+func (x *ReadRequest) GetStartSequence() uint64 {
+	if x != nil {
+		return x.StartSequence
+	}
+	return 0
+}
+
+func (x *ReadRequest) GetEndSequence() uint64 {
+	if x != nil {
+		return x.EndSequence
+	}
+	return 0
+}
+
+func (x *ReadRequest) GetMaxMessages() uint32 {
+	if x != nil {
+		return x.MaxMessages
+	}
+	return 0
+}
+
+func (x *ReadRequest) GetMaxBytes() uint64 {
+	if x != nil {
+		return x.MaxBytes
+	}
+	return 0
+}
+
 var File_extra_proto protoreflect.FileDescriptor
 
 const file_extra_proto_rawDesc = "" +
@@ -5413,12 +5992,13 @@ const file_extra_proto_rawDesc = "" +
 	"\x04Name\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\"&\n" +
 	"\bRevision\x12\x1a\n" +
-	"\brevision\x18\x01 \x01(\x04R\brevision\"\xb0\x01\n" +
+	"\brevision\x18\x01 \x01(\x04R\brevision\"\xc8\x01\n" +
 	"\tNatsError\x12\x1b\n" +
 	"\tgrpc_code\x18\x01 \x01(\x05R\bgrpcCode\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\x12\x1e\n" +
 	"\bapi_code\x18\x03 \x01(\x05H\x00R\aapiCode\x88\x01\x01\x12+\n" +
-	"\x0fnats_error_code\x18\x04 \x01(\rH\x01R\rnatsErrorCode\x88\x01\x01B\v\n" +
+	"\x0fnats_error_code\x18\x04 \x01(\rH\x01R\rnatsErrorCode\x88\x01\x01\x12\x16\n" +
+	"\x06reason\x18\x05 \x01(\tR\x06reasonB\v\n" +
 	"\t_api_codeB\x12\n" +
 	"\x10_nats_error_code\"\x8c\x02\n" +
 	"\aMessage\x12\x18\n" +
@@ -5430,10 +6010,12 @@ const file_extra_proto_rawDesc = "" +
 	"replyToken\x1aZ\n" +
 	"\fHeadersEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x124\n" +
-	"\x05value\x18\x02 \x01(\v2\x1e.hatchet.extra.v1.StringValuesR\x05value:\x028\x01\"\x80\x01\n" +
+	"\x05value\x18\x02 \x01(\v2\x1e.hatchet.extra.v1.StringValuesR\x05value:\x028\x01\"\xa1\x01\n" +
 	"\x13StreamConfigRequest\x12-\n" +
 	"\x05scope\x18\x01 \x01(\v2\x17.hatchet.extra.v1.ScopeR\x05scope\x12:\n" +
-	"\x06config\x18\x02 \x01(\v2\".hatchet.extra.v1.NatsStreamConfigR\x06config\"\xc9\x01\n" +
+	"\x06config\x18\x02 \x01(\v2\".hatchet.extra.v1.NatsStreamConfigR\x06config\x12\x1f\n" +
+	"\vcreate_only\x18\x03 \x01(\bR\n" +
+	"createOnly\"\xc9\x01\n" +
 	"\x11StreamInfoRequest\x123\n" +
 	"\x06stream\x18\x01 \x01(\v2\x1b.hatchet.extra.v1.StreamRefR\x06stream\x12,\n" +
 	"\x0fdeleted_details\x18\x02 \x01(\bH\x00R\x0edeletedDetails\x88\x01\x01\x12*\n" +
@@ -5507,11 +6089,24 @@ const file_extra_proto_rawDesc = "" +
 	"\x0ecorrelation_id\x18\x01 \x01(\tR\rcorrelationId\x120\n" +
 	"\x03ack\x18\x02 \x01(\v2\x1c.hatchet.extra.v1.NatsPubAckH\x00R\x03ack\x123\n" +
 	"\x05error\x18\x03 \x01(\v2\x1b.hatchet.extra.v1.NatsErrorH\x00R\x05errorB\b\n" +
-	"\x06result\"\x9e\x01\n" +
+	"\x06result\"\xd0\x01\n" +
+	"\x13PublishBatchRequest\x12-\n" +
+	"\x05scope\x18\x01 \x01(\v2\x17.hatchet.extra.v1.ScopeR\x05scope\x12\x19\n" +
+	"\bbatch_id\x18\x02 \x01(\tR\abatchId\x123\n" +
+	"\amessage\x18\x03 \x01(\v2\x19.hatchet.extra.v1.MessageR\amessage\x12:\n" +
+	"\aoptions\x18\x04 \x01(\v2 .hatchet.extra.v1.PublishOptionsR\aoptions\"\xa3\x01\n" +
+	"\x0fPublishBatchAck\x12&\n" +
+	"\x0fnative_batch_id\x18\x04 \x01(\tR\rnativeBatchId\x12\x19\n" +
+	"\bbatch_id\x18\x01 \x01(\tR\abatchId\x12\x1d\n" +
+	"\n" +
+	"batch_size\x18\x02 \x01(\rR\tbatchSize\x12.\n" +
+	"\x03ack\x18\x03 \x01(\v2\x1c.hatchet.extra.v1.NatsPubAckR\x03ack\"\xbf\x01\n" +
 	"\x15ConsumerConfigRequest\x123\n" +
 	"\x06stream\x18\x01 \x01(\v2\x1b.hatchet.extra.v1.StreamRefR\x06stream\x12<\n" +
 	"\x06config\x18\x02 \x01(\v2$.hatchet.extra.v1.NatsConsumerConfigR\x06config\x12\x12\n" +
-	"\x04push\x18\x03 \x01(\bR\x04push\"\xe0\x02\n" +
+	"\x04push\x18\x03 \x01(\bR\x04push\x12\x1f\n" +
+	"\vcreate_only\x18\x04 \x01(\bR\n" +
+	"createOnly\"\xe0\x02\n" +
 	"\fFetchOptions\x12#\n" +
 	"\vmax_wait_ns\x18\x01 \x01(\x03H\x00R\tmaxWaitNs\x88\x01\x01\x12&\n" +
 	"\fheartbeat_ns\x18\x02 \x01(\x03H\x01R\vheartbeatNs\x88\x01\x01\x12*\n" +
@@ -5554,10 +6149,19 @@ const file_extra_proto_rawDesc = "" +
 	"\vIN_PROGRESS\x10\x02\x12\b\n" +
 	"\x04TERM\x10\x03B\x0f\n" +
 	"\r_nak_delay_nsB\x0e\n" +
-	"\f_term_reason\"\x84\x01\n" +
+	"\f_term_reason\"E\n" +
+	"\x0fAckBatchRequest\x122\n" +
+	"\x05items\x18\x01 \x03(\v2\x1c.hatchet.extra.v1.AckRequestR\x05items\"Y\n" +
+	"\x0eAckBatchResult\x12\x14\n" +
+	"\x05index\x18\x01 \x01(\rR\x05index\x121\n" +
+	"\x05error\x18\x02 \x01(\v2\x1b.hatchet.extra.v1.NatsErrorR\x05error\"N\n" +
+	"\x10AckBatchResponse\x12:\n" +
+	"\aresults\x18\x01 \x03(\v2 .hatchet.extra.v1.AckBatchResultR\aresults\"\xa5\x01\n" +
 	"\x15KeyValueConfigRequest\x12-\n" +
 	"\x05scope\x18\x01 \x01(\v2\x17.hatchet.extra.v1.ScopeR\x05scope\x12<\n" +
-	"\x06config\x18\x02 \x01(\v2$.hatchet.extra.v1.NatsKeyValueConfigR\x06config\"V\n" +
+	"\x06config\x18\x02 \x01(\v2$.hatchet.extra.v1.NatsKeyValueConfigR\x06config\x12\x1f\n" +
+	"\vcreate_only\x18\x03 \x01(\bR\n" +
+	"createOnly\"V\n" +
 	"\x12KeyValuePutRequest\x12*\n" +
 	"\x03key\x18\x01 \x01(\v2\x18.hatchet.extra.v1.KeyRefR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\fR\x05value\"\x80\x01\n" +
@@ -6073,24 +6677,56 @@ const file_extra_proto_rawDesc = "" +
 	"\f_num_pendingB\t\n" +
 	"\a_streamB\v\n" +
 	"\t_consumerB\t\n" +
-	"\a_domain2\xb8\x03\n" +
-	"\rStreamService\x12_\n" +
+	"\a_domain\"\xa6\a\n" +
+	"\rServiceLimits\x12*\n" +
+	"\x11max_message_bytes\x18\x01 \x01(\x04R\x0fmaxMessageBytes\x12,\n" +
+	"\x12max_fetch_messages\x18\x02 \x01(\rR\x10maxFetchMessages\x12&\n" +
+	"\x0fmax_fetch_bytes\x18\x03 \x01(\x04R\rmaxFetchBytes\x12;\n" +
+	"\x1amax_publish_batch_messages\x18\x04 \x01(\rR\x17maxPublishBatchMessages\x125\n" +
+	"\x17max_publish_batch_bytes\x18\x05 \x01(\x04R\x14maxPublishBatchBytes\x12J\n" +
+	"\"publish_batch_per_message_overhead\x18\x06 \x01(\rR\x1epublishBatchPerMessageOverhead\x12?\n" +
+	"\x1cmax_publish_batches_inflight\x18\a \x01(\rR\x19maxPublishBatchesInflight\x123\n" +
+	"\x16max_ack_batch_messages\x18\b \x01(\rR\x13maxAckBatchMessages\x120\n" +
+	"\x14max_concurrent_unary\x18\t \x01(\rR\x12maxConcurrentUnary\x124\n" +
+	"\x16max_concurrent_streams\x18\n" +
+	" \x01(\rR\x14maxConcurrentStreams\x120\n" +
+	"\x14max_concurrent_reads\x18\v \x01(\rR\x12maxConcurrentReads\x12&\n" +
+	"\x0fmax_store_bytes\x18\f \x01(\x03R\rmaxStoreBytes\x12(\n" +
+	"\x10max_memory_bytes\x18\r \x01(\x03R\x0emaxMemoryBytes\x125\n" +
+	"\x17batch_commit_timeout_ns\x18\x0e \x01(\x03R\x14batchCommitTimeoutNs\x127\n" +
+	"\x18batch_abandon_timeout_ns\x18\x0f \x01(\x03R\x15batchAbandonTimeoutNs\x12;\n" +
+	"\x1apublish_batch_flow_control\x18\x10 \x01(\rR\x17publishBatchFlowControl\x12#\n" +
+	"\rmax_consumers\x18\x11 \x01(\rR\fmaxConsumers\x12\x1f\n" +
+	"\vsingle_node\x18\x12 \x01(\bR\n" +
+	"singleNode\"\xe6\x01\n" +
+	"\vReadRequest\x123\n" +
+	"\x06stream\x18\x01 \x01(\v2\x1b.hatchet.extra.v1.StreamRefR\x06stream\x12\x18\n" +
+	"\asubject\x18\x02 \x01(\tR\asubject\x12%\n" +
+	"\x0estart_sequence\x18\x03 \x01(\x04R\rstartSequence\x12!\n" +
+	"\fend_sequence\x18\x04 \x01(\x04R\vendSequence\x12!\n" +
+	"\fmax_messages\x18\x05 \x01(\rR\vmaxMessages\x12\x1b\n" +
+	"\tmax_bytes\x18\x06 \x01(\x04R\bmaxBytes2\xcb\x04\n" +
+	"\rStreamService\x12D\n" +
+	"\tGetLimits\x12\x16.google.protobuf.Empty\x1a\x1f.hatchet.extra.v1.ServiceLimits\x12K\n" +
+	"\x04Read\x12\x1d.hatchet.extra.v1.ReadRequest\x1a\".hatchet.extra.v1.NatsRawStreamMsg0\x01\x12_\n" +
 	"\x14CreateOrUpdateStream\x12%.hatchet.extra.v1.StreamConfigRequest\x1a .hatchet.extra.v1.NatsStreamInfo\x12R\n" +
 	"\tGetStream\x12#.hatchet.extra.v1.StreamInfoRequest\x1a .hatchet.extra.v1.NatsStreamInfo\x12V\n" +
 	"\vListStreams\x12#.hatchet.extra.v1.StreamListRequest\x1a .hatchet.extra.v1.NatsStreamInfo0\x01\x12C\n" +
 	"\fDeleteStream\x12\x1b.hatchet.extra.v1.StreamRef\x1a\x16.google.protobuf.Empty\x12U\n" +
 	"\n" +
-	"GetMessage\x12#.hatchet.extra.v1.GetMessageRequest\x1a\".hatchet.extra.v1.NatsRawStreamMsg2\xb4\x01\n" +
+	"GetMessage\x12#.hatchet.extra.v1.GetMessageRequest\x1a\".hatchet.extra.v1.NatsRawStreamMsg2\x90\x02\n" +
 	"\x10PublisherService\x12I\n" +
 	"\aPublish\x12 .hatchet.extra.v1.PublishRequest\x1a\x1c.hatchet.extra.v1.NatsPubAck\x12U\n" +
-	"\fPublishAsync\x12 .hatchet.extra.v1.PublishRequest\x1a\x1f.hatchet.extra.v1.PublishResult(\x010\x012\xeb\x03\n" +
+	"\fPublishAsync\x12 .hatchet.extra.v1.PublishRequest\x1a\x1f.hatchet.extra.v1.PublishResult(\x010\x01\x12Z\n" +
+	"\fPublishBatch\x12%.hatchet.extra.v1.PublishBatchRequest\x1a!.hatchet.extra.v1.PublishBatchAck(\x012\xbe\x04\n" +
 	"\x0fConsumerService\x12e\n" +
 	"\x16CreateOrUpdateConsumer\x12'.hatchet.extra.v1.ConsumerConfigRequest\x1a\".hatchet.extra.v1.NatsConsumerInfo\x12P\n" +
 	"\vGetConsumer\x12\x1d.hatchet.extra.v1.ConsumerRef\x1a\".hatchet.extra.v1.NatsConsumerInfo\x12R\n" +
 	"\rListConsumers\x12\x1b.hatchet.extra.v1.StreamRef\x1a\".hatchet.extra.v1.NatsConsumerInfo0\x01\x12G\n" +
 	"\x0eDeleteConsumer\x12\x1d.hatchet.extra.v1.ConsumerRef\x1a\x16.google.protobuf.Empty\x12E\n" +
 	"\x05Fetch\x12\x1e.hatchet.extra.v1.FetchRequest\x1a\x1a.hatchet.extra.v1.Delivery0\x01\x12;\n" +
-	"\x03Ack\x12\x1c.hatchet.extra.v1.AckRequest\x1a\x16.google.protobuf.Empty2\x82\a\n" +
+	"\x03Ack\x12\x1c.hatchet.extra.v1.AckRequest\x1a\x16.google.protobuf.Empty\x12Q\n" +
+	"\bAckBatch\x12!.hatchet.extra.v1.AckBatchRequest\x1a\".hatchet.extra.v1.AckBatchResponse2\x82\a\n" +
 	"\x0fKeyValueService\x12a\n" +
 	"\x14CreateOrUpdateBucket\x12'.hatchet.extra.v1.KeyValueConfigRequest\x1a .hatchet.extra.v1.KeyValueStatus\x12J\n" +
 	"\tGetBucket\x12\x1b.hatchet.extra.v1.BucketRef\x1a .hatchet.extra.v1.KeyValueStatus\x12J\n" +
@@ -6102,7 +6738,7 @@ const file_extra_proto_rawDesc = "" +
 	"\x03Get\x12$.hatchet.extra.v1.KeyValueGetRequest\x1a\x1f.hatchet.extra.v1.KeyValueEntry\x12I\n" +
 	"\x06Delete\x12'.hatchet.extra.v1.KeyValueDeleteRequest\x1a\x16.google.protobuf.Empty\x12V\n" +
 	"\aHistory\x12(.hatchet.extra.v1.KeyValueHistoryRequest\x1a\x1f.hatchet.extra.v1.KeyValueEntry0\x01\x12W\n" +
-	"\x05Watch\x12&.hatchet.extra.v1.KeyValueWatchRequest\x1a$.hatchet.extra.v1.KeyValueWatchEvent0\x01BIZGgithub.com/hatchet-dev/hatchet/internal/services/extra/proto/v1;extrav1b\x06proto3"
+	"\x05Watch\x12&.hatchet.extra.v1.KeyValueWatchRequest\x1a$.hatchet.extra.v1.KeyValueWatchEvent0\x01B5Z3github.com/hatchet-dev/hatchet/pkg/extra/v1;extrav1b\x06proto3"
 
 var (
 	file_extra_proto_rawDescOnce sync.Once
@@ -6117,7 +6753,7 @@ func file_extra_proto_rawDescGZIP() []byte {
 }
 
 var file_extra_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_extra_proto_msgTypes = make([]protoimpl.MessageInfo, 68)
+var file_extra_proto_msgTypes = make([]protoimpl.MessageInfo, 75)
 var file_extra_proto_goTypes = []any{
 	(AckRequest_Kind)(0),                 // 0: hatchet.extra.v1.AckRequest.Kind
 	(KeyValueEntry_Operation)(0),         // 1: hatchet.extra.v1.KeyValueEntry.Operation
@@ -6138,209 +6774,232 @@ var file_extra_proto_goTypes = []any{
 	(*ScheduleOptions)(nil),              // 16: hatchet.extra.v1.ScheduleOptions
 	(*PublishRequest)(nil),               // 17: hatchet.extra.v1.PublishRequest
 	(*PublishResult)(nil),                // 18: hatchet.extra.v1.PublishResult
-	(*ConsumerConfigRequest)(nil),        // 19: hatchet.extra.v1.ConsumerConfigRequest
-	(*FetchOptions)(nil),                 // 20: hatchet.extra.v1.FetchOptions
-	(*FetchRequest)(nil),                 // 21: hatchet.extra.v1.FetchRequest
-	(*Delivery)(nil),                     // 22: hatchet.extra.v1.Delivery
-	(*AckRequest)(nil),                   // 23: hatchet.extra.v1.AckRequest
-	(*KeyValueConfigRequest)(nil),        // 24: hatchet.extra.v1.KeyValueConfigRequest
-	(*KeyValuePutRequest)(nil),           // 25: hatchet.extra.v1.KeyValuePutRequest
-	(*KeyValueCreateRequest)(nil),        // 26: hatchet.extra.v1.KeyValueCreateRequest
-	(*KeyValueUpdateRequest)(nil),        // 27: hatchet.extra.v1.KeyValueUpdateRequest
-	(*KeyValueGetRequest)(nil),           // 28: hatchet.extra.v1.KeyValueGetRequest
-	(*KeyValueDeleteRequest)(nil),        // 29: hatchet.extra.v1.KeyValueDeleteRequest
-	(*WatchOptions)(nil),                 // 30: hatchet.extra.v1.WatchOptions
-	(*KeyValueHistoryRequest)(nil),       // 31: hatchet.extra.v1.KeyValueHistoryRequest
-	(*KeyValueWatchRequest)(nil),         // 32: hatchet.extra.v1.KeyValueWatchRequest
-	(*KeyValueEntry)(nil),                // 33: hatchet.extra.v1.KeyValueEntry
-	(*KeyValueWatchEvent)(nil),           // 34: hatchet.extra.v1.KeyValueWatchEvent
-	(*KeyValueStatus)(nil),               // 35: hatchet.extra.v1.KeyValueStatus
-	(*StringValues)(nil),                 // 36: hatchet.extra.v1.StringValues
-	(*NatsPlacement)(nil),                // 37: hatchet.extra.v1.NatsPlacement
-	(*NatsSubjectTransformConfig)(nil),   // 38: hatchet.extra.v1.NatsSubjectTransformConfig
-	(*NatsExternalStream)(nil),           // 39: hatchet.extra.v1.NatsExternalStream
-	(*NatsStreamConsumerSource)(nil),     // 40: hatchet.extra.v1.NatsStreamConsumerSource
-	(*NatsStreamSource)(nil),             // 41: hatchet.extra.v1.NatsStreamSource
-	(*NatsRePublish)(nil),                // 42: hatchet.extra.v1.NatsRePublish
-	(*NatsStreamConsumerLimits)(nil),     // 43: hatchet.extra.v1.NatsStreamConsumerLimits
-	(*NatsStreamConfig)(nil),             // 44: hatchet.extra.v1.NatsStreamConfig
-	(*NatsStreamState)(nil),              // 45: hatchet.extra.v1.NatsStreamState
-	(*NatsPeerInfo)(nil),                 // 46: hatchet.extra.v1.NatsPeerInfo
-	(*NatsDesiredPeerInfo)(nil),          // 47: hatchet.extra.v1.NatsDesiredPeerInfo
-	(*NatsDesiredClusterInfoOrigin)(nil), // 48: hatchet.extra.v1.NatsDesiredClusterInfoOrigin
-	(*NatsDesiredClusterInfoStatus)(nil), // 49: hatchet.extra.v1.NatsDesiredClusterInfoStatus
-	(*NatsDesiredClusterInfo)(nil),       // 50: hatchet.extra.v1.NatsDesiredClusterInfo
-	(*NatsClusterInfo)(nil),              // 51: hatchet.extra.v1.NatsClusterInfo
-	(*NatsStreamSourceInfo)(nil),         // 52: hatchet.extra.v1.NatsStreamSourceInfo
-	(*NatsStreamInfo)(nil),               // 53: hatchet.extra.v1.NatsStreamInfo
-	(*NatsConsumerConfig)(nil),           // 54: hatchet.extra.v1.NatsConsumerConfig
-	(*NatsSequenceInfo)(nil),             // 55: hatchet.extra.v1.NatsSequenceInfo
-	(*NatsPriorityGroupState)(nil),       // 56: hatchet.extra.v1.NatsPriorityGroupState
-	(*NatsConsumerInfo)(nil),             // 57: hatchet.extra.v1.NatsConsumerInfo
-	(*NatsKeyValueConfig)(nil),           // 58: hatchet.extra.v1.NatsKeyValueConfig
-	(*NatsPubAck)(nil),                   // 59: hatchet.extra.v1.NatsPubAck
-	(*NatsRawStreamMsg)(nil),             // 60: hatchet.extra.v1.NatsRawStreamMsg
-	(*NatsSequencePair)(nil),             // 61: hatchet.extra.v1.NatsSequencePair
-	(*NatsMsgMetadata)(nil),              // 62: hatchet.extra.v1.NatsMsgMetadata
-	nil,                                  // 63: hatchet.extra.v1.Message.HeadersEntry
-	nil,                                  // 64: hatchet.extra.v1.KeyValueStatus.MetadataEntry
-	nil,                                  // 65: hatchet.extra.v1.NatsStreamConfig.MetadataEntry
-	nil,                                  // 66: hatchet.extra.v1.NatsStreamState.SubjectsEntry
-	nil,                                  // 67: hatchet.extra.v1.NatsConsumerConfig.MetadataEntry
-	nil,                                  // 68: hatchet.extra.v1.NatsKeyValueConfig.MetadataEntry
-	nil,                                  // 69: hatchet.extra.v1.NatsRawStreamMsg.HeaderEntry
-	(*timestamppb.Timestamp)(nil),        // 70: google.protobuf.Timestamp
-	(*emptypb.Empty)(nil),                // 71: google.protobuf.Empty
+	(*PublishBatchRequest)(nil),          // 19: hatchet.extra.v1.PublishBatchRequest
+	(*PublishBatchAck)(nil),              // 20: hatchet.extra.v1.PublishBatchAck
+	(*ConsumerConfigRequest)(nil),        // 21: hatchet.extra.v1.ConsumerConfigRequest
+	(*FetchOptions)(nil),                 // 22: hatchet.extra.v1.FetchOptions
+	(*FetchRequest)(nil),                 // 23: hatchet.extra.v1.FetchRequest
+	(*Delivery)(nil),                     // 24: hatchet.extra.v1.Delivery
+	(*AckRequest)(nil),                   // 25: hatchet.extra.v1.AckRequest
+	(*AckBatchRequest)(nil),              // 26: hatchet.extra.v1.AckBatchRequest
+	(*AckBatchResult)(nil),               // 27: hatchet.extra.v1.AckBatchResult
+	(*AckBatchResponse)(nil),             // 28: hatchet.extra.v1.AckBatchResponse
+	(*KeyValueConfigRequest)(nil),        // 29: hatchet.extra.v1.KeyValueConfigRequest
+	(*KeyValuePutRequest)(nil),           // 30: hatchet.extra.v1.KeyValuePutRequest
+	(*KeyValueCreateRequest)(nil),        // 31: hatchet.extra.v1.KeyValueCreateRequest
+	(*KeyValueUpdateRequest)(nil),        // 32: hatchet.extra.v1.KeyValueUpdateRequest
+	(*KeyValueGetRequest)(nil),           // 33: hatchet.extra.v1.KeyValueGetRequest
+	(*KeyValueDeleteRequest)(nil),        // 34: hatchet.extra.v1.KeyValueDeleteRequest
+	(*WatchOptions)(nil),                 // 35: hatchet.extra.v1.WatchOptions
+	(*KeyValueHistoryRequest)(nil),       // 36: hatchet.extra.v1.KeyValueHistoryRequest
+	(*KeyValueWatchRequest)(nil),         // 37: hatchet.extra.v1.KeyValueWatchRequest
+	(*KeyValueEntry)(nil),                // 38: hatchet.extra.v1.KeyValueEntry
+	(*KeyValueWatchEvent)(nil),           // 39: hatchet.extra.v1.KeyValueWatchEvent
+	(*KeyValueStatus)(nil),               // 40: hatchet.extra.v1.KeyValueStatus
+	(*StringValues)(nil),                 // 41: hatchet.extra.v1.StringValues
+	(*NatsPlacement)(nil),                // 42: hatchet.extra.v1.NatsPlacement
+	(*NatsSubjectTransformConfig)(nil),   // 43: hatchet.extra.v1.NatsSubjectTransformConfig
+	(*NatsExternalStream)(nil),           // 44: hatchet.extra.v1.NatsExternalStream
+	(*NatsStreamConsumerSource)(nil),     // 45: hatchet.extra.v1.NatsStreamConsumerSource
+	(*NatsStreamSource)(nil),             // 46: hatchet.extra.v1.NatsStreamSource
+	(*NatsRePublish)(nil),                // 47: hatchet.extra.v1.NatsRePublish
+	(*NatsStreamConsumerLimits)(nil),     // 48: hatchet.extra.v1.NatsStreamConsumerLimits
+	(*NatsStreamConfig)(nil),             // 49: hatchet.extra.v1.NatsStreamConfig
+	(*NatsStreamState)(nil),              // 50: hatchet.extra.v1.NatsStreamState
+	(*NatsPeerInfo)(nil),                 // 51: hatchet.extra.v1.NatsPeerInfo
+	(*NatsDesiredPeerInfo)(nil),          // 52: hatchet.extra.v1.NatsDesiredPeerInfo
+	(*NatsDesiredClusterInfoOrigin)(nil), // 53: hatchet.extra.v1.NatsDesiredClusterInfoOrigin
+	(*NatsDesiredClusterInfoStatus)(nil), // 54: hatchet.extra.v1.NatsDesiredClusterInfoStatus
+	(*NatsDesiredClusterInfo)(nil),       // 55: hatchet.extra.v1.NatsDesiredClusterInfo
+	(*NatsClusterInfo)(nil),              // 56: hatchet.extra.v1.NatsClusterInfo
+	(*NatsStreamSourceInfo)(nil),         // 57: hatchet.extra.v1.NatsStreamSourceInfo
+	(*NatsStreamInfo)(nil),               // 58: hatchet.extra.v1.NatsStreamInfo
+	(*NatsConsumerConfig)(nil),           // 59: hatchet.extra.v1.NatsConsumerConfig
+	(*NatsSequenceInfo)(nil),             // 60: hatchet.extra.v1.NatsSequenceInfo
+	(*NatsPriorityGroupState)(nil),       // 61: hatchet.extra.v1.NatsPriorityGroupState
+	(*NatsConsumerInfo)(nil),             // 62: hatchet.extra.v1.NatsConsumerInfo
+	(*NatsKeyValueConfig)(nil),           // 63: hatchet.extra.v1.NatsKeyValueConfig
+	(*NatsPubAck)(nil),                   // 64: hatchet.extra.v1.NatsPubAck
+	(*NatsRawStreamMsg)(nil),             // 65: hatchet.extra.v1.NatsRawStreamMsg
+	(*NatsSequencePair)(nil),             // 66: hatchet.extra.v1.NatsSequencePair
+	(*NatsMsgMetadata)(nil),              // 67: hatchet.extra.v1.NatsMsgMetadata
+	(*ServiceLimits)(nil),                // 68: hatchet.extra.v1.ServiceLimits
+	(*ReadRequest)(nil),                  // 69: hatchet.extra.v1.ReadRequest
+	nil,                                  // 70: hatchet.extra.v1.Message.HeadersEntry
+	nil,                                  // 71: hatchet.extra.v1.KeyValueStatus.MetadataEntry
+	nil,                                  // 72: hatchet.extra.v1.NatsStreamConfig.MetadataEntry
+	nil,                                  // 73: hatchet.extra.v1.NatsStreamState.SubjectsEntry
+	nil,                                  // 74: hatchet.extra.v1.NatsConsumerConfig.MetadataEntry
+	nil,                                  // 75: hatchet.extra.v1.NatsKeyValueConfig.MetadataEntry
+	nil,                                  // 76: hatchet.extra.v1.NatsRawStreamMsg.HeaderEntry
+	(*timestamppb.Timestamp)(nil),        // 77: google.protobuf.Timestamp
+	(*emptypb.Empty)(nil),                // 78: google.protobuf.Empty
 }
 var file_extra_proto_depIdxs = []int32{
 	2,   // 0: hatchet.extra.v1.StreamRef.scope:type_name -> hatchet.extra.v1.Scope
 	3,   // 1: hatchet.extra.v1.ConsumerRef.stream:type_name -> hatchet.extra.v1.StreamRef
 	2,   // 2: hatchet.extra.v1.BucketRef.scope:type_name -> hatchet.extra.v1.Scope
 	5,   // 3: hatchet.extra.v1.KeyRef.bucket:type_name -> hatchet.extra.v1.BucketRef
-	63,  // 4: hatchet.extra.v1.Message.headers:type_name -> hatchet.extra.v1.Message.HeadersEntry
+	70,  // 4: hatchet.extra.v1.Message.headers:type_name -> hatchet.extra.v1.Message.HeadersEntry
 	2,   // 5: hatchet.extra.v1.StreamConfigRequest.scope:type_name -> hatchet.extra.v1.Scope
-	44,  // 6: hatchet.extra.v1.StreamConfigRequest.config:type_name -> hatchet.extra.v1.NatsStreamConfig
+	49,  // 6: hatchet.extra.v1.StreamConfigRequest.config:type_name -> hatchet.extra.v1.NatsStreamConfig
 	3,   // 7: hatchet.extra.v1.StreamInfoRequest.stream:type_name -> hatchet.extra.v1.StreamRef
 	2,   // 8: hatchet.extra.v1.StreamListRequest.scope:type_name -> hatchet.extra.v1.Scope
 	3,   // 9: hatchet.extra.v1.GetMessageRequest.stream:type_name -> hatchet.extra.v1.StreamRef
 	16,  // 10: hatchet.extra.v1.PublishOptions.schedule:type_name -> hatchet.extra.v1.ScheduleOptions
-	70,  // 11: hatchet.extra.v1.ScheduleOptions.at:type_name -> google.protobuf.Timestamp
+	77,  // 11: hatchet.extra.v1.ScheduleOptions.at:type_name -> google.protobuf.Timestamp
 	2,   // 12: hatchet.extra.v1.PublishRequest.scope:type_name -> hatchet.extra.v1.Scope
 	10,  // 13: hatchet.extra.v1.PublishRequest.message:type_name -> hatchet.extra.v1.Message
 	15,  // 14: hatchet.extra.v1.PublishRequest.options:type_name -> hatchet.extra.v1.PublishOptions
-	59,  // 15: hatchet.extra.v1.PublishResult.ack:type_name -> hatchet.extra.v1.NatsPubAck
+	64,  // 15: hatchet.extra.v1.PublishResult.ack:type_name -> hatchet.extra.v1.NatsPubAck
 	9,   // 16: hatchet.extra.v1.PublishResult.error:type_name -> hatchet.extra.v1.NatsError
-	3,   // 17: hatchet.extra.v1.ConsumerConfigRequest.stream:type_name -> hatchet.extra.v1.StreamRef
-	54,  // 18: hatchet.extra.v1.ConsumerConfigRequest.config:type_name -> hatchet.extra.v1.NatsConsumerConfig
-	4,   // 19: hatchet.extra.v1.FetchRequest.consumer:type_name -> hatchet.extra.v1.ConsumerRef
-	20,  // 20: hatchet.extra.v1.FetchRequest.options:type_name -> hatchet.extra.v1.FetchOptions
-	10,  // 21: hatchet.extra.v1.Delivery.message:type_name -> hatchet.extra.v1.Message
-	62,  // 22: hatchet.extra.v1.Delivery.metadata:type_name -> hatchet.extra.v1.NatsMsgMetadata
-	0,   // 23: hatchet.extra.v1.AckRequest.kind:type_name -> hatchet.extra.v1.AckRequest.Kind
-	2,   // 24: hatchet.extra.v1.KeyValueConfigRequest.scope:type_name -> hatchet.extra.v1.Scope
-	58,  // 25: hatchet.extra.v1.KeyValueConfigRequest.config:type_name -> hatchet.extra.v1.NatsKeyValueConfig
-	6,   // 26: hatchet.extra.v1.KeyValuePutRequest.key:type_name -> hatchet.extra.v1.KeyRef
-	6,   // 27: hatchet.extra.v1.KeyValueCreateRequest.key:type_name -> hatchet.extra.v1.KeyRef
-	6,   // 28: hatchet.extra.v1.KeyValueUpdateRequest.key:type_name -> hatchet.extra.v1.KeyRef
-	6,   // 29: hatchet.extra.v1.KeyValueGetRequest.key:type_name -> hatchet.extra.v1.KeyRef
-	6,   // 30: hatchet.extra.v1.KeyValueDeleteRequest.key:type_name -> hatchet.extra.v1.KeyRef
-	6,   // 31: hatchet.extra.v1.KeyValueHistoryRequest.key:type_name -> hatchet.extra.v1.KeyRef
-	30,  // 32: hatchet.extra.v1.KeyValueHistoryRequest.options:type_name -> hatchet.extra.v1.WatchOptions
-	5,   // 33: hatchet.extra.v1.KeyValueWatchRequest.bucket:type_name -> hatchet.extra.v1.BucketRef
-	30,  // 34: hatchet.extra.v1.KeyValueWatchRequest.options:type_name -> hatchet.extra.v1.WatchOptions
-	70,  // 35: hatchet.extra.v1.KeyValueEntry.created:type_name -> google.protobuf.Timestamp
-	1,   // 36: hatchet.extra.v1.KeyValueEntry.operation:type_name -> hatchet.extra.v1.KeyValueEntry.Operation
-	33,  // 37: hatchet.extra.v1.KeyValueWatchEvent.entry:type_name -> hatchet.extra.v1.KeyValueEntry
-	71,  // 38: hatchet.extra.v1.KeyValueWatchEvent.initialized:type_name -> google.protobuf.Empty
-	64,  // 39: hatchet.extra.v1.KeyValueStatus.metadata:type_name -> hatchet.extra.v1.KeyValueStatus.MetadataEntry
-	58,  // 40: hatchet.extra.v1.KeyValueStatus.config:type_name -> hatchet.extra.v1.NatsKeyValueConfig
-	53,  // 41: hatchet.extra.v1.KeyValueStatus.stream_info:type_name -> hatchet.extra.v1.NatsStreamInfo
-	70,  // 42: hatchet.extra.v1.NatsStreamSource.opt_start_time:type_name -> google.protobuf.Timestamp
-	38,  // 43: hatchet.extra.v1.NatsStreamSource.subject_transforms:type_name -> hatchet.extra.v1.NatsSubjectTransformConfig
-	39,  // 44: hatchet.extra.v1.NatsStreamSource.external:type_name -> hatchet.extra.v1.NatsExternalStream
-	40,  // 45: hatchet.extra.v1.NatsStreamSource.consumer:type_name -> hatchet.extra.v1.NatsStreamConsumerSource
-	37,  // 46: hatchet.extra.v1.NatsStreamConfig.placement:type_name -> hatchet.extra.v1.NatsPlacement
-	41,  // 47: hatchet.extra.v1.NatsStreamConfig.mirror:type_name -> hatchet.extra.v1.NatsStreamSource
-	41,  // 48: hatchet.extra.v1.NatsStreamConfig.sources:type_name -> hatchet.extra.v1.NatsStreamSource
-	38,  // 49: hatchet.extra.v1.NatsStreamConfig.subject_transform:type_name -> hatchet.extra.v1.NatsSubjectTransformConfig
-	42,  // 50: hatchet.extra.v1.NatsStreamConfig.re_publish:type_name -> hatchet.extra.v1.NatsRePublish
-	43,  // 51: hatchet.extra.v1.NatsStreamConfig.consumer_limits:type_name -> hatchet.extra.v1.NatsStreamConsumerLimits
-	65,  // 52: hatchet.extra.v1.NatsStreamConfig.metadata:type_name -> hatchet.extra.v1.NatsStreamConfig.MetadataEntry
-	70,  // 53: hatchet.extra.v1.NatsStreamState.first_time:type_name -> google.protobuf.Timestamp
-	70,  // 54: hatchet.extra.v1.NatsStreamState.last_time:type_name -> google.protobuf.Timestamp
-	66,  // 55: hatchet.extra.v1.NatsStreamState.subjects:type_name -> hatchet.extra.v1.NatsStreamState.SubjectsEntry
-	37,  // 56: hatchet.extra.v1.NatsDesiredClusterInfoOrigin.placement:type_name -> hatchet.extra.v1.NatsPlacement
-	70,  // 57: hatchet.extra.v1.NatsDesiredClusterInfo.created:type_name -> google.protobuf.Timestamp
-	47,  // 58: hatchet.extra.v1.NatsDesiredClusterInfo.replicas:type_name -> hatchet.extra.v1.NatsDesiredPeerInfo
-	48,  // 59: hatchet.extra.v1.NatsDesiredClusterInfo.origin:type_name -> hatchet.extra.v1.NatsDesiredClusterInfoOrigin
-	49,  // 60: hatchet.extra.v1.NatsDesiredClusterInfo.status:type_name -> hatchet.extra.v1.NatsDesiredClusterInfoStatus
-	70,  // 61: hatchet.extra.v1.NatsClusterInfo.leader_since:type_name -> google.protobuf.Timestamp
-	46,  // 62: hatchet.extra.v1.NatsClusterInfo.replicas:type_name -> hatchet.extra.v1.NatsPeerInfo
-	50,  // 63: hatchet.extra.v1.NatsClusterInfo.desired:type_name -> hatchet.extra.v1.NatsDesiredClusterInfo
-	38,  // 64: hatchet.extra.v1.NatsStreamSourceInfo.subject_transforms:type_name -> hatchet.extra.v1.NatsSubjectTransformConfig
-	44,  // 65: hatchet.extra.v1.NatsStreamInfo.config:type_name -> hatchet.extra.v1.NatsStreamConfig
-	70,  // 66: hatchet.extra.v1.NatsStreamInfo.created:type_name -> google.protobuf.Timestamp
-	45,  // 67: hatchet.extra.v1.NatsStreamInfo.state:type_name -> hatchet.extra.v1.NatsStreamState
-	51,  // 68: hatchet.extra.v1.NatsStreamInfo.cluster:type_name -> hatchet.extra.v1.NatsClusterInfo
-	52,  // 69: hatchet.extra.v1.NatsStreamInfo.mirror:type_name -> hatchet.extra.v1.NatsStreamSourceInfo
-	52,  // 70: hatchet.extra.v1.NatsStreamInfo.sources:type_name -> hatchet.extra.v1.NatsStreamSourceInfo
-	70,  // 71: hatchet.extra.v1.NatsStreamInfo.time_stamp:type_name -> google.protobuf.Timestamp
-	70,  // 72: hatchet.extra.v1.NatsConsumerConfig.opt_start_time:type_name -> google.protobuf.Timestamp
-	67,  // 73: hatchet.extra.v1.NatsConsumerConfig.metadata:type_name -> hatchet.extra.v1.NatsConsumerConfig.MetadataEntry
-	70,  // 74: hatchet.extra.v1.NatsConsumerConfig.pause_until:type_name -> google.protobuf.Timestamp
-	70,  // 75: hatchet.extra.v1.NatsSequenceInfo.last:type_name -> google.protobuf.Timestamp
-	70,  // 76: hatchet.extra.v1.NatsPriorityGroupState.pinned_ts:type_name -> google.protobuf.Timestamp
-	70,  // 77: hatchet.extra.v1.NatsConsumerInfo.created:type_name -> google.protobuf.Timestamp
-	54,  // 78: hatchet.extra.v1.NatsConsumerInfo.config:type_name -> hatchet.extra.v1.NatsConsumerConfig
-	55,  // 79: hatchet.extra.v1.NatsConsumerInfo.delivered:type_name -> hatchet.extra.v1.NatsSequenceInfo
-	55,  // 80: hatchet.extra.v1.NatsConsumerInfo.ack_floor:type_name -> hatchet.extra.v1.NatsSequenceInfo
-	51,  // 81: hatchet.extra.v1.NatsConsumerInfo.cluster:type_name -> hatchet.extra.v1.NatsClusterInfo
-	70,  // 82: hatchet.extra.v1.NatsConsumerInfo.time_stamp:type_name -> google.protobuf.Timestamp
-	56,  // 83: hatchet.extra.v1.NatsConsumerInfo.priority_groups:type_name -> hatchet.extra.v1.NatsPriorityGroupState
-	37,  // 84: hatchet.extra.v1.NatsKeyValueConfig.placement:type_name -> hatchet.extra.v1.NatsPlacement
-	42,  // 85: hatchet.extra.v1.NatsKeyValueConfig.re_publish:type_name -> hatchet.extra.v1.NatsRePublish
-	41,  // 86: hatchet.extra.v1.NatsKeyValueConfig.mirror:type_name -> hatchet.extra.v1.NatsStreamSource
-	41,  // 87: hatchet.extra.v1.NatsKeyValueConfig.sources:type_name -> hatchet.extra.v1.NatsStreamSource
-	68,  // 88: hatchet.extra.v1.NatsKeyValueConfig.metadata:type_name -> hatchet.extra.v1.NatsKeyValueConfig.MetadataEntry
-	69,  // 89: hatchet.extra.v1.NatsRawStreamMsg.header:type_name -> hatchet.extra.v1.NatsRawStreamMsg.HeaderEntry
-	70,  // 90: hatchet.extra.v1.NatsRawStreamMsg.time:type_name -> google.protobuf.Timestamp
-	61,  // 91: hatchet.extra.v1.NatsMsgMetadata.sequence:type_name -> hatchet.extra.v1.NatsSequencePair
-	70,  // 92: hatchet.extra.v1.NatsMsgMetadata.timestamp:type_name -> google.protobuf.Timestamp
-	36,  // 93: hatchet.extra.v1.Message.HeadersEntry.value:type_name -> hatchet.extra.v1.StringValues
-	36,  // 94: hatchet.extra.v1.NatsRawStreamMsg.HeaderEntry.value:type_name -> hatchet.extra.v1.StringValues
-	11,  // 95: hatchet.extra.v1.StreamService.CreateOrUpdateStream:input_type -> hatchet.extra.v1.StreamConfigRequest
-	12,  // 96: hatchet.extra.v1.StreamService.GetStream:input_type -> hatchet.extra.v1.StreamInfoRequest
-	13,  // 97: hatchet.extra.v1.StreamService.ListStreams:input_type -> hatchet.extra.v1.StreamListRequest
-	3,   // 98: hatchet.extra.v1.StreamService.DeleteStream:input_type -> hatchet.extra.v1.StreamRef
-	14,  // 99: hatchet.extra.v1.StreamService.GetMessage:input_type -> hatchet.extra.v1.GetMessageRequest
-	17,  // 100: hatchet.extra.v1.PublisherService.Publish:input_type -> hatchet.extra.v1.PublishRequest
-	17,  // 101: hatchet.extra.v1.PublisherService.PublishAsync:input_type -> hatchet.extra.v1.PublishRequest
-	19,  // 102: hatchet.extra.v1.ConsumerService.CreateOrUpdateConsumer:input_type -> hatchet.extra.v1.ConsumerConfigRequest
-	4,   // 103: hatchet.extra.v1.ConsumerService.GetConsumer:input_type -> hatchet.extra.v1.ConsumerRef
-	3,   // 104: hatchet.extra.v1.ConsumerService.ListConsumers:input_type -> hatchet.extra.v1.StreamRef
-	4,   // 105: hatchet.extra.v1.ConsumerService.DeleteConsumer:input_type -> hatchet.extra.v1.ConsumerRef
-	21,  // 106: hatchet.extra.v1.ConsumerService.Fetch:input_type -> hatchet.extra.v1.FetchRequest
-	23,  // 107: hatchet.extra.v1.ConsumerService.Ack:input_type -> hatchet.extra.v1.AckRequest
-	24,  // 108: hatchet.extra.v1.KeyValueService.CreateOrUpdateBucket:input_type -> hatchet.extra.v1.KeyValueConfigRequest
-	5,   // 109: hatchet.extra.v1.KeyValueService.GetBucket:input_type -> hatchet.extra.v1.BucketRef
-	2,   // 110: hatchet.extra.v1.KeyValueService.ListBuckets:input_type -> hatchet.extra.v1.Scope
-	5,   // 111: hatchet.extra.v1.KeyValueService.DeleteBucket:input_type -> hatchet.extra.v1.BucketRef
-	25,  // 112: hatchet.extra.v1.KeyValueService.Put:input_type -> hatchet.extra.v1.KeyValuePutRequest
-	26,  // 113: hatchet.extra.v1.KeyValueService.Create:input_type -> hatchet.extra.v1.KeyValueCreateRequest
-	27,  // 114: hatchet.extra.v1.KeyValueService.Update:input_type -> hatchet.extra.v1.KeyValueUpdateRequest
-	28,  // 115: hatchet.extra.v1.KeyValueService.Get:input_type -> hatchet.extra.v1.KeyValueGetRequest
-	29,  // 116: hatchet.extra.v1.KeyValueService.Delete:input_type -> hatchet.extra.v1.KeyValueDeleteRequest
-	31,  // 117: hatchet.extra.v1.KeyValueService.History:input_type -> hatchet.extra.v1.KeyValueHistoryRequest
-	32,  // 118: hatchet.extra.v1.KeyValueService.Watch:input_type -> hatchet.extra.v1.KeyValueWatchRequest
-	53,  // 119: hatchet.extra.v1.StreamService.CreateOrUpdateStream:output_type -> hatchet.extra.v1.NatsStreamInfo
-	53,  // 120: hatchet.extra.v1.StreamService.GetStream:output_type -> hatchet.extra.v1.NatsStreamInfo
-	53,  // 121: hatchet.extra.v1.StreamService.ListStreams:output_type -> hatchet.extra.v1.NatsStreamInfo
-	71,  // 122: hatchet.extra.v1.StreamService.DeleteStream:output_type -> google.protobuf.Empty
-	60,  // 123: hatchet.extra.v1.StreamService.GetMessage:output_type -> hatchet.extra.v1.NatsRawStreamMsg
-	59,  // 124: hatchet.extra.v1.PublisherService.Publish:output_type -> hatchet.extra.v1.NatsPubAck
-	18,  // 125: hatchet.extra.v1.PublisherService.PublishAsync:output_type -> hatchet.extra.v1.PublishResult
-	57,  // 126: hatchet.extra.v1.ConsumerService.CreateOrUpdateConsumer:output_type -> hatchet.extra.v1.NatsConsumerInfo
-	57,  // 127: hatchet.extra.v1.ConsumerService.GetConsumer:output_type -> hatchet.extra.v1.NatsConsumerInfo
-	57,  // 128: hatchet.extra.v1.ConsumerService.ListConsumers:output_type -> hatchet.extra.v1.NatsConsumerInfo
-	71,  // 129: hatchet.extra.v1.ConsumerService.DeleteConsumer:output_type -> google.protobuf.Empty
-	22,  // 130: hatchet.extra.v1.ConsumerService.Fetch:output_type -> hatchet.extra.v1.Delivery
-	71,  // 131: hatchet.extra.v1.ConsumerService.Ack:output_type -> google.protobuf.Empty
-	35,  // 132: hatchet.extra.v1.KeyValueService.CreateOrUpdateBucket:output_type -> hatchet.extra.v1.KeyValueStatus
-	35,  // 133: hatchet.extra.v1.KeyValueService.GetBucket:output_type -> hatchet.extra.v1.KeyValueStatus
-	35,  // 134: hatchet.extra.v1.KeyValueService.ListBuckets:output_type -> hatchet.extra.v1.KeyValueStatus
-	71,  // 135: hatchet.extra.v1.KeyValueService.DeleteBucket:output_type -> google.protobuf.Empty
-	8,   // 136: hatchet.extra.v1.KeyValueService.Put:output_type -> hatchet.extra.v1.Revision
-	8,   // 137: hatchet.extra.v1.KeyValueService.Create:output_type -> hatchet.extra.v1.Revision
-	8,   // 138: hatchet.extra.v1.KeyValueService.Update:output_type -> hatchet.extra.v1.Revision
-	33,  // 139: hatchet.extra.v1.KeyValueService.Get:output_type -> hatchet.extra.v1.KeyValueEntry
-	71,  // 140: hatchet.extra.v1.KeyValueService.Delete:output_type -> google.protobuf.Empty
-	33,  // 141: hatchet.extra.v1.KeyValueService.History:output_type -> hatchet.extra.v1.KeyValueEntry
-	34,  // 142: hatchet.extra.v1.KeyValueService.Watch:output_type -> hatchet.extra.v1.KeyValueWatchEvent
-	119, // [119:143] is the sub-list for method output_type
-	95,  // [95:119] is the sub-list for method input_type
-	95,  // [95:95] is the sub-list for extension type_name
-	95,  // [95:95] is the sub-list for extension extendee
-	0,   // [0:95] is the sub-list for field type_name
+	2,   // 17: hatchet.extra.v1.PublishBatchRequest.scope:type_name -> hatchet.extra.v1.Scope
+	10,  // 18: hatchet.extra.v1.PublishBatchRequest.message:type_name -> hatchet.extra.v1.Message
+	15,  // 19: hatchet.extra.v1.PublishBatchRequest.options:type_name -> hatchet.extra.v1.PublishOptions
+	64,  // 20: hatchet.extra.v1.PublishBatchAck.ack:type_name -> hatchet.extra.v1.NatsPubAck
+	3,   // 21: hatchet.extra.v1.ConsumerConfigRequest.stream:type_name -> hatchet.extra.v1.StreamRef
+	59,  // 22: hatchet.extra.v1.ConsumerConfigRequest.config:type_name -> hatchet.extra.v1.NatsConsumerConfig
+	4,   // 23: hatchet.extra.v1.FetchRequest.consumer:type_name -> hatchet.extra.v1.ConsumerRef
+	22,  // 24: hatchet.extra.v1.FetchRequest.options:type_name -> hatchet.extra.v1.FetchOptions
+	10,  // 25: hatchet.extra.v1.Delivery.message:type_name -> hatchet.extra.v1.Message
+	67,  // 26: hatchet.extra.v1.Delivery.metadata:type_name -> hatchet.extra.v1.NatsMsgMetadata
+	0,   // 27: hatchet.extra.v1.AckRequest.kind:type_name -> hatchet.extra.v1.AckRequest.Kind
+	25,  // 28: hatchet.extra.v1.AckBatchRequest.items:type_name -> hatchet.extra.v1.AckRequest
+	9,   // 29: hatchet.extra.v1.AckBatchResult.error:type_name -> hatchet.extra.v1.NatsError
+	27,  // 30: hatchet.extra.v1.AckBatchResponse.results:type_name -> hatchet.extra.v1.AckBatchResult
+	2,   // 31: hatchet.extra.v1.KeyValueConfigRequest.scope:type_name -> hatchet.extra.v1.Scope
+	63,  // 32: hatchet.extra.v1.KeyValueConfigRequest.config:type_name -> hatchet.extra.v1.NatsKeyValueConfig
+	6,   // 33: hatchet.extra.v1.KeyValuePutRequest.key:type_name -> hatchet.extra.v1.KeyRef
+	6,   // 34: hatchet.extra.v1.KeyValueCreateRequest.key:type_name -> hatchet.extra.v1.KeyRef
+	6,   // 35: hatchet.extra.v1.KeyValueUpdateRequest.key:type_name -> hatchet.extra.v1.KeyRef
+	6,   // 36: hatchet.extra.v1.KeyValueGetRequest.key:type_name -> hatchet.extra.v1.KeyRef
+	6,   // 37: hatchet.extra.v1.KeyValueDeleteRequest.key:type_name -> hatchet.extra.v1.KeyRef
+	6,   // 38: hatchet.extra.v1.KeyValueHistoryRequest.key:type_name -> hatchet.extra.v1.KeyRef
+	35,  // 39: hatchet.extra.v1.KeyValueHistoryRequest.options:type_name -> hatchet.extra.v1.WatchOptions
+	5,   // 40: hatchet.extra.v1.KeyValueWatchRequest.bucket:type_name -> hatchet.extra.v1.BucketRef
+	35,  // 41: hatchet.extra.v1.KeyValueWatchRequest.options:type_name -> hatchet.extra.v1.WatchOptions
+	77,  // 42: hatchet.extra.v1.KeyValueEntry.created:type_name -> google.protobuf.Timestamp
+	1,   // 43: hatchet.extra.v1.KeyValueEntry.operation:type_name -> hatchet.extra.v1.KeyValueEntry.Operation
+	38,  // 44: hatchet.extra.v1.KeyValueWatchEvent.entry:type_name -> hatchet.extra.v1.KeyValueEntry
+	78,  // 45: hatchet.extra.v1.KeyValueWatchEvent.initialized:type_name -> google.protobuf.Empty
+	71,  // 46: hatchet.extra.v1.KeyValueStatus.metadata:type_name -> hatchet.extra.v1.KeyValueStatus.MetadataEntry
+	63,  // 47: hatchet.extra.v1.KeyValueStatus.config:type_name -> hatchet.extra.v1.NatsKeyValueConfig
+	58,  // 48: hatchet.extra.v1.KeyValueStatus.stream_info:type_name -> hatchet.extra.v1.NatsStreamInfo
+	77,  // 49: hatchet.extra.v1.NatsStreamSource.opt_start_time:type_name -> google.protobuf.Timestamp
+	43,  // 50: hatchet.extra.v1.NatsStreamSource.subject_transforms:type_name -> hatchet.extra.v1.NatsSubjectTransformConfig
+	44,  // 51: hatchet.extra.v1.NatsStreamSource.external:type_name -> hatchet.extra.v1.NatsExternalStream
+	45,  // 52: hatchet.extra.v1.NatsStreamSource.consumer:type_name -> hatchet.extra.v1.NatsStreamConsumerSource
+	42,  // 53: hatchet.extra.v1.NatsStreamConfig.placement:type_name -> hatchet.extra.v1.NatsPlacement
+	46,  // 54: hatchet.extra.v1.NatsStreamConfig.mirror:type_name -> hatchet.extra.v1.NatsStreamSource
+	46,  // 55: hatchet.extra.v1.NatsStreamConfig.sources:type_name -> hatchet.extra.v1.NatsStreamSource
+	43,  // 56: hatchet.extra.v1.NatsStreamConfig.subject_transform:type_name -> hatchet.extra.v1.NatsSubjectTransformConfig
+	47,  // 57: hatchet.extra.v1.NatsStreamConfig.re_publish:type_name -> hatchet.extra.v1.NatsRePublish
+	48,  // 58: hatchet.extra.v1.NatsStreamConfig.consumer_limits:type_name -> hatchet.extra.v1.NatsStreamConsumerLimits
+	72,  // 59: hatchet.extra.v1.NatsStreamConfig.metadata:type_name -> hatchet.extra.v1.NatsStreamConfig.MetadataEntry
+	77,  // 60: hatchet.extra.v1.NatsStreamState.first_time:type_name -> google.protobuf.Timestamp
+	77,  // 61: hatchet.extra.v1.NatsStreamState.last_time:type_name -> google.protobuf.Timestamp
+	73,  // 62: hatchet.extra.v1.NatsStreamState.subjects:type_name -> hatchet.extra.v1.NatsStreamState.SubjectsEntry
+	42,  // 63: hatchet.extra.v1.NatsDesiredClusterInfoOrigin.placement:type_name -> hatchet.extra.v1.NatsPlacement
+	77,  // 64: hatchet.extra.v1.NatsDesiredClusterInfo.created:type_name -> google.protobuf.Timestamp
+	52,  // 65: hatchet.extra.v1.NatsDesiredClusterInfo.replicas:type_name -> hatchet.extra.v1.NatsDesiredPeerInfo
+	53,  // 66: hatchet.extra.v1.NatsDesiredClusterInfo.origin:type_name -> hatchet.extra.v1.NatsDesiredClusterInfoOrigin
+	54,  // 67: hatchet.extra.v1.NatsDesiredClusterInfo.status:type_name -> hatchet.extra.v1.NatsDesiredClusterInfoStatus
+	77,  // 68: hatchet.extra.v1.NatsClusterInfo.leader_since:type_name -> google.protobuf.Timestamp
+	51,  // 69: hatchet.extra.v1.NatsClusterInfo.replicas:type_name -> hatchet.extra.v1.NatsPeerInfo
+	55,  // 70: hatchet.extra.v1.NatsClusterInfo.desired:type_name -> hatchet.extra.v1.NatsDesiredClusterInfo
+	43,  // 71: hatchet.extra.v1.NatsStreamSourceInfo.subject_transforms:type_name -> hatchet.extra.v1.NatsSubjectTransformConfig
+	49,  // 72: hatchet.extra.v1.NatsStreamInfo.config:type_name -> hatchet.extra.v1.NatsStreamConfig
+	77,  // 73: hatchet.extra.v1.NatsStreamInfo.created:type_name -> google.protobuf.Timestamp
+	50,  // 74: hatchet.extra.v1.NatsStreamInfo.state:type_name -> hatchet.extra.v1.NatsStreamState
+	56,  // 75: hatchet.extra.v1.NatsStreamInfo.cluster:type_name -> hatchet.extra.v1.NatsClusterInfo
+	57,  // 76: hatchet.extra.v1.NatsStreamInfo.mirror:type_name -> hatchet.extra.v1.NatsStreamSourceInfo
+	57,  // 77: hatchet.extra.v1.NatsStreamInfo.sources:type_name -> hatchet.extra.v1.NatsStreamSourceInfo
+	77,  // 78: hatchet.extra.v1.NatsStreamInfo.time_stamp:type_name -> google.protobuf.Timestamp
+	77,  // 79: hatchet.extra.v1.NatsConsumerConfig.opt_start_time:type_name -> google.protobuf.Timestamp
+	74,  // 80: hatchet.extra.v1.NatsConsumerConfig.metadata:type_name -> hatchet.extra.v1.NatsConsumerConfig.MetadataEntry
+	77,  // 81: hatchet.extra.v1.NatsConsumerConfig.pause_until:type_name -> google.protobuf.Timestamp
+	77,  // 82: hatchet.extra.v1.NatsSequenceInfo.last:type_name -> google.protobuf.Timestamp
+	77,  // 83: hatchet.extra.v1.NatsPriorityGroupState.pinned_ts:type_name -> google.protobuf.Timestamp
+	77,  // 84: hatchet.extra.v1.NatsConsumerInfo.created:type_name -> google.protobuf.Timestamp
+	59,  // 85: hatchet.extra.v1.NatsConsumerInfo.config:type_name -> hatchet.extra.v1.NatsConsumerConfig
+	60,  // 86: hatchet.extra.v1.NatsConsumerInfo.delivered:type_name -> hatchet.extra.v1.NatsSequenceInfo
+	60,  // 87: hatchet.extra.v1.NatsConsumerInfo.ack_floor:type_name -> hatchet.extra.v1.NatsSequenceInfo
+	56,  // 88: hatchet.extra.v1.NatsConsumerInfo.cluster:type_name -> hatchet.extra.v1.NatsClusterInfo
+	77,  // 89: hatchet.extra.v1.NatsConsumerInfo.time_stamp:type_name -> google.protobuf.Timestamp
+	61,  // 90: hatchet.extra.v1.NatsConsumerInfo.priority_groups:type_name -> hatchet.extra.v1.NatsPriorityGroupState
+	42,  // 91: hatchet.extra.v1.NatsKeyValueConfig.placement:type_name -> hatchet.extra.v1.NatsPlacement
+	47,  // 92: hatchet.extra.v1.NatsKeyValueConfig.re_publish:type_name -> hatchet.extra.v1.NatsRePublish
+	46,  // 93: hatchet.extra.v1.NatsKeyValueConfig.mirror:type_name -> hatchet.extra.v1.NatsStreamSource
+	46,  // 94: hatchet.extra.v1.NatsKeyValueConfig.sources:type_name -> hatchet.extra.v1.NatsStreamSource
+	75,  // 95: hatchet.extra.v1.NatsKeyValueConfig.metadata:type_name -> hatchet.extra.v1.NatsKeyValueConfig.MetadataEntry
+	76,  // 96: hatchet.extra.v1.NatsRawStreamMsg.header:type_name -> hatchet.extra.v1.NatsRawStreamMsg.HeaderEntry
+	77,  // 97: hatchet.extra.v1.NatsRawStreamMsg.time:type_name -> google.protobuf.Timestamp
+	66,  // 98: hatchet.extra.v1.NatsMsgMetadata.sequence:type_name -> hatchet.extra.v1.NatsSequencePair
+	77,  // 99: hatchet.extra.v1.NatsMsgMetadata.timestamp:type_name -> google.protobuf.Timestamp
+	3,   // 100: hatchet.extra.v1.ReadRequest.stream:type_name -> hatchet.extra.v1.StreamRef
+	41,  // 101: hatchet.extra.v1.Message.HeadersEntry.value:type_name -> hatchet.extra.v1.StringValues
+	41,  // 102: hatchet.extra.v1.NatsRawStreamMsg.HeaderEntry.value:type_name -> hatchet.extra.v1.StringValues
+	78,  // 103: hatchet.extra.v1.StreamService.GetLimits:input_type -> google.protobuf.Empty
+	69,  // 104: hatchet.extra.v1.StreamService.Read:input_type -> hatchet.extra.v1.ReadRequest
+	11,  // 105: hatchet.extra.v1.StreamService.CreateOrUpdateStream:input_type -> hatchet.extra.v1.StreamConfigRequest
+	12,  // 106: hatchet.extra.v1.StreamService.GetStream:input_type -> hatchet.extra.v1.StreamInfoRequest
+	13,  // 107: hatchet.extra.v1.StreamService.ListStreams:input_type -> hatchet.extra.v1.StreamListRequest
+	3,   // 108: hatchet.extra.v1.StreamService.DeleteStream:input_type -> hatchet.extra.v1.StreamRef
+	14,  // 109: hatchet.extra.v1.StreamService.GetMessage:input_type -> hatchet.extra.v1.GetMessageRequest
+	17,  // 110: hatchet.extra.v1.PublisherService.Publish:input_type -> hatchet.extra.v1.PublishRequest
+	17,  // 111: hatchet.extra.v1.PublisherService.PublishAsync:input_type -> hatchet.extra.v1.PublishRequest
+	19,  // 112: hatchet.extra.v1.PublisherService.PublishBatch:input_type -> hatchet.extra.v1.PublishBatchRequest
+	21,  // 113: hatchet.extra.v1.ConsumerService.CreateOrUpdateConsumer:input_type -> hatchet.extra.v1.ConsumerConfigRequest
+	4,   // 114: hatchet.extra.v1.ConsumerService.GetConsumer:input_type -> hatchet.extra.v1.ConsumerRef
+	3,   // 115: hatchet.extra.v1.ConsumerService.ListConsumers:input_type -> hatchet.extra.v1.StreamRef
+	4,   // 116: hatchet.extra.v1.ConsumerService.DeleteConsumer:input_type -> hatchet.extra.v1.ConsumerRef
+	23,  // 117: hatchet.extra.v1.ConsumerService.Fetch:input_type -> hatchet.extra.v1.FetchRequest
+	25,  // 118: hatchet.extra.v1.ConsumerService.Ack:input_type -> hatchet.extra.v1.AckRequest
+	26,  // 119: hatchet.extra.v1.ConsumerService.AckBatch:input_type -> hatchet.extra.v1.AckBatchRequest
+	29,  // 120: hatchet.extra.v1.KeyValueService.CreateOrUpdateBucket:input_type -> hatchet.extra.v1.KeyValueConfigRequest
+	5,   // 121: hatchet.extra.v1.KeyValueService.GetBucket:input_type -> hatchet.extra.v1.BucketRef
+	2,   // 122: hatchet.extra.v1.KeyValueService.ListBuckets:input_type -> hatchet.extra.v1.Scope
+	5,   // 123: hatchet.extra.v1.KeyValueService.DeleteBucket:input_type -> hatchet.extra.v1.BucketRef
+	30,  // 124: hatchet.extra.v1.KeyValueService.Put:input_type -> hatchet.extra.v1.KeyValuePutRequest
+	31,  // 125: hatchet.extra.v1.KeyValueService.Create:input_type -> hatchet.extra.v1.KeyValueCreateRequest
+	32,  // 126: hatchet.extra.v1.KeyValueService.Update:input_type -> hatchet.extra.v1.KeyValueUpdateRequest
+	33,  // 127: hatchet.extra.v1.KeyValueService.Get:input_type -> hatchet.extra.v1.KeyValueGetRequest
+	34,  // 128: hatchet.extra.v1.KeyValueService.Delete:input_type -> hatchet.extra.v1.KeyValueDeleteRequest
+	36,  // 129: hatchet.extra.v1.KeyValueService.History:input_type -> hatchet.extra.v1.KeyValueHistoryRequest
+	37,  // 130: hatchet.extra.v1.KeyValueService.Watch:input_type -> hatchet.extra.v1.KeyValueWatchRequest
+	68,  // 131: hatchet.extra.v1.StreamService.GetLimits:output_type -> hatchet.extra.v1.ServiceLimits
+	65,  // 132: hatchet.extra.v1.StreamService.Read:output_type -> hatchet.extra.v1.NatsRawStreamMsg
+	58,  // 133: hatchet.extra.v1.StreamService.CreateOrUpdateStream:output_type -> hatchet.extra.v1.NatsStreamInfo
+	58,  // 134: hatchet.extra.v1.StreamService.GetStream:output_type -> hatchet.extra.v1.NatsStreamInfo
+	58,  // 135: hatchet.extra.v1.StreamService.ListStreams:output_type -> hatchet.extra.v1.NatsStreamInfo
+	78,  // 136: hatchet.extra.v1.StreamService.DeleteStream:output_type -> google.protobuf.Empty
+	65,  // 137: hatchet.extra.v1.StreamService.GetMessage:output_type -> hatchet.extra.v1.NatsRawStreamMsg
+	64,  // 138: hatchet.extra.v1.PublisherService.Publish:output_type -> hatchet.extra.v1.NatsPubAck
+	18,  // 139: hatchet.extra.v1.PublisherService.PublishAsync:output_type -> hatchet.extra.v1.PublishResult
+	20,  // 140: hatchet.extra.v1.PublisherService.PublishBatch:output_type -> hatchet.extra.v1.PublishBatchAck
+	62,  // 141: hatchet.extra.v1.ConsumerService.CreateOrUpdateConsumer:output_type -> hatchet.extra.v1.NatsConsumerInfo
+	62,  // 142: hatchet.extra.v1.ConsumerService.GetConsumer:output_type -> hatchet.extra.v1.NatsConsumerInfo
+	62,  // 143: hatchet.extra.v1.ConsumerService.ListConsumers:output_type -> hatchet.extra.v1.NatsConsumerInfo
+	78,  // 144: hatchet.extra.v1.ConsumerService.DeleteConsumer:output_type -> google.protobuf.Empty
+	24,  // 145: hatchet.extra.v1.ConsumerService.Fetch:output_type -> hatchet.extra.v1.Delivery
+	78,  // 146: hatchet.extra.v1.ConsumerService.Ack:output_type -> google.protobuf.Empty
+	28,  // 147: hatchet.extra.v1.ConsumerService.AckBatch:output_type -> hatchet.extra.v1.AckBatchResponse
+	40,  // 148: hatchet.extra.v1.KeyValueService.CreateOrUpdateBucket:output_type -> hatchet.extra.v1.KeyValueStatus
+	40,  // 149: hatchet.extra.v1.KeyValueService.GetBucket:output_type -> hatchet.extra.v1.KeyValueStatus
+	40,  // 150: hatchet.extra.v1.KeyValueService.ListBuckets:output_type -> hatchet.extra.v1.KeyValueStatus
+	78,  // 151: hatchet.extra.v1.KeyValueService.DeleteBucket:output_type -> google.protobuf.Empty
+	8,   // 152: hatchet.extra.v1.KeyValueService.Put:output_type -> hatchet.extra.v1.Revision
+	8,   // 153: hatchet.extra.v1.KeyValueService.Create:output_type -> hatchet.extra.v1.Revision
+	8,   // 154: hatchet.extra.v1.KeyValueService.Update:output_type -> hatchet.extra.v1.Revision
+	38,  // 155: hatchet.extra.v1.KeyValueService.Get:output_type -> hatchet.extra.v1.KeyValueEntry
+	78,  // 156: hatchet.extra.v1.KeyValueService.Delete:output_type -> google.protobuf.Empty
+	38,  // 157: hatchet.extra.v1.KeyValueService.History:output_type -> hatchet.extra.v1.KeyValueEntry
+	39,  // 158: hatchet.extra.v1.KeyValueService.Watch:output_type -> hatchet.extra.v1.KeyValueWatchEvent
+	131, // [131:159] is the sub-list for method output_type
+	103, // [103:131] is the sub-list for method input_type
+	103, // [103:103] is the sub-list for extension type_name
+	103, // [103:103] is the sub-list for extension extendee
+	0,   // [0:103] is the sub-list for field type_name
 }
 
 func init() { file_extra_proto_init() }
@@ -6367,25 +7026,20 @@ func file_extra_proto_init() {
 		(*PublishResult_Ack)(nil),
 		(*PublishResult_Error)(nil),
 	}
-	file_extra_proto_msgTypes[18].OneofWrappers = []any{}
-	file_extra_proto_msgTypes[19].OneofWrappers = []any{
+	file_extra_proto_msgTypes[20].OneofWrappers = []any{}
+	file_extra_proto_msgTypes[21].OneofWrappers = []any{
 		(*FetchRequest_MaxMessages)(nil),
 		(*FetchRequest_MaxBytes)(nil),
 	}
-	file_extra_proto_msgTypes[21].OneofWrappers = []any{}
-	file_extra_proto_msgTypes[24].OneofWrappers = []any{}
-	file_extra_proto_msgTypes[26].OneofWrappers = []any{}
-	file_extra_proto_msgTypes[27].OneofWrappers = []any{}
-	file_extra_proto_msgTypes[28].OneofWrappers = []any{}
-	file_extra_proto_msgTypes[32].OneofWrappers = []any{
+	file_extra_proto_msgTypes[23].OneofWrappers = []any{}
+	file_extra_proto_msgTypes[29].OneofWrappers = []any{}
+	file_extra_proto_msgTypes[31].OneofWrappers = []any{}
+	file_extra_proto_msgTypes[32].OneofWrappers = []any{}
+	file_extra_proto_msgTypes[33].OneofWrappers = []any{}
+	file_extra_proto_msgTypes[37].OneofWrappers = []any{
 		(*KeyValueWatchEvent_Entry)(nil),
 		(*KeyValueWatchEvent_Initialized)(nil),
 	}
-	file_extra_proto_msgTypes[35].OneofWrappers = []any{}
-	file_extra_proto_msgTypes[36].OneofWrappers = []any{}
-	file_extra_proto_msgTypes[37].OneofWrappers = []any{}
-	file_extra_proto_msgTypes[38].OneofWrappers = []any{}
-	file_extra_proto_msgTypes[39].OneofWrappers = []any{}
 	file_extra_proto_msgTypes[40].OneofWrappers = []any{}
 	file_extra_proto_msgTypes[41].OneofWrappers = []any{}
 	file_extra_proto_msgTypes[42].OneofWrappers = []any{}
@@ -6397,22 +7051,27 @@ func file_extra_proto_init() {
 	file_extra_proto_msgTypes[48].OneofWrappers = []any{}
 	file_extra_proto_msgTypes[49].OneofWrappers = []any{}
 	file_extra_proto_msgTypes[50].OneofWrappers = []any{}
+	file_extra_proto_msgTypes[51].OneofWrappers = []any{}
 	file_extra_proto_msgTypes[52].OneofWrappers = []any{}
 	file_extra_proto_msgTypes[53].OneofWrappers = []any{}
 	file_extra_proto_msgTypes[54].OneofWrappers = []any{}
 	file_extra_proto_msgTypes[55].OneofWrappers = []any{}
-	file_extra_proto_msgTypes[56].OneofWrappers = []any{}
 	file_extra_proto_msgTypes[57].OneofWrappers = []any{}
 	file_extra_proto_msgTypes[58].OneofWrappers = []any{}
 	file_extra_proto_msgTypes[59].OneofWrappers = []any{}
 	file_extra_proto_msgTypes[60].OneofWrappers = []any{}
+	file_extra_proto_msgTypes[61].OneofWrappers = []any{}
+	file_extra_proto_msgTypes[62].OneofWrappers = []any{}
+	file_extra_proto_msgTypes[63].OneofWrappers = []any{}
+	file_extra_proto_msgTypes[64].OneofWrappers = []any{}
+	file_extra_proto_msgTypes[65].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_extra_proto_rawDesc), len(file_extra_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   68,
+			NumMessages:   75,
 			NumExtensions: 0,
 			NumServices:   4,
 		},

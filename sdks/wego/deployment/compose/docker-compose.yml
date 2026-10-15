@@ -46,6 +46,18 @@ services:
       - --tls-cert=/extra-config/tls.crt
       - --tls-key=/extra-config/tls.key
       - --shutdown-timeout=30s
+      - --max-fetch-messages=100
+      - --max-publish-batch-messages=100
+      - --max-publish-batch-bytes=4194304
+      - --max-concurrent-unary=128
+      - --max-concurrent-streams=1024
+      - --max-concurrent-reads=64
+      - --max-publish-batches-inflight=32
+      - --batch-commit-timeout=8s
+      - --batch-abandon-timeout=10s
+      - --publish-batch-flow-control=16
+      - --max-consumers=10000
+      - --max-ack-batch-messages=100
     restart: unless-stopped
     stop_grace_period: 40s
     environment:

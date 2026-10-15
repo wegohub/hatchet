@@ -73,10 +73,55 @@ func run() (result error) {
 	maxMemory := flag.Int64("max-memory-bytes", 256<<20, "embedded JetStream memory budget")
 	maxMessage := flag.Int("max-message-bytes", 1<<20, "maximum message/KV value bytes")
 	maxFetch := flag.Int("max-fetch-bytes", 4<<20, "maximum bytes in a Fetch batch")
-	maxBatch := flag.Int("max-fetch-messages", 64, "maximum messages in a Fetch batch")
+	maxBatch := flag.Int("max-fetch-messages", 100, "maximum messages in a Fetch batch")
+	maxPublishBatch := flag.Int("max-publish-batch-messages", 100, "maximum messages in an atomic publish batch")
+	maxPublishBytes := flag.Int("max-publish-batch-bytes", 4<<20, "maximum buffered bytes in an atomic publish batch")
+	maxBatchSlots := flag.Int("max-publish-batches-inflight", 32, "global atomic publish batch buffer budget")
+	maxAckBatch := flag.Int("max-ack-batch-messages", 100, "maximum items in an ACK batch")
 	maxPublishing := flag.Int("max-publish-inflight", 64, "global asynchronous publish budget")
-	maxRPC := flag.Int("max-concurrent-rpcs", 128, "separate unary/stream admission budgets")
+	maxRPC := flag.Int("max-concurrent-rpcs", 0, "deprecated: set unary and stream budgets together")
+	maxUnary := flag.Int("max-concurrent-unary", 128, "unary RPC admission budget")
+	maxStreams := flag.Int("max-concurrent-streams", 1024, "long-lived stream admission budget")
+	maxReads := flag.Int("max-concurrent-reads", 64, "independent Read admission budget")
+	commitTimeout := flag.Duration("batch-commit-timeout", 8*time.Second, "atomic batch commit budget")
+	abandonTimeout := flag.Duration("batch-abandon-timeout", 10*time.Second, "native atomic batch idle timeout")
+	flowControl := flag.Int("publish-batch-flow-control", 16, "intermediate messages per acknowledgement checkpoint")
+	maxConsumers := flag.Int("max-consumers", 10000, "requested account consumer limit; unsupported native total is reported as zero")
+	if err := applyLimitEnv(flag.CommandLine); err != nil {
+		return err
+	}
 	flag.Parse()
+	seen := make(map[string]bool)
+	flag.Visit(func(f *flag.Flag) { seen[f.Name] = true })
+	if seen["max-concurrent-rpcs"] {
+		if seen["max-concurrent-unary"] || seen["max-concurrent-streams"] || seen["max-concurrent-reads"] {
+			return errors.New("max-concurrent-rpcs cannot be combined with new admission flags or environment variables")
+		}
+		if *maxRPC < 1 {
+			return errors.New("invalid RPC admission limit")
+		}
+		*maxUnary, *maxStreams = *maxRPC, *maxRPC
+	}
+	consumerLimit := *maxConsumers
+	if consumerLimit == 0 {
+		consumerLimit = -1
+	}
+	if consumerLimit < -1 || *maxConsumers < 0 {
+		return errors.New("invalid consumer limit")
+	}
+	cfg := extra.Config{
+		StoreDir: *store, AuthCacheTTL: *authCacheTTL, MaxAuthCacheEntries: *maxAuthEntries,
+		MaxPublishBatchMessages: *maxPublishBatch, MaxPublishBatchBytes: *maxPublishBytes,
+		MaxPublishBatchesInFlight: *maxBatchSlots, MaxAckBatchMessages: *maxAckBatch,
+		MaxStoreBytes: *maxStore, MaxMemoryBytes: *maxMemory, MaxMessageBytes: *maxMessage,
+		MaxFetchBytes: *maxFetch, MaxFetchMessages: *maxBatch, MaxAsyncInFlight: *maxPublishing,
+		MaxConcurrentUnary: *maxUnary, MaxConcurrentStreams: *maxStreams, MaxConcurrentReads: *maxReads,
+		BatchCommitTimeout: *commitTimeout, BatchAbandonTimeout: *abandonTimeout,
+		PublishBatchFlowControl: *flowControl, MaxConsumers: consumerLimit,
+	}
+	if err := extra.ValidateLimits(cfg); err != nil {
+		return err
+	}
 	if *grace <= 0 {
 		return errors.New("shutdown timeout must be positive")
 	}
@@ -137,21 +182,8 @@ func run() (result error) {
 	if err != nil {
 		return err
 	}
-	server, err := extra.New(extra.Config{
-		StoreDir:            *store,
-		ACKKey:              key,
-		Authenticator:       auth,
-		AuthCacheTTL:        *authCacheTTL,
-		MaxAuthCacheEntries: *maxAuthEntries,
-		TLS:                 tlsConfig,
-		MaxStoreBytes:       *maxStore,
-		MaxMemoryBytes:      *maxMemory,
-		MaxMessageBytes:     *maxMessage,
-		MaxFetchBytes:       *maxFetch,
-		MaxFetchMessages:    *maxBatch,
-		MaxAsyncInFlight:    *maxPublishing,
-		MaxConcurrentRPCs:   *maxRPC,
-	})
+	cfg.ACKKey, cfg.Authenticator, cfg.TLS = key, auth, tlsConfig
+	server, err := extra.New(cfg)
 	if err != nil {
 		return err
 	}
@@ -162,7 +194,14 @@ func run() (result error) {
 	go func() {
 		serveErr <- server.Serve(listener)
 	}()
-	slog.Info("hatchet-extra ready", "address", listener.Addr().String())
+	slog.Info("hatchet-extra ready", "address", listener.Addr().String(),
+		"max_concurrent_unary", cfg.MaxConcurrentUnary, "max_concurrent_streams", cfg.MaxConcurrentStreams,
+		"max_concurrent_reads", cfg.MaxConcurrentReads, "max_publish_batches_inflight", cfg.MaxPublishBatchesInFlight,
+		"batch_commit_timeout", cfg.BatchCommitTimeout, "batch_abandon_timeout", cfg.BatchAbandonTimeout,
+		"publish_batch_flow_control", cfg.PublishBatchFlowControl, "max_consumers", 0)
+	if cfg.MaxConsumers > 0 {
+		slog.Warn("hatchet-extra account consumer limit is not enforced by embedded NATS", "requested_max_consumers", cfg.MaxConsumers)
+	}
 	select {
 	case <-ctx.Done():
 	case result = <-serveErr:
@@ -178,4 +217,26 @@ func env(k, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+// applyLimitEnv 使用 flag 自身的解析器验证环境配置，CLI 的显式值随后覆盖环境值。
+func applyLimitEnv(fs *flag.FlagSet) error {
+	for name, variable := range map[string]string{
+		"max-concurrent-unary":         "EXTRA_MAX_CONCURRENT_UNARY",
+		"max-concurrent-streams":       "EXTRA_MAX_CONCURRENT_STREAMS",
+		"max-concurrent-reads":         "EXTRA_MAX_CONCURRENT_READS",
+		"max-concurrent-rpcs":          "EXTRA_MAX_CONCURRENT_RPCS",
+		"max-publish-batches-inflight": "EXTRA_MAX_PUBLISH_BATCHES_INFLIGHT",
+		"batch-commit-timeout":         "EXTRA_BATCH_COMMIT_TIMEOUT",
+		"batch-abandon-timeout":        "EXTRA_BATCH_ABANDON_TIMEOUT",
+		"publish-batch-flow-control":   "EXTRA_PUBLISH_BATCH_FLOW_CONTROL",
+		"max-consumers":                "EXTRA_MAX_CONSUMERS",
+	} {
+		if value := os.Getenv(variable); value != "" {
+			if err := fs.Set(name, value); err != nil {
+				return fmt.Errorf("invalid %s", variable)
+			}
+		}
+	}
+	return nil
 }

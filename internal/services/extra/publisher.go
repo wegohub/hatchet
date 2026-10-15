@@ -16,7 +16,7 @@ import (
 	"github.com/nats-io/nats.go/jetstream"
 	"google.golang.org/grpc"
 
-	pb "github.com/hatchet-dev/hatchet/internal/services/extra/proto/v1"
+	pb "github.com/hatchet-dev/hatchet/pkg/extra/v1"
 )
 
 // preparePublish 在任何网络 I/O 前完成参数验证，控制 headers 只允许从 typed options 生成。

@@ -22,7 +22,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
-	pb "github.com/hatchet-dev/hatchet/internal/services/extra/proto/v1"
+	pb "github.com/hatchet-dev/hatchet/pkg/extra/v1"
 )
 
 // fixture 每个测试启动真实 embedded NATS 与 TCP gRPC，不依赖外部服务或固定端口。
@@ -774,7 +774,7 @@ func TestFetchBudgetsAndDelayedNAK(t *testing.T) {
 	for _, request := range []*pb.FetchRequest{
 		{
 			Consumer: f.consumerRef(),
-			Batch:    &pb.FetchRequest_MaxMessages{MaxMessages: 65},
+			Batch:    &pb.FetchRequest_MaxMessages{MaxMessages: 101},
 		},
 		{
 			Consumer: f.consumerRef(),

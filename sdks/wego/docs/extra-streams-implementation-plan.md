@@ -1,472 +1,516 @@
-# wego 接入 hatchet-extra：RPC 流重构实现计划
+# wego 接入 hatchet-extra RPC 流实施计划 历史归档
 
-> 状态：待评估、待实现。目标版本 wego `0.5.0`，消息协议 `7`。
-> 本文自成一体：先说明背景、需求和已核实的事实，再给出设计、接口草案、删除清单、实施顺序和验收标准。实现者必须先读懂第三节的事实依据再动手，设计中的每个机制都是为了应对其中的某一条。
+> 已替换：RPC 流重构统一以 [NATS Client Stream Server Stream 与 Bidi Stream 设计](design/nats-rpc-stream-design.md)为准。下文保留历史讨论，不作为当前实施或验收依据；其中 CLAIM/OWNER、reader generation、Recv 后提交位置、ATTEMPT_END 和强制 Checkpoint 等方案已被替换。通用 KV、WorkerEvent 与原生事件 API 的独立职责按新方案的范围说明处理。
 
-## 一、背景
+> 复核日期：2026-10-15。状态：设计稿，尚未实施本重构。
+> 当前 SDK 为 0.4.27、消息协议为 6；目标 SDK 为 0.5.0、消息协议为 7。
+> 本次修改仅完善计划，不代表目标版本已经发布或下述验收已经通过。
 
-### 1. 现状
+## 一、评估结论与本次范围
 
-wego 把标准 gRPC 服务的每个 RPC 映射成一个 Hatchet standalone 任务。`client.Conn` 实现 `grpc.ClientConnInterface`，`server.Server` 实现 `grpc.ServiceRegistrar`。unary 走 Hatchet 的任务输入和输出；三种流目前基于 Hatchet Durable Streams 实现，核心代码如下：
+采用 Hatchet 调度、hatchet-extra 保存消息与消费状态的方向可行。Extra 已提供必要的发布、条件发布、读取、ACK 和 KV CAS 接口，但它不会自动解决 RPC 执行所有权、业务处理确认和跨系统事务。
 
-- [internal/stream](../internal/stream)：CLAIM 竞争、epoch 有效日志解释器（`log.go`）、producer、历史、JOIN 屏障。
-- [internal/rpc](../internal/rpc) 下的 `stream_*.go`：客户端在 `CloseSend` 时把整批输入作为任务输入一次提交；Worker 的输出写入持久 topic `rpc.<taskID>`。
-- [internal/backend/streams.go](../internal/backend/streams.go)、`gated_execution.go`：Durable Streams 发布订阅和 CLAIM 门禁。
-- [internal/backend/worker_event_*.go](../internal/backend)：基于 Durable Streams 的 Worker 定向和广播通知。
+原计划需要修正的关键问题：
 
-### 2. 现有实现的问题
+| 原计划的处理 | 风险 | 本计划的处理 |
+|---|---|---|
+| AckAll，并在交付一帧后确认所属批次 | 批次剩余消息可能尚未交付；重投时累计 ACK 还可能越过缺口 | AckExplicit；只确认完全提交的消息批次，批次内位置另行保存 |
+| 发现空洞立即删除并重建同名 consumer | 迟到 Fetch/ACK 可能操作重建后的资源；服务端 ACK floor 不再代表原位置 | 有界修复；需要重建时使用新的 consumer 实例名 |
+| 所有后来的 writer 都能发布 ATTEMPT 接管 | 同代次重复投递会抢占；旧执行也可能重新取得写权 | 区分业务 retry epoch 与物理 writer；同代次只允许一个获胜执行 |
+| 遇到更高代次返回不可重试错误 | 旧执行的失败上报可能影响当前运行 | 保留执行门禁；落选/失去写权的执行不报告终态 |
+| END 表示整个任务完成 | END 可能来自失败 attempt，或发布成功但 Hatchet 未接受结果 | ATTEMPT_END 与引擎最终清单共同确认终态 |
+| Replay 直接丢弃重新产生的前 L 条输出 | 非确定性变化被隐藏，客户端收到拼接后的错误结果 | 默认业务显式恢复；可选 Replay 必须逐条核对历史 |
+| InputMark 等于 Recv 次数，按它跳过输入 | 已 Recv 不等于处理完成；多输入一输出、并发处理会漏任务 | 不自动用 Recv 计数推进业务恢复位置 |
+| 幂等冲突后自动续写输入 | 第二个调用者可以接管第一个调用的发送方向 | 默认只附着消费；输入续写使用独立、显式的恢复凭证 |
+| 只有 RunID、OutputSeq 的恢复位置 | 缺少租户、绑定、物理位置、批次偏移和响应头状态 | 扩展现有 StreamResumeToken，严格验证身份及位置 |
+| 删除 PutStream、task.StreamEvent、WorkerEvent | 破坏已确认的原生调用、降级及公开通知能力 | 按下文保留这些契约，迁移其传输 |
+| 通过 go.work 导入未发布的 extra，然后跳过发行检查 | 本机通过，独立模块消费者无法构建 | 保留 GOWORK=off 门禁，SDK 使用可独立构建的生成客户端桩 |
+| 明文 Wego 控制头、逗号拼接 CodecID | 与完整协议帧经过 codec 的约定冲突；合法 ID 可能含逗号 | 继续使用有序 repeated CodecID 和完整帧 codec |
 
-- client stream 和 bidi 只能"收齐整批输入再提交"，不支持实时输入，也不支持交互式双向通信。
-- server stream 依赖 CLAIM 和整条日志扫描来确定有效前缀，效率很低。
-- 没有消费确认（ACK）机制，消费进度只能由业务自己保存凭证。
-- 需要租户开启 Durable Streams entitlement，只注册 unary 的 Worker 也受这个限制。
+本次交付包括三种 RPC 流、恢复、取消与关闭、必要的 Stream/KV 客户端，以及 durable Execute 消费流的接入。普通 unary、DAG、Batch、调度策略、命名规则和网络 gRPC 不另行重构。
 
-### 3. hatchet-extra
+## 二、核验基线与既有约定
 
-根仓库新增了 hatchet-extra 服务：
+### 2.1 代码现状
 
-- 服务入口：[cmd/hatchet-extra/main.go](../../../cmd/hatchet-extra/main.go)
-- 服务实现：[internal/services/extra](../../../internal/services/extra)
-- 协议：[proto/v1/extra.proto](../../../internal/services/extra/proto/v1/extra.proto)
-- 生成的 Go 包：`github.com/hatchet-dev/hatchet/internal/services/extra/proto/v1`（包名 `extrav1`）
+以下结论来自当前工作树，不能把计划接口当成已有能力：
 
-服务提供以下能力：
+- [stream_client.go](../internal/rpc/stream_client.go)：client/bidi 输入在 CloseSend 后一次提交；目前没有实时输入传输。
+- [stream_worker.go](../internal/rpc/stream_worker.go)：一个流 RPC 对应一个普通 standalone task；client stream 最终响应保存于任务结果；server/bidi 可选 Reliable 或 Realtime；原生调用单独处理。
+- [stream.go](../internal/rpc/stream.go) 和 [stream_checkpoint.go](../internal/rpc/stream_checkpoint.go)：目前禁止在 durable handler 中创建或恢复流；仅新增 extra 连接不会解除这个限制。
+- [gated_execution.go](../internal/backend/gated_execution.go)：持久门禁负责 START 去重、执行身份和落选者不上报；不能随着旧传输一起删除。
+- [completion.go](../internal/stream/completion.go)：已有“引擎结果＋匹配的结束帧＋完整输出”校验，必须保留这条不变量。
+- [task/checkpoint.go](../task/checkpoint.go)：Worker 历史恢复；[client/stream.go](../client/stream.go)：客户端消费凭证；两者职责不同。
+- [worker_event_subscribe.go](../internal/backend/worker_event_subscribe.go)：当前每个 Worker 都建立通知订阅，因而 unary Worker 也依赖 Hatchet Durable Streams；需要改为按能力启用。
+- [FrameCodec](../internal/wire/log_codec.go)：完整 protobuf 帧经过有界 codec，发送链与按 ID 查找的解码注册表已分离，不需要重新发明 codec 包。
 
-- 底层：进程内嵌的 NATS JetStream，使用 Hatchet token 做租户鉴权，`Scope.namespace` 是租户内的逻辑分区。
-- StreamService：stream 的创建、更新、查询、删除，以及按序号或按 subject 取最后一条消息的 `GetMessage`。
-- PublisherService：`Publish` 和 `PublishAsync`，支持 msg-id 去重、期望序号、TTL。
-- ConsumerService：具名 durable pull consumer、`Fetch`（长轮询）、`Ack`（ACK/NAK/IN_PROGRESS/TERM）。
-- KeyValueService：bucket 管理、Put/Create/Update（CAS）/Get/Delete、History、Watch。
+### 2.2 Extra 已有能力及限制
 
-调用时在 gRPC metadata 里带 `authorization: Bearer <Hatchet 租户 token>`。
+路径从本文所在的 `sdks/wego/docs` 计算：
 
-## 二、需求
+- [服务实现](../../../internal/services/extra/README.md)
+- [24 个 RPC 的 protobuf](../../../internal/services/extra/proto/v1/extra.proto)
+- [已完成的 Compose 部署与验收](../../../internal/services/extra/TEST_REPORT.md)
+- [Compose 配置](../deployment/compose/docker-compose.yml)
 
-1. **client stream**：发起任务拿到 `run_id`，之后每次 `Send` 发布到这个 `run_id` 对应的 subject；Worker 运行时订阅读取；客户端的 `Recv` 订阅本运行的输出。
-2. **server stream**：与第 1 条相同，只是请求随任务输入提交，输出走同样的通道。
-3. **bidi**：在第 1、2 条的基础上自然支持实时交互。
-4. **可靠性**：消费方按发送顺序拿到全部消息，不漏、不重；`CloseSend` 和 Worker 结束时，读端能证明自己读完了。
-5. **恢复与回放**：client 和 Worker 任一方中断后都能恢复，并支持从指定位置回放。
-6. **新增公开 API**：`conn.Stream()` 和 `conn.KV()`，作为 extra 能力的薄封装。
-7. **删除**：基于 Hatchet Durable Streams 的全部实现，不保留兼容层，不受旧设计约束。
-8. **模块结构**：保留 wego 自己的 `go.mod`，开发阶段通过 `go.work` 使用本地根模块。
+运行基线为官方 Hatchet v0.110.5、PostgreSQL MQ、NATS Server v2.15.1、nats.go v1.54.0。Extra 当前为单节点，已在 `localhost:7080` 提供 TLS gRPC。复用 Hatchet 租户 token，租户由鉴权结果确定，namespace 由请求 Scope 提供。
 
-## 三、已核实的事实（设计依据）
+需要在 P0 固定为探针的语义：
 
-以下每条都已对照源码确认，设计中的机制都与之对应。
+1. PublishAsync 可以并发处理条目，不保证存储顺序等于 Send 顺序；有序方向先采用单一在途 Publish。
+2. 当前 NATS 单节点实现先检查 expected-last-subject-sequence，再进行 message-id 去重。响应丢失后重试可能得到 WrongLastSequence，需要读回核对。此行为来自当前版本源码，不能假定所有服务版本和集群配置都一致。
+3. ACK floor、delivered、StreamSeq、ConsumerSeq 各有不同含义；consumer 已投递到 20，不表示 20 已被业务处理。
+4. Fetch 的 EOF 只表示本次拉取结束；AckWait 到期、断连和重投都不表示 RPC 结束。
+5. GetMessage 支持物理序号和 last_subject；没有任意业务序号查询、倒序分页或 next_subject 接口。
+6. CreateOrUpdate 会更新已有配置；不能把它无条件当成“只创建”。普通调用不能反复覆盖共享 stream 的保留期。
+7. 默认单消息 1 MiB，Fetch 上限 64 条/4 MiB，普通等待不超过 30 秒，unary/streaming 入场预算分别为 128。Fetch 请求采用消息数或字节数的 oneof，不能声称一次请求同时设置二者。
+8. 消息落盘确认、consumer ACK 和 KV CAS 是三个独立操作；Hatchet 任务提交与它们也没有共同事务。
 
-| 编号 | 事实 | 出处 | 对设计的影响 |
-|---|---|---|---|
-| F1 | extra 的 `PublishAsync` 为每条请求起一个 goroutine 调用 `Publish`，存储顺序与提交顺序无关 | [publisher.go](../../../internal/services/extra/publisher.go) `PublishAsync`，约 300 行 | 不能用 PublishAsync 承载有序流；写端必须串行 |
-| F2 | 只有串行调用 unary `Publish` 时，存储顺序才等于调用顺序 | 同上 | 每个 subject 只允许一个写者、一次只有一个发布在途 |
-| F3 | pull consumer 首次投递按存储顺序；NAK、AckWait 到期、Fetch 流中途断开后，未 ACK 的消息会在之后重投，读端会看到空洞或乱序 | JetStream 语义 | 读端必须以自己的帧序号为准，发现空洞要主动修复 |
-| F4 | nats-server v2.15.1 先检查 expected-last-subject-seq，再做 msg-id 去重 | `nats-server/v2@v2.15.1/server/stream.go`：6775 行附近做期望序号检查，7019 行附近做 msg-id 去重 | 带期望序号的重试即使上次已成功，也会得到 `WrongLastSequence`，不会返回 duplicate；必须读回最后一条消息确认是否是自己写的 |
-| F5 | extra 把 `WrongLastSequence` 映射为 gRPC `FailedPrecondition`，并在 details 中附带 `NatsError` | [publisher.go](../../../internal/services/extra/publisher.go) `Publish` | 写端按这个错误码识别 CAS 冲突 |
-| F6 | extra 只支持具名 durable pull consumer，不支持 ordered/push consumer；名称为 1–64 字节，只能用字母、数字、`_`、`-` | [consumers.go](../../../internal/services/extra/consumers.go)、[address.go](../../../internal/services/extra/address.go) | 有序读取要在 SDK 内自己实现；consumer 名称要控制长度 |
-| F7 | consumer 的投递策略和起始序号创建后不可修改 | JetStream 语义 | 修复空洞的方式是"删除后按新起始序号重建" |
-| F8 | extra 默认单条消息不超过 1 MiB、每次 Fetch 最多 64 条或 4 MiB；unary 和 streaming RPC 各最多 128 个并发；普通 Fetch 最多等待 30 秒 | [README.md](../../../internal/services/extra/README.md) 配置预算一节 | 帧批次要受大小限制；每个活跃读者都占一个长连接 RPC 名额 |
-| F9 | namespace 为空，或不超过 64 字节且只含 ASCII 字母、数字、`_`、`-` | [address.go](../../../internal/services/extra/address.go) | wego 的 namespace 要按这个规则校验 |
-| F10 | 业务 headers 不能以 `Nats-` 开头，整个 header 不超过 64 KiB | [publisher.go](../../../internal/services/extra/publisher.go) `preparePublish` | wego 的控制头统一使用 `Wego-` 前缀 |
-| F11 | `WorkerCancelNotice` 只用于 CLAIM 换代后通知旧 writer 退出 | [stream_observe.go](../internal/rpc/stream_observe.go) 约 191 行 | 新设计用 fence 取代，可以删除 |
-| F12 | 业务侧的 Worker 通知（`SendEvent`/`BroadcastEvent`/`WithWorkerEventHandler`）只在 [examples/scenarios/minio_codec.go](../examples/scenarios/minio_codec.go) 中用作探针 | 全仓搜索 | 可以整体删除 |
-| F13 | Go 的 `internal` 规则按导入路径判断；wego 模块路径是 `github.com/hatchet-dev/hatchet/sdks/wego`，可以导入 `github.com/hatchet-dev/hatchet/internal/...`；[internal/backend](../internal/backend) 已经这样做了 | [internal/backend/backend.go](../internal/backend/backend.go) | 可以直接导入 extra 的生成包，开发阶段由 go.work 解析到本地根模块 |
+官方参考：[Pull consumers](https://docs.nats.io/learn/jetstream/pull-consumers)、[固定版本的条件发布实现](https://github.com/nats-io/nats-server/blob/v2.15.1/server/stream.go)。以本机探针验证固定版本的具体错误和重投行为。
 
-实现者在动手前，应写一个小测试分别验证 F3、F4，把结论固定为回归测试（见第九节）。
+### 2.3 保留的产品边界
 
-## 四、总体设计
+- Server 继续使用 NewServer、注册 handler、Serve、Stop、GracefulStop；不新增控制 Worker、START/SESSION workflow。
+- 网络 gRPC 直接执行 handler，不经过 Extra 或任务封包。
+- 普通任务和 RPC 的协议 6 外形继续使用 `_wego/value/routing`；升级版本至 7，只增加流所需的可选字段。
+- 原生 Console/官方 SDK 调用仍按显式响应契约处理；native 输出不执行业务 codec，server/bidi 使用 PutStream 发布业务 ProtoJSON，最终结果仅保存 sent_messages。
+- task.StreamEvent 与原生实时订阅继续存在。
+- Worker 事件通知是已公开能力，不能因仓库里使用次数少就删除。
+- 不修改 Hatchet 调度、重试或 durable 引擎；必要的 Extra 协议补充单独列明、单独验证。
 
-```mermaid
-sequenceDiagram
-    participant C as Client
-    participant H as Hatchet
-    participant X as Extra
-    participant W as Worker
-    C->>H: "提交任务 (stream 头, 幂等键)"
-    H-->>C: run_id
-    loop Send
-        C->>X: "Publish rpc.RUN.in DATA(seq, expect_last)"
-    end
-    C->>X: "Publish rpc.RUN.in END(count=N)"
-    H->>W: "分配 attempt k"
-    W->>X: "Publish rpc.RUN.out ATTEMPT(k) 作为 fence"
-    W->>X: "Reader rpc.RUN.in, Recv 读到 END 且满 N 条才返回 EOF"
-    W->>X: "Publish rpc.RUN.out HEADERS/DATA/END(status, count)"
-    C->>X: "Reader rpc.RUN.out, AckAll 推进进度"
-    H-->>C: "运行终态, 用于兜底失败"
+## 三、配置与模式选择
+
+使用此前确认的命名：
+
+```go
+runtime.WithDurableExtra(runtime.DurableExtraConfig{
+    Address:   "localhost:7080",
+    TLSConfig: tlsConfig, // 本机部署须信任导出的证书；不设置 InsecureSkipVerify。
+})
+
+// 方法的任务策略可以明确禁用持久 Extra 流。
+task.WithDisableDurableExtra()
 ```
 
-职责划分：
+- token 与 tenant 复用 Hatchet Runtime；Extra 使用独立连接，不能将 Hatchet gRPC 地址误作 Extra 地址。
+- namespace 保持相同逻辑值；启用 Extra 时验证其名称限制，不改变未使用 Extra 的命名规则。
+- TLS 配置在实例构造时复制。明确选择明文只能用于匹配的本地开发服务；已部署的 Compose 端口要求 TLS。
+- Runtime 不使用全局连接。借用的 task.Conn 不关闭底层 Extra 资源。
 
-- **Hatchet**：调度、slot、重试、超时、取消、运行终态。任务输入只包含请求头信息和 server stream 的单个请求，不包含流数据。
-- **extra**：两个方向的流数据、消费进度。
-- **wego**：帧协议、有序写、有序读、fence、恢复、完整性判定。
+模式在注册绑定和本次提交中确定：
 
-### 1. 资源命名
-
-| 资源 | 名称 | 说明 |
+| 条件 | 输入 | 输出与恢复 |
 |---|---|---|
-| Stream | `wego_rpc` | 每个 namespace 一个，subjects 为 `rpc.>`，文件存储；`MaxAge` 默认 24h，`Duplicates` 默认 2m，可通过 `runtime.WithStreamRetention` 配置。Conn 或 Server 首次需要时调用 `CreateOrUpdateStream` 幂等创建 |
-| 输入 subject | `rpc.<run_id>.in` | client 写，Worker 读 |
-| 输出 subject | `rpc.<run_id>.out` | Worker 写，client 读 |
-| Worker 输入 consumer | `i-<run_id>-<attempt>` | 每个 attempt 一个，避免新旧 attempt 抢同一个 consumer 的消息 |
-| Client 输出 consumer | `o-<run_id>-<8 位随机 hex>`，或业务通过 `client.WithStreamConsumer(name)` 指定 | 业务指定的名称要校验长度（F6） |
+| wego + Extra + Reliable，任务未禁用 | client/bidi 使用 Extra 实时输入；server stream 内联一个请求 | Extra 持久输出，支持恢复 |
+| 未配置 Extra，或任务明确禁用，或显式 Realtime | client/bidi 收齐数组后一次提交；server stream 内联请求 | PutStream；不提供持久恢复 |
+| native 响应契约 | 一个请求或内联请求数组 | 原生 PutStream/单响应结果，不进入 wego 持久协议 |
+| 网络 gRPC | 原生 gRPC | 原生 gRPC |
 
-`run_id` 使用 Hatchet workflow run 的 external ID（UUID，36 字节），以上名称都不超过 64 字节。`wego_` 前缀保留给 SDK 内部使用，`conn.Stream()` 和 `conn.KV()` 拒绝业务使用这个前缀。
+这是配置决定的降级。Extra 已启用后发生网络故障、鉴权失败或磁盘满，必须返回明确错误，不能运行中切换 PutStream 或本地 KV。
 
-### 2. 帧协议
+保留 Reliable/Realtime 和现有配置入口。缺少 Extra 时，注册绑定明确记录 realtime/inline 能力；客户端据绑定选择路径。恢复 API、手动确认等持久能力在该模式返回不支持。
 
-一条 NATS 消息是一个**帧批次**，包含一个或多个连续序号的帧。
+纯 unary 或纯网络实例不建立 Extra 流资源。显式调用 conn.KV/Stream、注册通知回调或启用持久流后，才初始化相应能力。
 
-NATS headers 存放明文控制字段，读端不解码消息体就能校验顺序：
+## 四、资源、身份与统一帧
 
-| Header | 含义 |
+### 4.1 身份必须分开
+
+| 身份 | 作用 |
 |---|---|
-| `Wego-Version` | 固定为 `7` |
-| `Wego-Kind` | `DATA`、`HEADERS`、`ATTEMPT`、`END`；一个批次中的所有帧类型相同，`END` 和 `ATTEMPT` 单独成批 |
-| `Wego-First` / `Wego-Last` | 本批次的帧序号区间。序号在每个 subject 内从 1 开始连续递增，所有类型的帧共用同一序列 |
-| `Wego-Attempt` | 写者的 attempt（client 写 `.in` 时为 0） |
-| `Wego-Writer` | 本次写者的随机 nonce，用于在发生 F4 的情况时确认最后一条消息是否是自己写的 |
-| `Wego-InputMark` | 仅 Worker 的 `.out` 帧使用：产生这些输出时已消费到的输入帧序号（Resume 模式依赖它） |
-| `Wego-Count` | 仅 `END` 使用：本 subject 中 END 之前的 DATA 总条数 |
-| `Wego-Codec` | 消息体实际执行的 CodecID 列表，逗号分隔；为空表示未变换 |
+| RunID | Hatchet 运行身份，供查询、恢复、取消 |
+| TaskRunID | 当前 standalone 任务身份，必须从真实执行/查询获得，不能假定等于 RunID |
+| WorkflowVersion/方法及 protobuf 类型 | 固定本次运行的注册契约 |
+| RetryCount/epoch | Hatchet 的重试代次，不用本地重连次数代替 |
+| input_generation | 输入发送者的接管代次，与 Worker 的 RetryCount 独立 |
+| writer_nonce | 同一代次中一次物理执行/输入写者身份 |
+| consumer_id | 一个独立逻辑消费位置，不等于运行身份 |
+| reader_generation | 该消费位置的一次所有权；隔离旧 Fetch/ACK |
+| StreamSeq | Extra stream 的物理序号，不同运行交错，允许跳号 |
+| RecordSeq/DataSeq | 单方向协议记录序号/业务消息序号；控制记录不消耗 DataSeq |
 
-消息体使用新的 protobuf `FrameBatch`，放在 [internal/wire](../internal/wire) 中，替换 `stream.proto` 里的 `LogFrame`：
+SDK 自有的 stream/bucket 使用版本化保留名称，例如 `wego_rpc_v7`、`wego_state_v7`。输入输出 subject 使用 `rpc.<RunID>.in/out`；记录内部同时绑定 TaskRunID、方法及调用身份。consumer 使用稳定摘要加实例后缀，全部名称满足 64 字节限制，不能直接拼入任意长的业务 consumer 名。
+
+同一租户、namespace 内共享底层 stream；不同 consumer 独立消费同一运行。SDK 保留名称检查仅防误用，同一租户凭证仍具有 Extra 管理权限，不把名称前缀当作安全边界。
+
+### 4.2 安全初始化与保留期
+
+- SDK 启动时读取并验证资源配置；已存在且不兼容时失败，不自动修改。
+- 为避免首次创建竞争覆盖配置，P0 为 Extra 的 CreateOrUpdateStream/CreateOrUpdateBucket 增加可选 `create_only` 字段；委托原生 Create，存在时返回 AlreadyExists，随后读回核验。不增加 RPC 数量，也不更改默认 upsert 语义。
+- 内部 stream 采用 FileStorage、LimitsPolicy、DiscardNew。不能采用消费后删除消息的 WorkQueue/Interest retention，否则独立回放和多个观察者无法成立。
+- MaxAge 默认 24 小时，去重窗口默认 2 分钟；同时设置字节、consumer 数量与单运行预算。磁盘满拒绝新写，不静默删除未过期历史。
+- consumer 空闲回收与业务恢复期限分开；默认空闲 10 分钟可以回收传输 consumer，不能同时抹掉持久消费位置。
+- KV 保存调用 manifest、消费位置和 reader 所有权；其保留期至少覆盖承诺的恢复期限。对象存储保留期还必须覆盖所有引用帧与结果。
+- manifest 保存资源创建身份、运行绑定、起点和有效期。已有运行的 subject 为空时，不得把已过期历史当成从未写过；缺少证明返回 DataLoss/FailedPrecondition。
+- 新流与恢复均校验期限。长任务需要显式增加保留预算；不断追加新消息不等于最初输入仍在。
+
+### 4.3 帧和 codec
+
+复用 FrameCodec 的注册表、限额、超时和冻结字节机制。把其依赖具体 LogFrame 的部分拆成同包内的“有界字节编解码＋帧序列化”，不新增公开 codec 包。
 
 ```proto
-message FrameBatch {
-  repeated bytes payloads = 1;          // DATA：每条业务消息的 ProtoJSON
-  map<string, Values> headers = 2;      // HEADERS：响应 headers
-  map<string, Values> trailers = 3;     // END：响应 trailers
-  google.rpc.Status status = 4;         // END：最终状态（含 details、不可重试标记）
+// 结构草案；具体字段编号在 P0 固定。
+message EncodedFrame {
+  uint32 format_version = 1;
+  repeated string codec_ids = 2;
+  bytes payload = 3;
+}
+
+message StreamRecord {
+  uint32 version = 1;
+  string run_id = 2;
+  string task_run_id = 3;
+  string method = 4;
+  string binding_digest = 5;
+  Direction direction = 6;
+  Kind kind = 7;
+  int32 epoch = 8;
+  string writer_nonce = 9;
+  uint64 record_seq = 10;
+  uint64 previous_stream_seq = 11;
+  uint64 first_data_seq = 12;
+  uint64 last_data_seq = 13;
+  repeated bytes messages = 14; // 每条为 ProtoJSON，保留边界。
+  uint64 total_data_count = 15;
+  bytes content_digest = 16;
+  uint64 input_generation = 17; // 输入接管使用；输出执行代次使用 epoch。
+  // 按种类携带 metadata、headers、trailers、status、恢复索引。
 }
 ```
 
-整个消息体经过现有的 `wire.FrameCodec`（gzip、zstd、AES-GCM、S3），实际执行的 CodecID 写入 `Wego-Codec`。控制头不加密，也不在 AES 认证范围内，这一点要写进文档。
+种类包括 INPUT_OPEN、INPUT_END、OWNER、HEADERS、DATA、ATTEMPT_END。完整 StreamRecord 经过 codec；只把格式和有序 CodecID 放在外层。控制字段不单独放入可绕过解码的 NATS header。业务 DATA 不再执行第二遍 codec。
 
-### 3. 写端 `streamlog.Writer`
+- CodecID 使用组件常量；允许重复步骤，不使用逗号拼接。
+- 未知 ID 在任何下载/解密前失败；AES 继续使用随机 nonce 和 nil AAD。
+- 外层 codec 列表用于解码引导，不额外宣称其具有认证能力。解码后校验完整记录和实际 subject/运行绑定一致。
+- `previous_stream_seq` 连接同一 subject 的前一个持久记录，可用于有限的缺口修复；不把全局 StreamSeq 差值当作丢消息数。
+- 每条记录保存累计 DATA 数及可定位的首次 headers/最新 DATA 位置；查询尾记录可取得恢复摘要，必要时再 GetMessage 读取目标记录。
+- 控制帧、头部、索引、批次数量与状态 details 均计入限额，不能只限制业务消息。
 
-新建包 [internal/streamlog](../internal/streamlog)，client 写 `.in` 和 Worker 写 `.out` 共用这个实现。
+## 五、有序发布与执行门禁
 
-```go
-// Writer 是一个 subject 的唯一有效写者；顺序由单 goroutine 串行发布和期望序号保证。
-type Writer struct { /* ... */ }
+### 5.1 每个方向一个有效写者
 
-func OpenWriter(ctx context.Context, x Transport, opts WriterOptions) (*Writer, Resume, error)
-func (w *Writer) Send(ctx context.Context, kind Kind, payload []byte) error // 入队；队列满时阻塞
-func (w *Writer) Flush(ctx context.Context) error                            // 等待已入队的帧全部落盘
-func (w *Writer) Close(ctx context.Context, end End) error                    // Flush 后发布 END
-```
+每个 writer 串行发布，设置 expected_last_subject_sequence。PubAck 后才推进已确认位置。
 
-**打开**：调用 `GetMessage(last_subject=<subject>)` 读回最后一条消息，得到 `lastStreamSeq` 和 `lastFrameSeq`。subject 为空时两者都是 0。最后一条已经是 `END` 时返回 `ErrStreamClosed`。返回的 `Resume` 包含最后一条消息的帧头，供 Worker 做 fence 判断和恢复。
+message_id 包含调用身份、方向、epoch、writer_nonce 和该记录身份。不同 attempt/不同内容不得复用同一 message_id。发布重试固定同一 ID、期望序号和完整编码字节，不重新加密或上传。
 
-**发布循环**：
+结果不明确时：
 
-1. 一个后台 goroutine 从有界队列（`MaxQueueMessages`、`MaxQueueBytes`）中取出当前所有待发帧，合成一个批次。批次大小不超过 `MaxBatchBytes`，且不超过 extra 的 `MaxMessageBytes`（F8）。
-2. 调用 unary `Publish`，设置：
-   - `message_id = <run_id>:<dir>:<first>-<last>`
-   - `expected_last_subject_sequence = lastStreamSeq`
-3. 成功后用 PubAck 中的 sequence 更新 `lastStreamSeq`。
-4. 一次只有一个发布在途，保证存储顺序等于帧序号（F1、F2）。
+1. 在发布预算内重试原请求。
+2. 仅当结构化 NATS 错误码确认为 WrongLastSequence 时进入竞争处理；其他 FailedPrecondition 不能都解释为失去写权。
+3. 读回尾记录，核对 writer、记录 ID、范围和内容摘要；不是只比较 LastSeq。
+4. 自己的记录被下一代 OWNER 覆盖到尾部之后，可沿有界 predecessor 链或已知物理位置核实；无法证明成功时返回明确的不确定结果，不把它认作成功，也不换 ID 重发。
+5. 一旦确认其他写者接管，旧 writer 不得刷新期望序号后继续业务发布。
 
-**错误处理**：
+这保证条件发布后的有效写入顺序，不保证外部业务副作用只发生一次。
 
-- `Unavailable`、`DeadlineExceeded` 或连接中断（结果不明确）：用相同的 msg-id 和期望序号重试，带退避，总时长受 `PublishTimeout` 限制。
-- `FailedPrecondition`，即 `WrongLastSequence`（F4、F5）：读回最后一条消息。
-  - 如果 `Wego-Writer` 等于自己且 `Wego-Last` 等于本批次的 last，说明上一次已经写成功，按成功处理。
-  - 否则说明有别的写者，返回 `ErrFenced`。写端终止，之后所有 `Send` 都返回该错误。
-- 其他错误：直接失败。
+### 5.2 Worker 接管规则
 
-**结束**：`Close` 先 `Flush`，再发布单帧批次 `END`，带上 `Wego-Count` 和 status、trailers。由于期望序号的约束，END 一定是该 subject 的最后一条有效消息。
+接管必须在 handler 和 STARTED/FAILED/COMPLETED 上报之前完成：
 
-### 4. 读端 `streamlog.Reader`
+- 首次执行以条件发布竞争 OWNER。
+- 相同 epoch、不同 nonce：只认第一个成功 OWNER；落选者不启动 handler，也不报告失败。
+- 更低 epoch：落选，不允许重新接管。
+- 更高 epoch：读取并验证当前尾部，以条件发布加入 OWNER。CAS 竞争失败重新判断代次，不能无条件覆盖。
+- 旧 writer 的 DATA/ATTEMPT_END 使用其已确认前驱，OWNER 写入后会使其后续条件发布失败；取消本地 handler，抑制旧执行的终态上报。
+- 不等待旧 handler 必然响应取消；它的外部副作用需要业务幂等保护。
 
-```go
-// Reader 按帧序号严格有序地交付；重复的帧丢弃，空洞通过重建 consumer 修复。
-type Reader struct { /* ... */ }
+保留并改造 Definition.BeforeStart、Admission、gatedRunner 和 CANCEL 的准确代次匹配。不能用“返回 NonRetryable”代替静默回收落选执行。
 
-func OpenReader(ctx context.Context, x Transport, opts ReaderOptions) (*Reader, error)
-func (r *Reader) Next(ctx context.Context) (Frame, error) // 读到 END 且计数完整时返回 io.EOF
-func (r *Reader) Commit(ctx context.Context, frameSeq uint64) error // AckAll 到这一帧所在的批次
-func (r *Reader) Position() Position                       // {FrameSeq, StreamSeq}
-func (r *Reader) Close(ctx context.Context, deleteConsumer bool) error
-```
+Extra 写入与 Hatchet 结果上报没有原子事务。P0 必须验证真实引擎对于旧 RetryCount 的迟到上报行为；上报前的本地检查不能消除检查后发生接管的竞态。未证明不会覆盖新代次前，不宣称实现了端到端执行 fencing。
 
-**consumer 配置**：
+同一探针必须覆盖 Worker 失联后的实际重派是否增加 RetryCount。不能把“同代次重复投递”和“原 writer 已死亡后的合法重派”混为一谈：若后者仍使用相同代次，仅靠首个 OWNER 获胜会永久阻塞恢复。出现这种情况，P0 必须先确定可核验的新执行身份与接管规则，同时证明旧结果上报隔离；不得单纯放开同代次抢占或假定重试配置能补救。
 
-- `FilterSubject` 为单个 subject。
-- `AckPolicy=All`，`MaxAckPending` 等于预取窗口，`AckWait` 设得足够长（默认 5 分钟）。
-- `InactiveThreshold` 默认 10 分钟，用于自动回收。
-- 起始位置：
-  - 新建时，`DeliverByStartSequence` 等于调用方给出的 stream seq + 1；没有给出时用 `DeliverAll`。
-  - 已存在时直接复用，从服务端的 ack floor 继续。
+### 5.3 Send、缓冲与批量
 
-**拉取**：循环调用 `Fetch`，每次在 `max_messages` 和 `max_bytes` 的预算内拉取，长轮询等待时间为 `FetchWait`（默认 25 秒，小于 extra 的 30 秒上限）。拉取到的批次放入有界预取队列。
+- 默认 SendMsg 在对应记录获得发布确认后返回，维持明确的持久发送语义；一个方向不支持并发 Send。
+- 可选的有界缓冲发送作为独立优化：Send 成功只表示进入 SDK 队列；CloseSend、显式 Flush 和 Worker 最终完成必须等待全部已接受记录发布成功。该选项必须在文档说明崩溃窗口。
+- 批量仅合并相同方向、writer 和连续 DATA，不混入 OWNER/HEADERS/END。默认每条 DATA 一条存储消息，先完成正确性验收，再启用合批。
+- 同步 Send 的单生产者不能凭空获得合批收益；性能报告分别测同步与显式缓冲，不混报。
+- 最多一个发布请求在途；状态锁不跨 codec、Publish 或 GetMessage。发送失败进入流终态，业务忽略 Send 错误也不能上报完整成功。
 
-**有序交付**（核心，对应 F3）：维护 `expected = 最后交付的帧序号 + 1`。
+## 六、消费、ACK 与位置持久化
 
-- 批次的 `Wego-Last` 小于 `expected`：重复投递，丢弃，但仍要 ACK 以推进 ack floor。
-- 批次的 `Wego-First` 等于 `expected`：按序交付。
-- 批次的 `Wego-First` 大于 `expected`：出现空洞。删除 consumer，以"最后一个已交付批次的 stream seq + 1"为起始序号重建，然后继续拉取，不等 AckWait。
-- 首个批次的 `Wego-First` 不是 1（并且不是从中途恢复）：说明数据已超出保留期被清除，返回 `DataLoss`。
+### 6.1 三种位置不能混用
 
-**完整性**：读到 `END` 后，检查已交付的 DATA 条数等于 `Wego-Count`，并且帧序号连续，满足才返回 `io.EOF`；否则返回 `DataLoss`。
+1. fetched：已经预取进 SDK。
+2. delivered：成功解码并复制到调用方提供的消息对象。
+3. committed：调用方选择确认的连续处理前缀，已持久保存。
 
-**提交**：只对已交付的连续前缀提交（AckAll，F7）。服务端的 ack floor 就是可恢复的消费位置。
+默认 gRPC 接口采用交付确认：delivered 可以批量推进 committed，但不表示业务处理完成。进程在 Recv 后、业务处理前崩溃，框架不能证明处理是否发生。
 
-### 5. RPC 流程
+需要 durable Execute、资产下发或严格处理确认时，必须选择手动确认；业务先保存处理状态，再 Commit。整个系统提供可恢复、至少一次处理的基础，不宣称业务 exactly-once。
 
-#### client stream / bidi（客户端）
+### 6.2 consumer 与有序读取
 
-1. 调用 `NewStream` 时立即提交任务。任务输入是协议 7 的 envelope：`_wego.stream = {shape, idempotency_key}`，不带 `value`。
-2. 拿到 `run_id` 后，`OpenWriter(.in)` 和 `OpenReader(.out)`。
-3. `Send` 把 ProtoJSON 快照交给 Writer。`MaxSend` 按单条消息检查。队列满时阻塞，形成背压。
-4. `CloseSend` 调用 `Writer.Close(END)`；如果有发布失败，返回错误。
-5. `Recv` 调用 `Reader.Next`。交付给业务后再 `Commit`；为减少往返，可以按批次或条数节流提交。
+- RPC 内部使用 AckExplicit。只有整个存储消息内的 DATA 已纳入 committed 前缀，才确认该消息。
+- 预取按消息数与字节双预算控制；向 Extra 发起一次 Fetch 时选择一个服务端 batch 维度，并继续在本地检查另一个维度。
+- 首次投递、重投和重连统一经过 RecordSeq/DataSeq 校验，重复只在已确认或已交付前缀中去重。
+- `first <= expected <= last` 的批次从中间偏移继续；不能把批次重叠当作缺口，也不能跳过未交付部分。
+- 缺口先在有界重排窗口等待/按 predecessor 链和 GetMessage 修复。临时网络失败是 Unavailable；已证明缺失/过期才是 DataLoss。
+- 确需重建 consumer 时使用新的实例名；停止旧 Fetch、等待旧读取退出、建立新位置，然后删除旧资源。禁止同名删除重建后继续接收旧响应。
+- 每条长期 Fetch 有预算和取消；空批次、Fetch EOF、heartbeat timeout 均不能直接变成 RPC EOF。
+- 控制记录只有在其状态已保存、且此前的连续业务前缀满足确认规则后才能确认。慢消费者受 MaxAckPending 和本地字节窗口限制；必要的 IN_PROGRESS 只延长投递期限，不推进 committed。
 
-任务在 Hatchet 排队期间，client 照常写入 `.in`，两边互不依赖。
+### 6.3 持久消费状态和 ACK 顺序
 
-#### server stream（客户端）
+Extra KV 保存以下版本化状态：运行绑定、逻辑 consumer_id、reader_generation、已提交物理位置、批次内偏移、累计 DATA 数、headers 状态以及持有者租期。
 
-请求放在任务输入的 `value` 中，与 unary 相同；客户端只打开 `.out` 的 Reader。
+- 一个逻辑 consumer 只允许一个活跃读取所有者，使用 KV CAS 和有期限的租约接管；同一运行可用不同 consumer_id 独立回放。
+- 租约到期时间保存在状态值中，续期通过 CAS 更新；不能依赖当前 Put/Update 尚未提供的单 key TTL 续期。KV 条目的存储保留期独立管理，不随短租约到期删除业务进度。
+- 每次 reader_generation 使用不同的底层 consumer 名；旧实例的 ACK 不得推进新实例的读取位置。
+- Commit 先 CAS 保存完整连续前缀，再对已经完整处理的批次 DoubleAck。CAS 失败说明所有权变化，不能继续确认。
+- CAS 成功、ACK 丢失时，恢复按 KV 前缀过滤重投；ACK 成功前绝不能先丢掉唯一的业务进度。
+- KV 持久位置是业务恢复依据，consumer ACK floor 是传输进度及校验依据；两者不能伪装成同一个原子更新。
+- 自动确认可按数量/短时间批量提交；崩溃最多重投未提交窗口。手动确认不得在 Close、超时或业务失败时自动推进。
+- consumer 空闲回收后按持久位置创建新实例；记录缺失时只能使用显式保存的可信恢复凭证，不猜测当前位置。
 
-#### 内联输入
+租约到期用于判断是否允许尝试接管，generation 与 CAS 才决定哪个读者可以提交进度。时钟偏差、进程暂停或网络分区可能导致提前接管和重复业务处理；失去所有权的实例停止续读与确认，但租约不强制终止已经离开 SDK 的业务代码。跨系统业务提交仍需稳定幂等键。
 
-Console、事件、Cron 触发的 client stream 和 bidi，任务输入的 `value` 是数组，Worker 直接读取，不打开 `.in`。
+以上持久业务消费位置用于客户端输出消费。Worker 输入使用每次获准执行独立的 consumer：本次 Recv 后可以确认该 consumer 的传输投递，但下一次执行默认创建新 consumer 从输入起点重放。不能复用前一 attempt 的 ACK floor 来跳过业务尚未处理的输入；输入历史由 LimitsPolicy 保留，与 ACK 独立。
 
-#### 幂等提交
+## 七、RPC 建立、输入、结束与恢复
 
-流的幂等键沿用现有的 Hatchet 幂等 CEL（[stream_worker.go](../internal/rpc/stream_worker.go) 中的 `policy.Idempotency` 配置）。发生冲突时，从错误中取出 `ExistingRunID`，转为附着已有运行：
+### 7.1 建立与提交
 
-- Writer 从最后一条消息续写；如果输入已经 END，则不能再 Send。
-- Reader 从头读取，或从业务提供的位置读取。
+client/bidi 的 Extra 模式在 NewStream 时提交任务；server stream 的生成代码先 NewStream、再 SendMsg(request)/CloseSend，所以它必须等单个请求可用后再提交。
 
-#### 结束判定（客户端）
+所有本地参数、绑定、codec、Extra 配置与资源能力检查先于创建远端任务。协议示例：
 
-- Reader 返回 END：按 END 中的 status 返回 `io.EOF` 或错误，并把 trailers 写给调用方。
-- 后台同时调用 `ref.Wait` 观察 Hatchet 运行终态：
-  - 运行失败或被取消，而 Reader 还没读到 END：返回运行错误，并关闭 Reader。
-  - 运行成功，但过了 `CompletionTimeout`（默认 30 秒）仍没有 END：返回 `DataLoss`。
-
-#### 取消（客户端）
-
-- 同步调用的 ctx 被取消：取消本次自己拥有的运行，沿用 [unary.go](../internal/rpc/unary.go) 中 `unaryWaitError` 的规则。
-- `ResumeStream` 得到的流只停止观察，不取消运行。
-
-### 6. Worker 执行
-
-`StreamDefinition`（[stream_worker.go](../internal/rpc/stream_worker.go)）改写为以下步骤：
-
-1. **解析输入**：解析 envelope，恢复 deadline、metadata 和 trace，这部分沿用现有的 `wire.Incoming`。
-2. **打开输出 Writer 并做 fence**：用 `OpenWriter(.out)` 读回最后一条消息。
-   - 最后一条是 `END`：直接按 END 的内容返回任务结果，不执行 handler。
-   - 最后一条的 `Wego-Attempt` 大于当前 attempt（`TaskInfo.RetryCount`）：说明自己已经过时，以不可重试错误退出。
-   - 否则发布 `ATTEMPT(k)` 帧。只要它写入成功，旧 attempt 之后的任何发布都会因期望序号不符而得到 `ErrFenced`，旧 attempt 立即取消自己的 handler 并退出。
-3. **打开输入**：内联输入直接读取；否则打开 `.in` 的 Reader，consumer 名称为 `i-<run_id>-<attempt>`，起始位置由恢复模式决定。
-4. **调用 handler**：沿用现有的服务端 stream 拦截器链。
-5. **handler 返回后**：
-   - 成功：先 `Flush`，再发布 `END(OK, trailers, count)`，然后返回 Hatchet 输出 `{"sent_messages": N}`。
-   - 失败且还会重试（错误可重试，且 `RetryCount` 小于配置的重试次数）：只 `Flush` 已产生的输出，不发 END，把错误返回给 Hatchet。
-   - 失败且不再重试（不可重试错误，或重试次数已用完）：发布 `END(status)` 后返回错误。
-6. **输入空闲超时**：`StreamOptions.InputIdleTimeout`（默认 5 分钟）内没有新的输入帧，也没有 END，`Recv` 返回 `DeadlineExceeded`，并作为不可重试错误结束。
-
-#### 恢复模式
-
-通过 `runtime.WithStreamRecovery(fullMethod, runtime.StreamReplay | runtime.StreamResume)` 配置，默认 `StreamReplay`。
-
-| 模式 | 输入起点 | 输出处理 | 适用场景 |
-|---|---|---|---|
-| Replay | 每个 attempt 从第 1 帧开始读 | SDK 记录已落盘的最大 DATA 序号 L；handler 重新产生的前 L 条输出直接丢弃，不重复发布，从第 L+1 条开始真正写入 | 确定性处理：相同输入总是产生相同输出；handler 不需要任何恢复代码 |
-| Resume | 从最后一条输出的 `Wego-InputMark` + 1 开始读 | 从 L+1 开始写 | 非确定性处理；业务通过 `task.StreamResume(ctx)` 拿到 `{LastOutputSeq, LastOutput, InputMark}` 自行恢复状态 |
-
-Resume 模式的说明：
-
-- 输入在被 handler 通过 `Recv` 取走时计入 InputMark。
-- "处理完一条输入、但还没产生输出就崩溃"的窗口内，这条输入会被重新交付，属于至少一次语义，需要在文档中说明。
-- server stream 没有输入流，两种模式的区别只在于输出是否自动去重。
-
-### 7. Client 恢复与回放
-
-```go
-// StreamPosition 读取一个流调用当前可持久化的位置。
-func StreamPosition(stream grpc.ClientStream) (model.StreamPosition, error)
-
-type StreamPosition struct {
-	RunID     string
-	Method    string
-	InputSeq  uint64 // 已落盘的最后一个输入帧
-	OutputSeq uint64 // 已交付给业务的最后一个输出帧
-	Consumer  string // 输出 consumer 名称
+```json
+{
+  "_wego": {
+    "version": 7,
+    "response": "wego",
+    "idempotency_key": "operation-key",
+    "stream": {
+      "transport": "extra",
+      "input_source": "external",
+      "binding_digest": "..."
+    }
+  },
+  "value": null,
+  "routing": {"group": "group-a"}
 }
-
-func (c *Conn) ResumeStream(ctx context.Context, pos model.StreamPosition, opts ...grpc.CallOption) (grpc.ClientStream, error)
-func WithReplayFrom(frameSeq uint64) RunOption   // 新建 consumer，从指定帧回放
-func WithStreamConsumer(name string) RunOption   // 指定 consumer 名称，进度保存在服务端
 ```
 
-- `ResumeStream` 先通过 Hatchet 核验运行确实属于该 namespace 和方法（复用 `ValidateRunTarget`），然后：
-  - 复用 `pos.Consumer` 所指的 consumer，从服务端 ack floor 继续读；如果 consumer 已被回收，就从 `OutputSeq + 1` 重建。
-  - 如果输入还没有 END，允许继续 `Send`：Writer 从最后一条消息续写。
-- 删除旧的 `StreamResumeToken` 及其所有相关逻辑。
+保留必须存在的 value：外部输入采用 null，不新增“省略 value 即猜测流输入”的解析分支。直接 RPC、事件和 native 的输入形态由注册绑定与显式 input_source 校验。
 
-### 8. 资源清理
+- 取得 RunID 后建立输入 writer；Worker 可能更早被分配，应等待 INPUT_OPEN/输入记录，不因 subject 尚为空就判断失败。
+- client/bidi 每次 Send 冻结 ProtoJSON 请求快照；CloseSend 只写一次 INPUT_END，重复调用返回同一结果；CloseAndRecv 自动调用它。
+- 任务排队期间可以持久写入输入，受总量、保留期和磁盘预算约束。
+- Worker Recv 按输入 DATA 逐条还原，确认 INPUT_END 计数/摘要完整后才返回 EOF。
+- handler 提前返回不要求消费完输入；停止本次 feeder，通知客户端终态，剩余历史按保留期回收，不能为等待 INPUT_END 阻塞成功结束。
 
-- consumer 依赖 `InactiveThreshold` 自动回收；正常结束时，Reader 主动删除自己创建的 consumer（业务指定名称的除外）。
-- subject 中的数据由 stream 的 `MaxAge` 统一过期，运行结束时不主动清除，以便之后还能回放。
+### 7.2 内联输入、事件与 native
 
-### 9. 容量与限制
+server stream 是一个请求；client/bidi 内联模式是数组，空流为 `[]`。事件一份封包可以触发多个方法，幂等身份继续包含 namespace＋FullMethodName，不能混用输出日志。
 
-- 每个活跃流的每个读者占用一个 extra 长连接 RPC 名额（F8）。新增 `runtime.WithExtraLimits(runtime.ExtraLimits{MaxReaders})` 限制本实例的并发读者数，超过时 `NewStream` 返回 `ResourceExhausted`。文档中注明需要按并发流数量调大 extra 的 `--max-concurrent-rpcs`。
-- 单个批次不超过 extra 的 `MaxMessageBytes`。单条业务消息编码后仍超限时，依赖 S3 codec；没有配置 S3 则报 `ResourceExhausted`。
-- 每条流的吞吐受串行发布往返延迟的限制，靠合批弥补。性能基线需要记录"单条消息"和"合批"两种情况。
+保留默认 FullMethodName 事件与自定义事件去重。事件、Schedule、Cron 的发布操作 deadline 不成为未来任务 deadline。当前流定义不支持的 durable/Batch/定义级 Cron 组合不能通过此次传输重构顺便放开。
 
-## 五、Worker 通知：删除
+native server/bidi 仍走原生 PutStream，client stream 最终返回业务响应。wego 事件触发的 Reliable 流可以使用 Extra 保存输出，不要求一定存在实时客户端。
 
-依据见 F11 和 F12。删除后，只注册 unary 的 Worker 既不需要 Durable Streams，也不需要 extra。
+### 7.3 结束判定
 
-删除范围：
+输入结束与输出 attempt 结束是两件事。Worker 每次完成发布 ATTEMPT_END，携带 epoch、writer、结束记录身份、累计 DATA 数、完整 status、headers/trailers 和最终响应引用。
 
-- `model.WorkerEvent`、[model/worker_event.go](../model/worker_event.go)
-- [runtime/worker_events.go](../runtime/worker_events.go)（`WithWorkerEventOptions`、`WithWorkerEventHandler`）
-- `Workers().SendEvent`、`BroadcastEvent`（[internal/features/management.go](../internal/features/management.go)）
-- `ports.WorkerSendEvent`、`ports.WorkerCancelNotice`（[internal/ports/worker_events.go](../internal/ports/worker_events.go)）
-- [internal/backend/worker_event_publish.go](../internal/backend/worker_event_publish.go)、[worker_event_subscribe.go](../internal/backend/worker_event_subscribe.go) 及相关测试
-- [internal/stream/barrier.go](../internal/stream/barrier.go)、[internal/spec/worker_events.go](../internal/spec/worker_events.go)
-- 示例 [minio_codec.go](../examples/scenarios/minio_codec.go) 中的探针，改为使用 `conn.KV()` 验证 codec
-- [examples/acceptance.json](../examples/acceptance.json) 和 [scripts/manifest/main.go](../scripts/manifest/main.go) 中的相关条目
+- 不通过 `RetryCount < configured retries` 猜测是否还会执行；引擎内部重投、取消和上报失败也会改变执行结果。
+- Hatchet 成功输出保留 wego completion 清单，不能只改成 sent_messages。
+- 成功 EOF 必须同时满足：引擎成功、清单对应的 ATTEMPT_END 匹配、输出序号/计数完整、应交付消息已交付。
+- 失败使用引擎最终错误和对应清单；中间 attempt 的业务错误不提前终结正在重试的调用。
+- 引擎取消/失败但没有 END 时，客户端必须被运行观察器唤醒，不能永久等帧。
+- 已看到 END 而引擎尚未确认时继续等待；新 attempt 看到旧 END 也不能无条件重报成功或跳过 handler。
+- 缺帧等待受恢复预算限制；传输不可用和确认的数据缺失分别报告，不能统一掩盖为 EOF。
 
-## 六、模块与连接
+首次已交付的 headers 不因重试替换；trailers/status 来自引擎最终接受的执行。client stream 单个响应仍由任务结果还原，必须覆盖零响应、重复响应和 SendAndClose。
 
-- 保留 [go.mod](../go.mod) 和 [go.work](../go.work)，后者已经 `use ../..`。
-- wego 直接导入 `github.com/hatchet-dev/hatchet/internal/services/extra/proto/v1`（依据 F13）。
-- 单元测试导入 `github.com/hatchet-dev/hatchet/internal/services/extra`，启动进程内服务；`go.mod` 补上 `nats-server/v2`、`nats.go` 等依赖。
-- `GOWORK=off` 的发行验证暂时无法通过，要等发布包含 extra 的 hatchet 版本后再升级 require。[scripts/acceptance.py](../scripts/acceptance.py) 中依赖 `GOWORK=off` 的门禁改为开发阶段跳过，并输出明确的原因。
-- 新增配置：
+### 7.4 幂等、输入续写和输出恢复
 
-```go
-runtime.WithExtra(runtime.ExtraConfig{
-	Address:   "127.0.0.1:7080", // hatchet-extra gRPC 地址
-	TLSConfig: nil,              // nil 表示明文；与 WithTLSConfig 的规则一致
-})
-runtime.WithStreamRetention(24*time.Hour, 2*time.Minute) // wego_rpc 的 MaxAge 与 Duplicates
-runtime.WithStreamRecovery(pb.Greeter_ChatHellos_FullMethodName, runtime.StreamResume)
-runtime.WithExtraLimits(runtime.ExtraLimits{MaxReaders: 256})
+保留现有 `client.WithStreamIdempotencyKey`、`client.StreamResumeToken(ctx)` 和 `Conn.ResumeStream` 命名，扩展协议 7 凭证，不建立第二套含义相近的位置 API。
+
+消费 token 至少包含：版本、tenant/namespace、RunID/TaskRunID、方法与绑定版本、transport、consumer_id/generation、StreamSeq、批次内偏移、DataSeq、headers 及有效期。恢复先校验持久运行绑定和响应契约，不信任 token 自报身份。
+
+- ResumeStream 默认只恢复消费，输入关闭，取消不取消远端运行。
+- 幂等冲突默认成为观察者。内联输入仍核验完整业务摘要；实时输入尚未结束，核验不可变的调用契约和 routing，不虚构一个尚不存在的完整输入摘要。
+- 实时输入在每次记录中维护内容链，INPUT_END 固定最终计数和摘要；不同请求不能因为 key 相同就被当作相同输入。
+- 输入续写增加独立 `StreamSendToken` 和显式 `Conn.ResumeSending`。凭证包含原输入 writer/generation、已确认位置和内容链；接管条件必须同时匹配当前输入 generation，再条件发布新的 INPUT_OPEN，将 generation 加一。并发恢复只允许一个新写者成功，旧凭证不能连续接管，INPUT_END 后不能追加输入。
+- 仅知道 RunID 或幂等键，不足以自动取得输入写权。
+- 发送恢复凭证只记录已确认部分；SDK 内存中未发布的数据不能凭空恢复。调用方需要可重放的数据源/持久发送日志，或者重新核对结果不明确的尾记录。
+- 业务需要指定独立消费位置或手动确认时，使用专门的 gRPC CallOption，例如 `WithStreamConsumer`、`WithStreamAckMode`；它们不进入 Hatchet RunOption 调度字段。
+- 提供 `client.CommitStream(ctx, token) error`，只提交当前流已交付的连续前缀，不能确认其他运行、其他 generation 或尚未交付的数据。
+
+指定 DataSeq 回放必须有物理定位。已保存 token 可直接定位；只给业务序号时需有界扫描/稀疏索引，不能把 DataSeq 直接传给 GetMessage。首版优先提供“从头”与“从 token”回放，不承诺任意序号常数时间定位。
+
+### 7.5 取消与调用所有权
+
+- 新建流的原调用者主动取消或 deadline 到期，请求取消自己拥有的 Hatchet 运行，并停止本地输入/输出；取消失败可诊断，不能只关闭 Extra 连接后宣称任务已取消。
+- ResumeStream、幂等冲突附着者只停止本地消费，不取得远端取消权；ResumeSending 取得输入写权也不自动取得整个任务的取消权。
+- 提交结果不明确时，使用原提交键核实归属与 RunID；不能取消一个尚未证明属于本次提交的既有运行。
+- durable 父执行的 eviction/替换与业务主动取消分开处理，按第八节复用子运行；临时 Fetch/Publish 断线同样不等于业务取消。
+- 控制台取消由运行观察器唤醒阻塞的 Send/Recv，返回 Canceled；不能依赖 Worker 配合发布结束帧。
+
+## 八、Worker 恢复与 durable Execute
+
+### 8.1 Worker handler 的恢复
+
+默认沿用业务显式恢复：`task.Checkpoint` 提供接管边界之前的有限历史；业务根据已经发布的资产/结果重建状态。新增尾部摘要读取可用于只需最后一条输出的业务，尾部读取不替代需要全部历史的恢复。
+
+- 查询尾记录取得最后输出、headers 位置和旧 attempt 身份，无需先为确定边界扫描整条日志。
+- 需要历史时只做一次按需扫描，并固定本次接管边界；不能消费自己之后发布的数据。
+- client/bidi 的输入默认从头重放。Recv 次数不等于已处理输入，不自动用最后输出携带的 InputMark 跳过输入。
+- 多输入合成一输出、一个输入产生多输出、并行处理、零输出处理必须单独验证。
+- 可选确定性 Replay 模式先逐条比较重放输出与持久前缀，包括消息类型和内容；不足、顺序不同或内容不同明确失败，不能单纯丢弃前 L 条。
+- Replay 不撤销或去重业务外部副作用，使用方仍负责幂等。
+
+首版不提供“只返回最后一条消息，就能自动恢复任意 handler”的保证。后续若增加通用状态快照，应把业务状态、已处理输入位置和输出位置作为同一已确认记录提交；单独写 KV 再发布输出不能声称二者原子。
+
+### 8.2 支持 Execute 调用流
+
+这是本次必做路径，不能遗漏现有两处 durable guard。
+
+1. Extra 模式允许 durable Execute 通过 task.Conn 创建或恢复 server/bidi/client stream；不把远程流 handler 本身改成 durable task。
+2. 复用原始 durable 子调用身份、稳定 child key 和 memo 机制。memo 可保存初次子 RunID 等稳定结果，不把同一个 memo key 当作可变 cursor 存储。
+3. 消费位置使用 Extra KV/逻辑 consumer；例如逻辑键由父 RunID、节点 ID 和 consumer 名组成，输入本身不作为唯一键。
+4. 父执行重放时复用已经建立的子运行；结果不明确时按原幂等身份核实，不能再次提交随机 key。
+5. durable eviction 或父 attempt 被替换只停止本地订阅，不取消已记录的子运行；业务主动取消整条流程使用明确的取消操作。
+6. EvictionPolicy 继续由使用方配置。SDK 不擅自禁止/修改 eviction，也不能因为用户禁止 eviction 就省略进程崩溃恢复。
+7. 长流不要求每次 Recv 都调用 task.Memo；后台订阅、输入发送和 child-submit 不能并发修改同一个原始 durable context。
+
+资产扩散流程的确认顺序：
+
+```text
+接收 asset
+→ 用稳定 asset ID 建立/核验下游提交记录（含幂等键）
+→ 提交/附着下游任务并保存已确认 RunID
+→ CAS 保存资产—RunID 映射及业务进度
+→ Commit 当前连续消费位置
 ```
 
-- token 复用 `runtime.WithToken`，namespace 复用 `runtime.WithNamespace`，并按 F9 校验。
-- 新建包 [internal/extra](../internal/extra)：
-  - 持有 gRPC 连接，通过拦截器注入 `authorization` metadata；
-  - 为每次调用设置预算；
-  - 把 extra 的错误映射为 gRPC status，保留 `NatsError` details；
-  - 提供 `streamlog.Transport` 接口的实现（Publish、GetLastBySubject、CreateConsumer、DeleteConsumer、Fetch、Ack）；
-  - 由 [internal/engine](../internal/engine) 装配，关闭时释放连接。
-- 只有注册或调用流式 RPC、或者使用 `Stream()`/`KV()` 时才要求配置 extra。纯网络模式、只用 unary 的 Conn 和 Worker 都不需要。
+提交响应丢失、保存映射失败时不提前 Commit；重放使用稳定 key 恢复。Hatchet 的幂等 TTL 必须覆盖这段恢复窗口。一个 KV 条目可原子保存一份有界业务状态，不能把多个 key 和 Hatchet 提交描述成事务。大映射按业务分片，状态大小受限。
 
-## 七、公开 API：conn.Stream() 和 conn.KV()
+## 九、Stream/KV 与 Worker 通知
 
-放在 [internal/features](../internal/features)，与现有的 `Crons()`、`Events()` 风格一致；类型定义在 [model](../model)，不暴露 NATS 或 extra 的 proto 类型。
+### 9.1 公开能力
 
-```go
-s := conn.Stream()
-s.CreateOrUpdate(ctx, model.StreamConfig{Name, Subjects, MaxAge, MaxBytes, MaxMsgs, MaxMsgSize, Duplicates, Storage, AllowMsgTTL})
-s.Get(ctx, name) / s.List(ctx) / s.Delete(ctx, name)
-s.Publish(ctx, model.Message{Subject, Data, Headers}, model.PublishOptions{MsgID, ExpectedLastSubjectSeq, TTL}) (model.PubAck, error)
-s.GetMessage(ctx, stream, model.MessageSelector{Sequence | LastBySubject})
-s.CreateOrUpdateConsumer(ctx, stream, model.ConsumerConfig{Name, FilterSubjects, DeliverPolicy, StartSeq, AckPolicy, AckWait, MaxDeliver, MaxAckPending, InactiveThreshold})
-s.GetConsumer / s.DeleteConsumer
-s.Fetch(ctx, stream, consumer, model.FetchOptions{MaxMessages, MaxBytes, Wait, NoWait}) ([]*model.Delivery, error)
-s.Consume(ctx, stream, consumer, func(context.Context, *model.Delivery) error, opts) error // handler 返回 nil 则 Ack，否则 Nak
-// model.Delivery: Message、Metadata{StreamSeq, ConsumerSeq, NumDelivered, NumPending, Timestamp}、
-//                 Ack(ctx)、AckSync(ctx)、Nak(ctx, delay)、InProgress(ctx)、Term(ctx, reason)
+继续采用 `conn.Stream()`、`conn.KV()` 的管理客户端风格，公开请求、返回值、迭代器和错误全部为 wego 自有类型。
 
-kv := conn.KV()
-kv.CreateOrUpdateBucket(ctx, model.BucketConfig{Name, History, TTL, MaxValueSize, MaxBytes, LimitMarkerTTL})
-kv.GetBucket / kv.DeleteBucket
-kv.Get(ctx, bucket, key, model.WithRevision(rev)) (model.KVEntry, error)
-kv.Put(ctx, bucket, key, value) (uint64, error)
-kv.Create(ctx, bucket, key, value, model.WithKeyTTL(d)) (uint64, error)   // 已存在返回 AlreadyExists
-kv.Update(ctx, bucket, key, value, expectedRev) (uint64, error)            // 版本冲突返回 Aborted
-kv.Delete(ctx, bucket, key, model.WithExpectedRevision(rev))
-kv.History(ctx, bucket, key) iter.Seq2[model.KVEntry, error]
-kv.Watch(ctx, bucket, keys, model.WatchOptions{IncludeHistory, IgnoreDeletes, UpdatesOnly, ResumeFromRevision}) iter.Seq2[model.KVWatchEvent, error]
-```
+- Stream 提供 stream/consumer 管理、Publish、GetMessage、Fetch/消费及显式 ACK。复用 Extra 已支持的能力，不把全部 NATS 配置对象直接透出。
+- Fetch 必须保留“已经收到的消息＋后续错误”，不能因为批次中途失败而丢弃已收到的 Delivery。
+- Delivery 的 ACK token 不转换为可构造的序号 ACK；ACK/DoubleAck/NAK/IN_PROGRESS/TERM 的差异保留。
+- 自动 Consume 回调需要明确的 ACK/重试策略，不能对所有错误无限立即 NAK。
+- KV 提供桶管理、Get/Put/Create/Update/Delete、有限 History 和 Watch。CAS 冲突、initialized、TTL、缺失值与空值保持现有 Extra 语义。
+- KV 的单 key TTL 目前是 Create 选项，不能宣称 Put/Update 都能任意刷新它。
 
-载荷与 codec：
+业务 Stream/KV 的 codec 值始终使用明确的版本化自描述封包，包括空 codec 链。若开放原始字节模式，必须由方法/配置显式选择；不能靠一个魔数字节猜测原始数据是否已编码。所有 I/O 纳入 Engine。
 
-- Stream 消息的 `Data` 经过实例发送链编码，实际执行的 CodecID 写入 `Wego-Codec` 头；读取时按这个头逆序解码。
-- KV 值使用自描述前缀：一个魔数字节，后跟 CodecID 列表，再跟数据。没有配置 codec 时直接保存原始字节，不加前缀；读取时以魔数区分。
-- 两者都遵守 `PayloadLimits` 中的大小和超时预算。
+没有 Extra 配置时，KV 按已确认约定使用实例级有界内存实现，明确暴露存储类型；进程退出丢失，不用于持久恢复。支持的 Create/CAS/TTL/History/Watch 语义须分别测试，不能用无界 map 冒充完整实现。Extra 连接失败不切换内存。通用 Stream 持久管理 API 没有配置时返回明确错误，PutStream 降级仅适用于任务流出口。
 
-## 八、删除清单
+### 9.2 Worker 通知
 
-- [internal/stream](../internal/stream) 整个目录。
-- [internal/backend/streams.go](../internal/backend/streams.go)、`gated_execution.go`，以及对应的 `*_test.go` 和 `*_e2e_test.go`。
-- 端口与执行门禁：`ports.DurableStreams`、`DurableMessage`、`DurableEntry`、`DurableSubscription`、`Definition.BeforeStart`、`StartInfo`、`Admission`。
-- [internal/rpc](../internal/rpc) 下的 `stream_checkpoint.go`、`stream_observe.go`、`stream_submission.go`、`stream_notifications.go` 删除；`stream_client.go`、`stream_worker.go`、`stream_receive.go`、`stream_server.go`、`stream.go` 按新设计重写。
-- [internal/callctx/checkpoint.go](../internal/callctx/checkpoint.go)、[task/checkpoint.go](../task/checkpoint.go)、[client/stream.go](../client/stream.go) 中的 `StreamResumeToken`。
-- [internal/wire/stream.proto](../internal/wire/stream.proto) 中的 `LogFrame` 及对应的生成代码，以及 `log_codec.go` 和 `native_stream.go` 中的旧逻辑。
-- 运行时配置：`runtime.Realtime` / `Reliable`、`WithStreamMode`、`WithStreamIdempotencyTTL`（并入新的 StreamOptions）；`StreamOptions` 中的 `ClaimTimeout`、`PublishTimeout`（改为由 Writer 使用）、`RecoveryTimeout`、`MaxCheckpointMessages`、`MaxCheckpointBytes`、`MaxReplayFrames`、`MaxReplayBytes`。
-- 原生 PutStream 路径，以及 `task.StreamEvent`（原生 Console 调用 server stream 时，输出同样写入 `.out`）。
-- [scripts/enable-durable-streams.py](../scripts/enable-durable-streams.py) 及其测试。
-- 相关的 fuzz 目标、[tests/e2e](../tests/e2e) 中的 `stream_*`、`rpc_realtime_events_test.go`、`worker_events_test.go`，以及 [docs/design](design) 中协议 6 流章节的现行描述（历史报告保留不改）。
+保留 Workers().SendEvent/BroadcastEvent 与 WithWorkerEventHandler，迁移到 Extra subject 和独立消费者，不占业务 slots。
 
-## 九、实施顺序
+- 仅在显式启用通知能力时初始化；普通 unary Worker 不再被通知通道强制依赖 Durable Streams。
+- 每个 Worker key 独立定向地址；广播每个 Worker 独立 consumer，不能多个 Worker 竞争同一 consumer 导致广播变成负载均衡。
+- 新 Worker 从加入位置开始，不执行加入之前的旧广播；同一实例断线可恢复。
+- 旧 writer 的定向取消可以继续作为加速退出手段，正确性依赖条件发布和执行门禁。
+- 内部取消与业务慢回调分开排队，队列有界，过期/重复通知按既有规则处理。
+- 未配置 Extra 且未启用通知时不建立任何通知订阅；明确调用通知 API 时返回不支持，不静默丢弃。
 
-每一步结束时，都要保证 `go build ./...`、`go vet ./...` 和已有的单元测试通过（工作区模式）。
+## 十、模块、连接与并发关闭
 
-1. **接线**（extra-conn）：`runtime.WithExtra` 和 `internal/extra`；go.mod 补依赖；写一个进程内 extra 的测试夹具 `internal/extra/extratest`。先写两个事实验证测试：
-   - `TestFactExpectedSeqBeforeDedup`：固定 F4 的行为。
-   - `TestFactRedeliveryAfterBrokenFetch`：固定 F3 的行为。
-2. **写端**（streamlog-writer）：实现 Writer 及其单元测试。
-3. **读端**（streamlog-reader）：实现 Reader 及其单元测试。
-4. **Worker 侧**（rpc-worker）：重写 `StreamDefinition`；实现 fence、两种恢复模式和 END 规则。
-5. **客户端侧**（rpc-client）：重写客户端流；实现 `StreamPosition`、`ResumeStream`、`WithReplayFrom`、`WithStreamConsumer`。
-6. **删除旧实现**（remove-legacy）：删除 Durable Streams 和 Worker 通知全套；清理配置、示例和 manifest。
-7. **公开 API**（public-stream-kv）：`conn.Stream()` 和 `conn.KV()`。
-8. **e2e**（tests）：compose 增加 hatchet-extra，重写 e2e 测试和性能基线。
-9. **文档**（docs）：协议 7、`v0.5.0.md`、README、`worker.md`、`module.md`、CHANGELOG；`version.go` 改为 `0.5.0`。
+### 10.1 模块收敛
 
-## 十、测试与验收
-
-### 1. 单元测试
-
-单元测试使用进程内 extra，外加一层 gRPC 客户端故障注入：可以丢弃响应、在第 N 条后切断 Fetch 流、延迟调用。
-
-| 场景 | 断言 |
+| 位置 | 职责 |
 |---|---|
-| 发布响应丢失（服务端已写成功） | 重试得到 `WrongLastSequence`，读回确认是自己写的后按成功处理；subject 中没有重复帧 |
-| 两个 Writer 写同一个 subject | 后来者 fence 成功后，先前的写者得到 `ErrFenced` 并停止 |
-| Fetch 流在批次中途断开 | 读端发现空洞后重建 consumer，最终交付序列与发送序列完全一致，不漏不重 |
-| 重复投递（AckWait 到期） | 重复帧被丢弃，ack floor 正确推进 |
-| 丢失最后一条 DATA 后出现 END | 返回 `DataLoss`，不返回 EOF |
-| 数据超出保留期（首帧不是 1） | 返回 `DataLoss` |
-| client stream / bidi 实时交互 | bidi 每 Send 一条，在 CloseSend 之前就能 Recv 到对应的回复 |
-| Worker 在第 k 条输出后崩溃（Replay 模式） | 重试后输出序列完整、无重复，handler 不需要恢复代码 |
-| Worker 崩溃（Resume 模式） | `task.StreamResume` 返回正确的 `LastOutputSeq` 和 `InputMark`，输入从 InputMark+1 开始 |
-| 旧 attempt 在新 attempt fence 之后仍在运行 | 旧 attempt 的发布被拒绝，handler 的 ctx 被取消 |
-| `.out` 已有 END 时重试 | 不执行 handler，直接返回已有结果 |
-| handler 出错且还会重试 | 不发 END，client 继续等待；最终成功时 client 只看到成功结果 |
-| 输入空闲超时 | Worker 返回 DeadlineExceeded，不重试；client 收到对应错误 |
-| client 崩溃后恢复 | 用 `StreamPosition` 恢复后续读和续写都正确，`WithReplayFrom` 能从指定帧回放 |
-| 内联输入（事件触发） | Worker 不创建 `.in` 的 consumer，结果正确 |
-| 只注册 unary 的 Worker | 不配置 extra 也能正常启动和执行 |
-| Stream 和 KV 公开 API | CRUD、CAS 冲突错误码、Watch 的 initialized 标记、codec 往返、拒绝 `wego_` 前缀 |
+| runtime / internal/spec | Extra 配置、模式选择、预算与快照 |
+| client / internal/rpc | 标准 gRPC 适配、消费/发送凭证、取消所有权 |
+| internal/stream | 替换旧传输实现，保留有序日志、writer/reader、门禁和终态不变量 |
+| internal/wire | 协议 7 记录、Envelope、统一 codec 与错误 |
+| internal/ports | 自有 transport/存储/执行接口 |
+| internal/backend | Hatchet 与 Extra 协议适配、鉴权和连接 |
+| internal/features / model | 自有 Stream、KV、通知客户端及数据类型 |
+| internal/engine | I/O 登记、排空、连接所有权和观测 |
 
-### 2. e2e
+不同时保留 stream、streamlog、extra 三套平行状态机。无需只转发一层的包。RPC、通用 Stream/KV 共用同一个 Extra transport。
 
-- [tests/compose.yml](../tests/compose.yml) 增加 hatchet-extra 服务：挂载 Hatchet 公钥，设置 `EXTRA_ACK_KEY`，设置 `SERVER_SECURITY_CHECK_ENABLED=false`。
-- 使用真实的 Hatchet 和 extra 跑通三种流、Worker 进程被杀后的恢复、client 进程重启后的恢复，以及 100 路并发的性能基线（记录 P50、P95、P99 和吞吐）。
+### 10.2 可发行依赖
 
-### 3. 完成标准
+Go internal 导入规则允许当前 wego 路径访问根仓库，但官方 v0.110.5 不包含本地 extra，这仍然不能作为发行依赖。
 
-- 第二节的需求逐条有测试覆盖。
-- 第八节的删除清单全部完成，`rg "DurableStreams|PutStream|CLAIM|WorkerEvent" sdks/wego --type go` 没有结果。
-- 公开 API 不暴露 NATS 或 extra 的类型（现有的 API 门禁通过）。
-- 工作区模式下 `go test ./...`、`go test -race ./...`、`go vet ./...` 全部通过。
+首版采用：以根仓库 Extra proto 为唯一契约源，为 SDK 生成私有客户端桩，放在 `internal/backend/extraapi`，只含协议数据与 gRPC 客户端，不复制 Extra/NATS 服务实现。生成脚本固定工具版本、记录契约摘要并验证 wire schema 一致。
 
-## 十一、待评估的风险
+- SDK 普通测试使用自有 transport fake 或 SDK 私有桩的受控服务。
+- 真实 Extra 作为独立进程/容器测试，避免同进程同时注册两个相同 protobuf full name 的生成包。
+- SDK 不为运行时引入 nats-server；只有 Extra 服务需要它。
+- `GOWORK=off go test/build/vet` 始终是门禁，不改成 Skip。go.work 仅供开发联调。
+- 后续若独立发布公共契约模块，可替换生成桩来源，公开 API 不变。
+- Extra 的 NatsError details 在 backend 转为 wego 自有错误信息，不从错误链或动态 status details 透出额外实现类型。
 
-- **吞吐**：串行发布限制了单条流的吞吐。需要用性能基线确认合批后是否满足要求；不满足时，可以考虑让 extra 开放原子批量发布（`allow_atomic_publish`）。
-- **长连接名额**：每个活跃读者占用一个 extra 长连接 RPC，大规模并发时需要扩容 extra，或者在 extra 中增加多路复用的 Fetch 接口。
-- **单节点**：extra 目前是单节点，没有容灾；流数据的可用性取决于它。
-- **控制头不受加密保护**：`Wego-*` 控制头不在 AES 认证范围内，能篡改 extra 存储的人可以伪造顺序信息。如果需要防篡改，可以把控制字段复制进加密的消息体中再校验一次。
-- **Resume 模式的语义**：Resume 是"至少一次"语义，崩溃窗口内的输入可能被重复处理，需要在文档中明确说明。
+### 10.3 生命周期
+
+关闭顺序：停止新调用/任务分配 → 排空 handler 与允许完成的发送 → 确认结束清单、已承诺的 Commit/ACK 和任务结果 → 停止 Fetch/Watch/通知 → flush telemetry → 关闭 Extra 和 Hatchet 连接。
+
+- 所有 Publish、codec、GetMessage、KV、ACK、Fetch 和运行观察器登记 SDK I/O。
+- 先发布停止标记，再等待现有 goroutine；不能在 Wait 开始后新增后台登记。
+- 任何状态锁不跨远程 I/O或业务回调；Send/Recv 各自单方向串行，允许同时一发一收。
+- Stop 可中断 GracefulStop，释放满队列上的发送者、读取者和租约续期；清理使用独立预算。
+- 强制关闭不能伪造成功 END、确认未处理消息或删除仍被运行引用的历史。
+- 租约、consumer 和共享 stream 的生命周期分开。每次 Conn.Close 不删除共享 stream/bucket。
+- OnFinish 终态后只调用一次，并在锁外执行；借用连接拒绝关闭共享资源。
+
+## 十一、性能与资源预算
+
+默认继续使用单条业务消息 1 MiB、预取 64 条/4 MiB等现有预算，并增加 Extra 编码消息预算、每流累计输入预算、存储保留期及 consumer/lease 总数上限。
+
+- 业务消息、完整 protobuf 记录、codec 中间值、Extra 请求分别计费；S3 卸载不能绕过业务解码上限。
+- Extra 默认消息体上限 1 MiB；协议开销意味着正好 1 MiB 的业务消息未必能直接发送。超限必须说明对应预算，可调整服务限额或按既有 codec 卸载。
+- 队列按字节和条数限制；禁止无限预取、为每个历史消息创建 goroutine或先无限下载再检查长度。
+- 单个 bidi 至少涉及输入和输出两类活跃 Fetch。实例本地 MaxReaders 不能超过服务端总预算后仍宣称可用；还需为通知和业务 Stream 预留容量。
+- 当前 Extra 是单节点，不能直接启动两个独立实例并随机负载均衡，它们不会共享日志/KV。扩容先调整单节点预算；集群部署单独设计。
+- 尾部恢复应为少量读取；历史恢复一次有界扫描。不能为了做到一次扫描就取消身份和完整性校验。
+- 指标记录发布/确认耗时、队列字节、重投、CAS 冲突、恢复读取量与资源数，不用任意 RunID/consumer_id 作指标标签。
+
+## 十二、实施阶段与门禁
+
+| 阶段 | 交付 | 退出条件 |
+|---|---|---|
+| P0 契约与探针 | 固定协议、独立桩、create_only、CAS/ACK/重投与旧结果上报探针 | 真实 Extra 与 Hatchet 能证明关键所有权和终态规则；发行模式可编译 |
+| P1 传输与资源 | 实例连接、租户/namespace、资源初始化、codec、KV 状态、生命周期登记 | 无 RPC 重构也能验证发布/消费/确认/重启；非法输入无外部 I/O |
+| P2 server stream | 有序输出、门禁、consumer 进度、终态清单、手动确认和恢复 | 扩散输出可恢复，旧写者和旧 reader 被隔离 |
+| P3 client/bidi | 实时输入、半关闭、提前返回、显式发送恢复、输入总预算 | CloseSend 前可交互；client stream 单响应；双向断连恢复 |
+| P4 Execute 与公开能力 | durable 子身份、KV 映射、Stream/KV API、Worker 通知迁移 | 父/子进程崩溃及重放矩阵通过，无误取消子运行 |
+| P5 删除与交付 | 清理旧 Durable Streams 传输、文档、性能与完整回归 | 旧能力迁移完毕，官方引擎＋Extra 验收及独立模块门禁通过 |
+
+旧 backend Durable Streams 发布/订阅、JOIN 扫描和旧 producer 实现，在所有调用者迁移后删除。门禁、完成清单、Checkpoint、通知 API、PutStream 和 task.StreamEvent 按职责保留或改造，不能用全仓关键字必须为零作为验收标准。
+
+协议 6 的持久流先排空；协议 7 两端协调升级。旧历史资源保留，不自动删除。暂不增加读取旧流日志的兼容状态机；迁移文档明确旧 token 不可用于新流。
+
+## 十三、必须通过的验收
+
+| 分类 | 必测条件 |
+|---|---|
+| 发布 | 响应丢失；去重窗口内/外；CAS 冲突；相同范围不同内容；尾记录已被接管记录推进；序号溢出 |
+| 执行门禁 | 同代次跨进程竞争与失联重派的区别；高低代次交错；旧 handler 不响应取消；旧 END/终态迟到；落选者无 STARTED/FAILED/COMPLETED |
+| ACK | ACK 丢失；KV CAS 成功而 ACK 失败；部分批次提交；重复 Commit；旧 generation ACK；提交尚未交付位置被拒绝 |
+| Reader | 重投乱序；批次重叠；缺口修复；Fetch EOF；consumer 删除重建；逻辑消费位置过期；两观察者独立进度 |
+| 三种流 | 零输入/零输出；实时 bidi；CloseSend 幂等；SendAndClose；handler 提前返回；慢读；满队列；headers/trailers/status details |
+| 终态 | END 早于引擎结果；结果早于 END；失败 attempt 后重试；引擎取消且无 END；成功缺帧不能 EOF |
+| Worker 恢复 | 历史一次扫描；尾摘要；多输入一输出/一输入多输出/零输出；Replay 内容差异必须报错 |
+| 客户端恢复 | 自动/手动确认；消费 token；输入发送 token；旧发送凭证不能再次接管；INPUT_END 后不能续写；只有幂等键不能续写；未确认输入重放；恢复取消不取消运行 |
+| Execute | 父 Worker 崩溃；子提交结果不明确；资产映射保存失败；Commit 前后崩溃；eviction/replay；RunID 和稳定 child key 复用 |
+| codec | gzip/zstd/AES/S3及组合；不同注册顺序；阈值跳过；未知 ID；超限；取消；完整控制帧变换；冻结重试字节 |
+| 降级/原生 | 未配置 Extra；显式禁用；Extra 故障不降级；native Console/事件；纯网络；task.StreamEvent；unary 无持久流依赖 |
+| 公共能力 | Stream ACK 各种方式；部分 Fetch 结果＋错误；KV CAS/TTL/Watch/History；内存 KV 生命周期；广播一对多 |
+| 资源与隔离 | 租户、namespace；错误资源配置；并发首次创建；保留期；磁盘满；签名密钥轮换；同名 consumer 竞争 |
+| 关闭 | 启动失败；并发 Stop/GracefulStop；发布/codec/ACK 中取消；满队列；SDK I/O 清零；不响应取消的业务不阻塞永久关闭 |
+
+测试使用就绪屏障、可注入传输故障和 deadline，不能用固定 sleep 证明正确性。P0 探针失败不能通过减少断言或跳过必需场景交付。
+
+性能比较覆盖小消息、1 KiB、64 KiB、1 MiB，以及 1/10/100 路并发；分别报告同步确认和显式缓冲的 P50/P95/P99、吞吐、分配、RPC 次数、存储增长和恢复读取量。S3 网络测试单列，不能掩盖本地 codec/协议开销。
+
+使用已经部署的官方 Hatchet＋PostgreSQL MQ＋Extra＋MinIO。每轮独立 namespace，只清理本轮 stream、consumer、bucket、workflow 和运行资源。所有启动点设置 `SERVER_SECURITY_CHECK_ENABLED=false`。记录实际镜像、协议摘要、RunID、关键序号、断言与清理结果，不记录凭证。
+
+SDK 交付门禁包括 GOWORK=off 的 build/test/vet/race、API 隔离、生成复现、中文注释和 lint；运行原有 standalone、durable、Batch、DAG、事件、原生模式及 embedded 回归。手动 feature 测试不混入无需服务的单元门禁。
+
+交付时升级至 SDK 0.5.0、协议 7，同步 changelog、版本清单、manifest、module.md、简洁的 worker.md 和迁移说明。完成标准是：实时双向流、正确的执行/消费所有权、可核验的恢复与终态，以及原有模式无回归；不能以“换成 NATS 后测试能跑通”代替这些保证。

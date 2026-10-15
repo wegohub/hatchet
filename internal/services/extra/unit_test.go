@@ -13,7 +13,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	pb "github.com/hatchet-dev/hatchet/internal/services/extra/proto/v1"
+	pb "github.com/hatchet-dev/hatchet/pkg/extra/v1"
 )
 
 // TestValidationBeforeIO 使用空后端，证明非法输入在下载/发布等外部 I/O 前被拒绝。
@@ -342,6 +342,7 @@ func TestErrorMapping(t *testing.T) {
 		{jetstream.ErrStreamNotFound, codes.NotFound}, {jetstream.ErrConsumerNotFound, codes.NotFound},
 		{jetstream.ErrKeyNotFound, codes.NotFound}, {jetstream.ErrBucketNotFound, codes.NotFound},
 		{&jetstream.APIError{Code: 503}, codes.Unavailable},
+		{&jetstream.APIError{Code: 429, ErrorCode: 10210}, codes.ResourceExhausted},
 	}
 	for _, tc := range tests {
 		requireCode(t, rpcError(tc.err), tc.code)

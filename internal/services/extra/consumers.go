@@ -3,6 +3,7 @@ package extra
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 	"time"
 
@@ -13,7 +14,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	pb "github.com/hatchet-dev/hatchet/internal/services/extra/proto/v1"
+	pb "github.com/hatchet-dev/hatchet/pkg/extra/v1"
 )
 
 // consumer 校验 stream 和 consumer 引用，消费者名称只在所属 stream 内寻址。
@@ -47,10 +48,29 @@ func (s *Service) CreateOrUpdateConsumer(ctx context.Context, r *pb.ConsumerConf
 		return nil, err
 	}
 	c := decodeConsumerConfig(r.Config)
+	if c.Replicas > 1 {
+		return nil, reasonError(codes.FailedPrecondition, ReasonReplicasUnsupported, "single node supports one replica")
+	}
+
 	if err = a.consumerConfig(&c); err != nil {
 		return nil, err
 	}
-	cons, err := s.js.CreateOrUpdateConsumer(ctx, n, c)
+	release, err := s.configurationWrite(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer release()
+	var cons jetstream.Consumer
+	if r.CreateOnly {
+		if _, err := s.js.Consumer(ctx, n, c.Name); err == nil {
+			return nil, status.Error(codes.AlreadyExists, "consumer already exists")
+		} else if !errors.Is(err, jetstream.ErrConsumerNotFound) {
+			return nil, rpcError(err)
+		}
+		cons, err = s.js.CreateConsumer(ctx, n, c)
+	} else {
+		cons, err = s.js.CreateOrUpdateConsumer(ctx, n, c)
+	}
 	if err != nil {
 		return nil, rpcError(err)
 	}
@@ -204,6 +224,41 @@ func (s *Service) Fetch(r *pb.FetchRequest, out grpc.ServerStreamingServer[pb.De
 	if cons.CachedInfo().Config.PriorityPolicy == jetstream.PriorityPolicyPinned {
 		return invalid("pinned consumers are not enabled")
 	}
+	return s.pullMessages(ctx, a, n, c, req, wait, func(m *nats.Msg, meta *nats.MsgMetadata) error {
+		token, e := s.signACK(ctx, n, c, m.Reply)
+		if e != nil {
+			return rpcError(e)
+		}
+		md := &pb.NatsMsgMetadata{
+			Stream:   ptr(a.logicalName(n)),
+			Consumer: ptr(c),
+			Domain:   ptr(meta.Domain),
+			Sequence: &pb.NatsSequencePair{
+				Consumer: ptr(meta.Sequence.Consumer),
+				Stream:   ptr(meta.Sequence.Stream),
+			},
+			NumDelivered: ptr(meta.NumDelivered),
+			NumPending:   ptr(meta.NumPending),
+			Timestamp:    stamp(meta.Timestamp),
+		}
+		delivery := &pb.Delivery{
+			Message: &pb.Message{
+				Subject: a.logicalSubject(m.Subject),
+				Data:    m.Data,
+				Headers: encodeHeaders(m.Header),
+			},
+			Metadata: md,
+			AckToken: token,
+		}
+		if err := out.Send(delivery); err != nil {
+			return rpcError(err)
+		}
+		return nil
+	})
+}
+
+// pullMessages 共用双预算、有界投递队列与控制帧解析；调用方决定是否签发 ACK token。
+func (s *Service) pullMessages(ctx context.Context, a address, n, c string, req pullRequest, wait time.Duration, deliver func(*nats.Msg, *nats.MsgMetadata) error) error {
 	inbox := s.nc.NewInbox()
 	// 使用有界原始投递队列，不能让 NextMsgWithContext 将空业务消息的 Status=503
 	// 转换成 NoResponders。是否为控制帧由 inbox 和回复地址共同决定。
@@ -253,7 +308,7 @@ func (s *Service) Fetch(r *pb.FetchRequest, out grpc.ServerStreamingServer[pb.De
 		if dropped, err := sub.Dropped(); err != nil {
 			return rpcError(err)
 		} else if dropped > 0 {
-			return status.Error(codes.ResourceExhausted, "fetch subscription buffer exhausted")
+			return exhausted(ReasonFetchBuffer, "fetch subscription buffer exhausted")
 		}
 		nextCtx := readCtx
 		var nextCancel context.CancelFunc
@@ -266,7 +321,7 @@ func (s *Service) Fetch(r *pb.FetchRequest, out grpc.ServerStreamingServer[pb.De
 			if nextCancel != nil {
 				nextCancel()
 			}
-			return status.Error(codes.ResourceExhausted, "fetch receive buffer exhausted")
+			return exhausted(ReasonFetchBuffer, "fetch receive buffer exhausted")
 		case <-nextCtx.Done():
 			if nextCancel != nil {
 				nextCancel()
@@ -308,33 +363,8 @@ func (s *Service) Fetch(r *pb.FetchRequest, out grpc.ServerStreamingServer[pb.De
 		if meta.Stream != n || meta.Consumer != c || !strings.HasPrefix(m.Subject, a.subjects) {
 			return status.Error(codes.DataLoss, "delivery identity mismatch")
 		}
-		token, e := s.signACK(ctx, n, c, m.Reply)
-		if e != nil {
-			return rpcError(e)
-		}
-		md := &pb.NatsMsgMetadata{
-			Stream:   ptr(a.logicalName(n)),
-			Consumer: ptr(c),
-			Domain:   ptr(meta.Domain),
-			Sequence: &pb.NatsSequencePair{
-				Consumer: ptr(meta.Sequence.Consumer),
-				Stream:   ptr(meta.Sequence.Stream),
-			},
-			NumDelivered: ptr(meta.NumDelivered),
-			NumPending:   ptr(meta.NumPending),
-			Timestamp:    stamp(meta.Timestamp),
-		}
-		delivery := &pb.Delivery{
-			Message: &pb.Message{
-				Subject: a.logicalSubject(m.Subject),
-				Data:    m.Data,
-				Headers: encodeHeaders(m.Header),
-			},
-			Metadata: md,
-			AckToken: token,
-		}
-		if err = out.Send(delivery); err != nil {
-			return rpcError(err)
+		if err := deliver(m, meta); err != nil {
+			return err
 		}
 		count++
 	}

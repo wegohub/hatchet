@@ -14,7 +14,7 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
 
-	pb "github.com/hatchet-dev/hatchet/internal/services/extra/proto/v1"
+	pb "github.com/hatchet-dev/hatchet/pkg/extra/v1"
 )
 
 // deployedConnection 连接已部署容器，凭证只读取环境、不写入测试日志。
@@ -45,7 +45,7 @@ func deployedConnection(t *testing.T) (*grpc.ClientConn, context.Context) {
 	return conn, metadata.AppendToOutgoingContext(ctx, "authorization", "Bearer "+token)
 }
 
-// TestDeployedService 验证 TLS Compose 服务的完整 24 RPC 链路与真实 Hatchet token。
+// TestDeployedService 验证 TLS Compose 服务的全部 RPC 链路与真实 Hatchet token。
 func TestDeployedService(t *testing.T) {
 	conn, ctx := deployedConnection(t)
 	verifyRPCs(t, conn, ctx)

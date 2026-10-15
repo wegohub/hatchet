@@ -18,8 +18,8 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/status"
 
-	pb "github.com/hatchet-dev/hatchet/internal/services/extra/proto/v1"
 	"github.com/hatchet-dev/hatchet/pkg/config/loader"
+	pb "github.com/hatchet-dev/hatchet/pkg/extra/v1"
 )
 
 // deploymentCommand 提供公钥导出和就绪探针，不启动第二个内嵌 NATS。

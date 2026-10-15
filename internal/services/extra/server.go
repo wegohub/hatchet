@@ -16,7 +16,7 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/stats"
 
-	pb "github.com/hatchet-dev/hatchet/internal/services/extra/proto/v1"
+	pb "github.com/hatchet-dev/hatchet/pkg/extra/v1"
 )
 
 // Config 属于单个 extra 实例。ACKKey 必须持久配置，重启后才能确认之前投递的消息。
@@ -36,14 +36,31 @@ type Config struct {
 	TLS *tls.Config
 	// MaxMessageBytes 单条消息/KV value 上限，默认 1 MiB。
 	MaxMessageBytes int
-	// MaxFetchMessages 单次 pull 的消息数上限，默认 64。
+	// MaxFetchMessages 单次 pull 的消息数上限，默认 100。
 	MaxFetchMessages int
+	// MaxPublishBatchMessages 和 MaxPublishBatchBytes 限制原子批次的完整缓冲。
+	MaxPublishBatchMessages int
+	MaxPublishBatchBytes    int
+	// MaxPublishBatchesInFlight 在读取首条请求前限制实例的批次缓冲总数。
+	MaxPublishBatchesInFlight int
+	// MaxAckBatchMessages 限制单次批量确认的投递条数。
+	MaxAckBatchMessages int
 	// MaxFetchBytes 单次 pull 的字节预算，默认 4 MiB。
 	MaxFetchBytes int
 	// MaxAsyncInFlight 实例共享的异步发布预算，默认 64。
 	MaxAsyncInFlight int
-	// MaxConcurrentRPCs 分别限制 unary 和长期流，默认各 128。
+	// MaxConcurrentRPCs 是兼容预算，仅在新 unary/stream 预算均未设置时为二者赋值。
 	MaxConcurrentRPCs int
+	// 独立入场预算；旧字段只在两个新预算均未设置时兼容赋值。
+	MaxConcurrentUnary      int
+	MaxConcurrentStreams    int
+	MaxConcurrentReads      int
+	BatchCommitTimeout      time.Duration
+	BatchAbandonTimeout     time.Duration
+	PublishBatchFlowControl int
+	// MaxConsumers 请求账户总上限；0 采用默认 10000，-1 显式不限。
+	// 单节点原生接口只按 Stream 限制，GetLimits 返回 0 表示未强制账户总上限。
+	MaxConsumers int
 	// MaxStoreBytes JetStream 磁盘预算，默认 1 GiB。
 	MaxStoreBytes int64
 	// MaxMemoryBytes memory storage 预算，默认 256 MiB。
@@ -63,6 +80,11 @@ type Service struct {
 	cfg Config
 	// asyncSlots 是所有 PublishAsync 流共享的在途发布预算。
 	asyncSlots chan struct{}
+	// batchSlots 限制完整批次缓冲；batchIDs 拒绝同一原生批次并行提交。
+	batchSlots chan struct{}
+	batchIDs   sync.Map
+	// resourceSlots 串行化本实例的配置写入，使 create_only 检查与创建不可被 upsert 穿插。
+	resourceSlots chan struct{}
 }
 
 // defaults 补齐零值配置；显式非法值交给校验器拒绝。
@@ -77,7 +99,19 @@ func defaults(c Config) Config {
 		c.MaxMessageBytes = 1 << 20
 	}
 	if c.MaxFetchMessages == 0 {
-		c.MaxFetchMessages = 64
+		c.MaxFetchMessages = 100
+	}
+	if c.MaxPublishBatchMessages == 0 {
+		c.MaxPublishBatchMessages = 100
+	}
+	if c.MaxPublishBatchBytes == 0 {
+		c.MaxPublishBatchBytes = 4 << 20
+	}
+	if c.MaxPublishBatchesInFlight == 0 {
+		c.MaxPublishBatchesInFlight = 32
+	}
+	if c.MaxAckBatchMessages == 0 {
+		c.MaxAckBatchMessages = 100
 	}
 	if c.MaxFetchBytes == 0 {
 		c.MaxFetchBytes = 4 << 20
@@ -91,8 +125,32 @@ func defaults(c Config) Config {
 	if c.MaxMemoryBytes == 0 {
 		c.MaxMemoryBytes = 256 << 20
 	}
+	if c.MaxConcurrentUnary == 0 && c.MaxConcurrentStreams == 0 && c.MaxConcurrentRPCs != 0 {
+		c.MaxConcurrentUnary, c.MaxConcurrentStreams = c.MaxConcurrentRPCs, c.MaxConcurrentRPCs
+	}
 	if c.MaxConcurrentRPCs == 0 {
 		c.MaxConcurrentRPCs = 128
+	}
+	if c.MaxConcurrentUnary == 0 {
+		c.MaxConcurrentUnary = 128
+	}
+	if c.MaxConcurrentStreams == 0 {
+		c.MaxConcurrentStreams = 1024
+	}
+	if c.MaxConcurrentReads == 0 {
+		c.MaxConcurrentReads = 64
+	}
+	if c.BatchCommitTimeout == 0 {
+		c.BatchCommitTimeout = 8 * time.Second
+	}
+	if c.BatchAbandonTimeout == 0 {
+		c.BatchAbandonTimeout = 10 * time.Second
+	}
+	if c.PublishBatchFlowControl == 0 {
+		c.PublishBatchFlowControl = 16
+	}
+	if c.MaxConsumers == 0 {
+		c.MaxConsumers = 10000
 	}
 	return c
 }
@@ -114,6 +172,16 @@ func validateConfig(c Config) error {
 	if c.StoreDir == "" {
 		return errors.New("persistent store directory required")
 	}
+	return validateLimits(c)
+}
+
+// ValidateLimits 校验完整数值参数，可在初始化数据库和认证前调用。
+func ValidateLimits(c Config) error { return validateLimits(c) }
+
+func validateLimits(c Config) error {
+	if c.AuthCacheTTL <= 0 || c.MaxAuthCacheEntries < 1 || c.MaxAuthCacheEntries > 1_000_000 {
+		return errors.New("invalid authentication cache limits")
+	}
 	if c.MaxMessageBytes < 1 ||
 		c.MaxMessageBytes > 64<<20 ||
 		c.MaxFetchBytes > 256<<20 ||
@@ -124,8 +192,23 @@ func validateConfig(c Config) error {
 		c.MaxAsyncInFlight > 4096 {
 		return errors.New("invalid resource limits")
 	}
-	if c.MaxConcurrentRPCs < 1 || c.MaxConcurrentRPCs > 4096 {
+	if c.MaxConcurrentRPCs < 0 || c.MaxConcurrentRPCs > 4096 ||
+		c.MaxConcurrentUnary < 1 || c.MaxConcurrentUnary > 4096 ||
+		c.MaxConcurrentStreams < 1 || c.MaxConcurrentStreams > 4096 ||
+		c.MaxConcurrentReads < 1 || c.MaxConcurrentReads > 4096 {
 		return errors.New("invalid RPC admission limit")
+	}
+	if c.MaxPublishBatchMessages < 1 || c.MaxPublishBatchMessages > 1000 ||
+		c.MaxPublishBatchBytes < c.MaxMessageBytes+PublishBatchPerMessageOverhead || c.MaxPublishBatchBytes > 256<<20 ||
+		c.MaxPublishBatchesInFlight < 1 || c.MaxPublishBatchesInFlight > 1024 ||
+		c.MaxAckBatchMessages < 1 || c.MaxAckBatchMessages > 4096 {
+		return errors.New("invalid batch limits")
+	}
+	if c.BatchCommitTimeout <= 0 || c.BatchAbandonTimeout <= c.BatchCommitTimeout {
+		return errors.New("batch commit timeout must be positive and less than batch abandon timeout")
+	}
+	if c.PublishBatchFlowControl < 1 || c.PublishBatchFlowControl > 1000 || c.MaxConsumers < -1 || c.MaxConsumers > 10_000_000 {
+		return errors.New("invalid batch flow control or consumer limit")
 	}
 	if c.MaxStoreBytes < 0 || c.MaxMemoryBytes < 0 {
 		return errors.New("invalid storage limits")
@@ -275,7 +358,7 @@ func New(c Config) (*Server, error) {
 	// 鉴权只依赖内存和数据库，不依赖 JetStream 初始化或其内存预算。
 	if auth, ok := c.Authenticator.(*hatchetAuthenticator); ok {
 		var err error
-		c.Authenticator, err = auth.withTokenCache(c.AuthCacheTTL, c.MaxAuthCacheEntries, c.MaxConcurrentRPCs)
+		c.Authenticator, err = auth.withTokenCache(c.AuthCacheTTL, c.MaxAuthCacheEntries, c.MaxConcurrentUnary)
 		if err != nil {
 			return nil, err
 		}
@@ -288,6 +371,7 @@ func New(c Config) (*Server, error) {
 		NoLog:              true,
 		JetStreamMaxStore:  c.MaxStoreBytes,
 		JetStreamMaxMemory: c.MaxMemoryBytes,
+		JetStreamLimits:    ns.JSLimitOpts{MaxBatchTimeout: c.BatchAbandonTimeout},
 		// #nosec G115 -- validateConfig 将 MaxMessageBytes 限定在 64 MiB 以下。
 		MaxPayload: int32(c.MaxMessageBytes + 65536),
 	})
@@ -314,17 +398,19 @@ func New(c Config) (*Server, error) {
 		return nil, err
 	}
 	s := &Service{
-		js:         js,
-		nc:         nc,
-		cfg:        c,
-		asyncSlots: make(chan struct{}, c.MaxAsyncInFlight),
+		js:            js,
+		nc:            nc,
+		cfg:           c,
+		asyncSlots:    make(chan struct{}, c.MaxAsyncInFlight),
+		batchSlots:    make(chan struct{}, c.MaxPublishBatchesInFlight),
+		resourceSlots: make(chan struct{}, 1),
 	}
 	lifecycle := &rpcLifecycle{drained: make(chan struct{})}
 	opts := []grpc.ServerOption{
 		grpc.StatsHandler(lifecycle),
-		grpc.ChainUnaryInterceptor(unaryAdmission(make(chan struct{}, c.MaxConcurrentRPCs)), unaryAuth(c.Authenticator)),
-		grpc.ChainStreamInterceptor(streamAdmission(make(chan struct{}, c.MaxConcurrentRPCs)), streamAuth(c.Authenticator)),
-		grpc.MaxRecvMsgSize(c.MaxMessageBytes + 65536),
+		grpc.ChainUnaryInterceptor(unaryAdmission(make(chan struct{}, c.MaxConcurrentUnary)), unaryAuth(c.Authenticator)),
+		grpc.ChainStreamInterceptor(streamAdmission(make(chan struct{}, c.MaxConcurrentStreams), make(chan struct{}, c.MaxConcurrentReads)), streamAuth(c.Authenticator)),
+		grpc.MaxRecvMsgSize(max(c.MaxMessageBytes+65536, c.MaxAckBatchMessages*4100+65536)),
 		grpc.MaxSendMsgSize(c.MaxFetchBytes + 65536),
 	}
 	if c.TLS != nil {

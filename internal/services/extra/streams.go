@@ -2,13 +2,16 @@ package extra
 
 import (
 	"context"
+	"errors"
 	"strings"
 
 	"github.com/nats-io/nats.go/jetstream"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	pb "github.com/hatchet-dev/hatchet/internal/services/extra/proto/v1"
+	pb "github.com/hatchet-dev/hatchet/pkg/extra/v1"
 )
 
 // CreateOrUpdateStream 校验并映射当前租户的 stream 配置，创建或更新后返回逻辑名称。
@@ -27,6 +30,17 @@ func (s *Service) CreateOrUpdateStream(ctx context.Context, r *pb.StreamConfigRe
 		return nil, err
 	}
 	c := decodeStreamConfig(r.Config)
+	if c.Replicas > 1 {
+		return nil, reasonError(codes.FailedPrecondition, ReasonReplicasUnsupported, "single node supports one replica")
+	}
+	budget := s.cfg.MaxStoreBytes
+	if c.Storage == jetstream.MemoryStorage {
+		budget = s.cfg.MaxMemoryBytes
+	}
+	if c.MaxBytes > budget {
+		return nil, exhausted(ReasonStoreExhausted, "stream byte limit exceeds account budget")
+	}
+
 	if err = a.mapStreamConfig(&c); err != nil {
 		return nil, err
 	}
@@ -46,7 +60,22 @@ func (s *Service) CreateOrUpdateStream(ctx context.Context, r *pb.StreamConfigRe
 		// #nosec G115 -- New 将 MaxMessageBytes 限定在 1..64 MiB，能无损转为 int32。
 		c.MaxMsgSize = int32(s.cfg.MaxMessageBytes)
 	}
-	stream, err := s.js.CreateOrUpdateStream(ctx, c)
+	release, err := s.configurationWrite(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer release()
+	var stream jetstream.Stream
+	if r.CreateOnly {
+		if _, err := s.js.Stream(ctx, c.Name); err == nil {
+			return nil, status.Error(codes.AlreadyExists, "stream already exists")
+		} else if !errors.Is(err, jetstream.ErrStreamNotFound) {
+			return nil, rpcError(err)
+		}
+		stream, err = s.js.CreateStream(ctx, c)
+	} else {
+		stream, err = s.js.CreateOrUpdateStream(ctx, c)
+	}
 	if err != nil {
 		return nil, rpcError(err)
 	}

@@ -1,6 +1,6 @@
 # hatchet-extra：NATS 功能清单与 gRPC 接口候选
 
-状态：**选型材料。已采纳的 24 个 RPC 实现在 internal/services/extra，入口为 cmd/hatchet-extra。** 本目录保留全部候选供后续取舍，实际首版协议以 internal/services/extra/proto/v1/extra.proto 为准。
+状态：**历史选型材料。当前服务已扩展至 26 个 RPC，增加原子 PublishBatch、AckBatch 与 create_only；实际接口见 internal/services/extra/README.md 和 proto/v1/extra.proto。** 本目录保留全部候选供后续取舍，实际首版协议以 internal/services/extra/proto/v1/extra.proto 为准。
 
 核验日期：2026-10-14。基线是本仓库使用的 nats.go v1.54.0，官方发布页也将其标记为最新正式版。现代 JetStream 和旧 JetStream API 都纳入清单。[版本来源](https://github.com/nats-io/nats.go/releases/tag/v1.54.0)
 

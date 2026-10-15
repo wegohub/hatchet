@@ -22,6 +22,8 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
+	StreamService_GetLimits_FullMethodName            = "/hatchet.extra.v1.StreamService/GetLimits"
+	StreamService_Read_FullMethodName                 = "/hatchet.extra.v1.StreamService/Read"
 	StreamService_CreateOrUpdateStream_FullMethodName = "/hatchet.extra.v1.StreamService/CreateOrUpdateStream"
 	StreamService_GetStream_FullMethodName            = "/hatchet.extra.v1.StreamService/GetStream"
 	StreamService_ListStreams_FullMethodName          = "/hatchet.extra.v1.StreamService/ListStreams"
@@ -33,6 +35,10 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type StreamServiceClient interface {
+	// GetLimits 返回已生效的实例限额，不包含账户身份或秘密。
+	GetLimits(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ServiceLimits, error)
+	// Read 用服务端临时 consumer 读取精确 subject 的有界快照。
+	Read(ctx context.Context, in *ReadRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[NatsRawStreamMsg], error)
 	// CreateOrUpdateStream 校验并映射当前租户的 stream 配置，创建或更新后返回逻辑名称。
 	CreateOrUpdateStream(ctx context.Context, in *StreamConfigRequest, opts ...grpc.CallOption) (*NatsStreamInfo, error)
 	// GetStream 查询当前租户和 namespace 的 stream，不接受物理资源地址。
@@ -52,6 +58,35 @@ type streamServiceClient struct {
 func NewStreamServiceClient(cc grpc.ClientConnInterface) StreamServiceClient {
 	return &streamServiceClient{cc}
 }
+
+func (c *streamServiceClient) GetLimits(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ServiceLimits, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ServiceLimits)
+	err := c.cc.Invoke(ctx, StreamService_GetLimits_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *streamServiceClient) Read(ctx context.Context, in *ReadRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[NatsRawStreamMsg], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &StreamService_ServiceDesc.Streams[0], StreamService_Read_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[ReadRequest, NatsRawStreamMsg]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type StreamService_ReadClient = grpc.ServerStreamingClient[NatsRawStreamMsg]
 
 func (c *streamServiceClient) CreateOrUpdateStream(ctx context.Context, in *StreamConfigRequest, opts ...grpc.CallOption) (*NatsStreamInfo, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
@@ -75,7 +110,7 @@ func (c *streamServiceClient) GetStream(ctx context.Context, in *StreamInfoReque
 
 func (c *streamServiceClient) ListStreams(ctx context.Context, in *StreamListRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[NatsStreamInfo], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	stream, err := c.cc.NewStream(ctx, &StreamService_ServiceDesc.Streams[0], StreamService_ListStreams_FullMethodName, cOpts...)
+	stream, err := c.cc.NewStream(ctx, &StreamService_ServiceDesc.Streams[1], StreamService_ListStreams_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -116,6 +151,10 @@ func (c *streamServiceClient) GetMessage(ctx context.Context, in *GetMessageRequ
 // All implementations must embed UnimplementedStreamServiceServer
 // for forward compatibility.
 type StreamServiceServer interface {
+	// GetLimits 返回已生效的实例限额，不包含账户身份或秘密。
+	GetLimits(context.Context, *emptypb.Empty) (*ServiceLimits, error)
+	// Read 用服务端临时 consumer 读取精确 subject 的有界快照。
+	Read(*ReadRequest, grpc.ServerStreamingServer[NatsRawStreamMsg]) error
 	// CreateOrUpdateStream 校验并映射当前租户的 stream 配置，创建或更新后返回逻辑名称。
 	CreateOrUpdateStream(context.Context, *StreamConfigRequest) (*NatsStreamInfo, error)
 	// GetStream 查询当前租户和 namespace 的 stream，不接受物理资源地址。
@@ -136,6 +175,12 @@ type StreamServiceServer interface {
 // pointer dereference when methods are called.
 type UnimplementedStreamServiceServer struct{}
 
+func (UnimplementedStreamServiceServer) GetLimits(context.Context, *emptypb.Empty) (*ServiceLimits, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetLimits not implemented")
+}
+func (UnimplementedStreamServiceServer) Read(*ReadRequest, grpc.ServerStreamingServer[NatsRawStreamMsg]) error {
+	return status.Errorf(codes.Unimplemented, "method Read not implemented")
+}
 func (UnimplementedStreamServiceServer) CreateOrUpdateStream(context.Context, *StreamConfigRequest) (*NatsStreamInfo, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateOrUpdateStream not implemented")
 }
@@ -171,6 +216,35 @@ func RegisterStreamServiceServer(s grpc.ServiceRegistrar, srv StreamServiceServe
 	}
 	s.RegisterService(&StreamService_ServiceDesc, srv)
 }
+
+func _StreamService_GetLimits_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(StreamServiceServer).GetLimits(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: StreamService_GetLimits_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(StreamServiceServer).GetLimits(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _StreamService_Read_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(ReadRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(StreamServiceServer).Read(m, &grpc.GenericServerStream[ReadRequest, NatsRawStreamMsg]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type StreamService_ReadServer = grpc.ServerStreamingServer[NatsRawStreamMsg]
 
 func _StreamService_CreateOrUpdateStream_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(StreamConfigRequest)
@@ -263,6 +337,10 @@ var StreamService_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*StreamServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
+			MethodName: "GetLimits",
+			Handler:    _StreamService_GetLimits_Handler,
+		},
+		{
 			MethodName: "CreateOrUpdateStream",
 			Handler:    _StreamService_CreateOrUpdateStream_Handler,
 		},
@@ -281,6 +359,11 @@ var StreamService_ServiceDesc = grpc.ServiceDesc{
 	},
 	Streams: []grpc.StreamDesc{
 		{
+			StreamName:    "Read",
+			Handler:       _StreamService_Read_Handler,
+			ServerStreams: true,
+		},
+		{
 			StreamName:    "ListStreams",
 			Handler:       _StreamService_ListStreams_Handler,
 			ServerStreams: true,
@@ -292,6 +375,7 @@ var StreamService_ServiceDesc = grpc.ServiceDesc{
 const (
 	PublisherService_Publish_FullMethodName      = "/hatchet.extra.v1.PublisherService/Publish"
 	PublisherService_PublishAsync_FullMethodName = "/hatchet.extra.v1.PublisherService/PublishAsync"
+	PublisherService_PublishBatch_FullMethodName = "/hatchet.extra.v1.PublisherService/PublishBatch"
 )
 
 // PublisherServiceClient is the client API for PublisherService service.
@@ -302,6 +386,8 @@ type PublisherServiceClient interface {
 	Publish(ctx context.Context, in *PublishRequest, opts ...grpc.CallOption) (*NatsPubAck, error)
 	// PublishAsync 处理当前租户的持久资源操作。
 	PublishAsync(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[PublishRequest, PublishResult], error)
+	// PublishBatch 缓冲并校验完整批次，原子提交同一 subject 的独立消息，返回最终确认。
+	PublishBatch(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[PublishBatchRequest, PublishBatchAck], error)
 }
 
 type publisherServiceClient struct {
@@ -335,6 +421,19 @@ func (c *publisherServiceClient) PublishAsync(ctx context.Context, opts ...grpc.
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type PublisherService_PublishAsyncClient = grpc.BidiStreamingClient[PublishRequest, PublishResult]
 
+func (c *publisherServiceClient) PublishBatch(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[PublishBatchRequest, PublishBatchAck], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &PublisherService_ServiceDesc.Streams[1], PublisherService_PublishBatch_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[PublishBatchRequest, PublishBatchAck]{ClientStream: stream}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type PublisherService_PublishBatchClient = grpc.ClientStreamingClient[PublishBatchRequest, PublishBatchAck]
+
 // PublisherServiceServer is the server API for PublisherService service.
 // All implementations must embed UnimplementedPublisherServiceServer
 // for forward compatibility.
@@ -343,6 +442,8 @@ type PublisherServiceServer interface {
 	Publish(context.Context, *PublishRequest) (*NatsPubAck, error)
 	// PublishAsync 处理当前租户的持久资源操作。
 	PublishAsync(grpc.BidiStreamingServer[PublishRequest, PublishResult]) error
+	// PublishBatch 缓冲并校验完整批次，原子提交同一 subject 的独立消息，返回最终确认。
+	PublishBatch(grpc.ClientStreamingServer[PublishBatchRequest, PublishBatchAck]) error
 	mustEmbedUnimplementedPublisherServiceServer()
 }
 
@@ -358,6 +459,9 @@ func (UnimplementedPublisherServiceServer) Publish(context.Context, *PublishRequ
 }
 func (UnimplementedPublisherServiceServer) PublishAsync(grpc.BidiStreamingServer[PublishRequest, PublishResult]) error {
 	return status.Errorf(codes.Unimplemented, "method PublishAsync not implemented")
+}
+func (UnimplementedPublisherServiceServer) PublishBatch(grpc.ClientStreamingServer[PublishBatchRequest, PublishBatchAck]) error {
+	return status.Errorf(codes.Unimplemented, "method PublishBatch not implemented")
 }
 func (UnimplementedPublisherServiceServer) mustEmbedUnimplementedPublisherServiceServer() {}
 func (UnimplementedPublisherServiceServer) testEmbeddedByValue()                          {}
@@ -405,6 +509,13 @@ func _PublisherService_PublishAsync_Handler(srv interface{}, stream grpc.ServerS
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type PublisherService_PublishAsyncServer = grpc.BidiStreamingServer[PublishRequest, PublishResult]
 
+func _PublisherService_PublishBatch_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(PublisherServiceServer).PublishBatch(&grpc.GenericServerStream[PublishBatchRequest, PublishBatchAck]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type PublisherService_PublishBatchServer = grpc.ClientStreamingServer[PublishBatchRequest, PublishBatchAck]
+
 // PublisherService_ServiceDesc is the grpc.ServiceDesc for PublisherService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -424,6 +535,11 @@ var PublisherService_ServiceDesc = grpc.ServiceDesc{
 			ServerStreams: true,
 			ClientStreams: true,
 		},
+		{
+			StreamName:    "PublishBatch",
+			Handler:       _PublisherService_PublishBatch_Handler,
+			ClientStreams: true,
+		},
 	},
 	Metadata: "extra.proto",
 }
@@ -435,6 +551,7 @@ const (
 	ConsumerService_DeleteConsumer_FullMethodName         = "/hatchet.extra.v1.ConsumerService/DeleteConsumer"
 	ConsumerService_Fetch_FullMethodName                  = "/hatchet.extra.v1.ConsumerService/Fetch"
 	ConsumerService_Ack_FullMethodName                    = "/hatchet.extra.v1.ConsumerService/Ack"
+	ConsumerService_AckBatch_FullMethodName               = "/hatchet.extra.v1.ConsumerService/AckBatch"
 )
 
 // ConsumerServiceClient is the client API for ConsumerService service.
@@ -453,6 +570,8 @@ type ConsumerServiceClient interface {
 	Fetch(ctx context.Context, in *FetchRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[Delivery], error)
 	// Ack 验证签名投递身份后执行确认、拒绝、续期或终止；仅 ACK 支持服务端确认。
 	Ack(ctx context.Context, in *AckRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// AckBatch 按输入顺序确认各条投递，返回逐项结果；不是原子 ACK 事务。
+	AckBatch(ctx context.Context, in *AckBatchRequest, opts ...grpc.CallOption) (*AckBatchResponse, error)
 }
 
 type consumerServiceClient struct {
@@ -541,6 +660,16 @@ func (c *consumerServiceClient) Ack(ctx context.Context, in *AckRequest, opts ..
 	return out, nil
 }
 
+func (c *consumerServiceClient) AckBatch(ctx context.Context, in *AckBatchRequest, opts ...grpc.CallOption) (*AckBatchResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AckBatchResponse)
+	err := c.cc.Invoke(ctx, ConsumerService_AckBatch_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ConsumerServiceServer is the server API for ConsumerService service.
 // All implementations must embed UnimplementedConsumerServiceServer
 // for forward compatibility.
@@ -557,6 +686,8 @@ type ConsumerServiceServer interface {
 	Fetch(*FetchRequest, grpc.ServerStreamingServer[Delivery]) error
 	// Ack 验证签名投递身份后执行确认、拒绝、续期或终止；仅 ACK 支持服务端确认。
 	Ack(context.Context, *AckRequest) (*emptypb.Empty, error)
+	// AckBatch 按输入顺序确认各条投递，返回逐项结果；不是原子 ACK 事务。
+	AckBatch(context.Context, *AckBatchRequest) (*AckBatchResponse, error)
 	mustEmbedUnimplementedConsumerServiceServer()
 }
 
@@ -584,6 +715,9 @@ func (UnimplementedConsumerServiceServer) Fetch(*FetchRequest, grpc.ServerStream
 }
 func (UnimplementedConsumerServiceServer) Ack(context.Context, *AckRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Ack not implemented")
+}
+func (UnimplementedConsumerServiceServer) AckBatch(context.Context, *AckBatchRequest) (*AckBatchResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AckBatch not implemented")
 }
 func (UnimplementedConsumerServiceServer) mustEmbedUnimplementedConsumerServiceServer() {}
 func (UnimplementedConsumerServiceServer) testEmbeddedByValue()                         {}
@@ -700,6 +834,24 @@ func _ConsumerService_Ack_Handler(srv interface{}, ctx context.Context, dec func
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ConsumerService_AckBatch_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AckBatchRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ConsumerServiceServer).AckBatch(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ConsumerService_AckBatch_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ConsumerServiceServer).AckBatch(ctx, req.(*AckBatchRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ConsumerService_ServiceDesc is the grpc.ServiceDesc for ConsumerService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -722,6 +874,10 @@ var ConsumerService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Ack",
 			Handler:    _ConsumerService_Ack_Handler,
+		},
+		{
+			MethodName: "AckBatch",
+			Handler:    _ConsumerService_AckBatch_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

@@ -5,7 +5,7 @@ import (
 	"encoding/base32"
 	"strings"
 
-	pb "github.com/hatchet-dev/hatchet/internal/services/extra/proto/v1"
+	pb "github.com/hatchet-dev/hatchet/pkg/extra/v1"
 )
 
 // address 使用完整 namespace 编码，不能用截断摘要制造可碰撞的租户寻址空间。

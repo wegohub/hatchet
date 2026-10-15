@@ -31,7 +31,7 @@ MinIO 使用 `minio_data` 卷和健康检查。不要通过 `down -v` 清理仍�
 docker compose -f sdks/wego/deployment/compose/docker-compose.yml up -d --build --wait hatchet-extra
 ```
 
-镜像 `hatchet-extra:local` 从本工作树源码多阶段构建。`extra-init` 在 Hatchet 配置准备完成后导出无秘密的 JWT 验签公钥，生成自身 ACK 密钥和本机 TLS 证书。初始化容器读取 Hatchet 配置卷；运行容器只读取 `extra_config` 卷，以 UID 10001 运行，不挂载 Hatchet 私钥。数据库复用 `.env` 的 DATABASE_URL，鉴权使用现有 Hatchet 租户 token，缓存默认上限 5 分钟。
+镜像 `hatchet-extra:local` 从本工作树源码多阶段构建。部署开放 26 个 RPC，含原子 PublishBatch 和逐项 AckBatch；Fetch/原子批次/ACK 批次上限均为 100，原子批次缓冲为 4 MiB，实例最多 32 个缓冲批次（各 4 MiB），unary/长期流/Read 分别为 128/1024/64 个独立名额，批次提交/放弃预算为 8s/10s，流控窗口为 16。`extra-init` 在 Hatchet 配置准备完成后导出无秘密的 JWT 验签公钥，生成自身 ACK 密钥和本机 TLS 证书。初始化容器读取 Hatchet 配置卷；运行容器只读取 `extra_config` 卷，以 UID 10001 运行，不挂载 Hatchet 私钥。数据库复用 `.env` 的 DATABASE_URL，鉴权使用现有 Hatchet 租户 token，缓存默认上限 5 分钟。
 
 `extra_data` 卷保存 JetStream 消息、consumer ACK 进度和 KV；`extra_config` 保存 ACK 密钥、TLS 密钥和验签公钥。容器重建保留两者，不能通过 `down -v` 删除仍需恢复的数据。仅发布 TLS gRPC 端口，不开放 NATS 端口。`EXTRA_GRPC_PORT` 可修改宿主机端口，默认 7080。
 

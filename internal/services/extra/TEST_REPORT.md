@@ -1,4 +1,56 @@
-# hatchet-extra 首版验收记录
+# hatchet-extra 验收记录
+
+## 限额、窗口批次与有限 Read 验收 2026-10-15
+
+依据 [实现计划](../../../sdks/wego/docs/design/hatchet-extra-implementation-plan.md) 完成 Extra P0–P3。新增鉴权 GetLimits 与有限 Read，现为四个 service、28 个 RPC。NatsError 追加 reason=5，PublishBatchAck 追加 native_batch_id=4；已有字段编号及 RPC 路径不变。公开桩由固定工具重生成，复现逐字节一致。
+
+| 验证 | 结果 |
+| --- | --- |
+| 普通回归 | 通过，GOWORK=off go test ./internal/services/extra/... ./cmd/hatchet-extra/... ./pkg/extra/v1 -count=1 -timeout=3m |
+| 同一范围 -race | 通过，服务 6.25 秒，命令入口 12.20 秒（含独立进程参数校验） |
+| integration-tag go vet | 通过，服务、命令入口、公开桩 |
+| 固定工具重生成 | 公开 protobuf 桩和静态转换逐字节一致 |
+| 窗口流控 | 100 条在窗口 1/16/100 下分别等待 100/8/2 次确认；最终原子确认、数据条数保持一致 |
+| 故障与预算 | 中间消息丢失不提交前缀；配置预算和更短父 deadline 均返回 DeadlineExceeded；原生 MaxBatchTimeout 确实触发放弃 |
+| 错误 details | 名额/条数/字节/ACK/消息/存储/consumer/副本/CAS/同批在途 reason 覆盖；保留原生错误编号 |
+| 有限 Read | 闭区间、零值起点、尾部快照不跟随、条数/字节截断、无匹配、越界、非法预算、通配符和跨租户隔离通过 |
+| Read 清理与隔离 | 正常结束、取消均删除临时 consumer；不修改正常 durable 的 AckFloor、NumPending、NumAckPending；Read 与 Fetch 名额独立 |
+| CLI 初始化边界 | 非法数值/环境配置在密钥及数据库初始化前拒绝；旧、新 admission 参数互斥；CLI 0 consumer 请求和兼容旧 flag 被接受 |
+| TestDeployedService | 最终镜像重启后复验通过（0.13 秒），真实 Hatchet token，全部 28 RPC，包含 GetLimits、native_batch_id 读回、Read 结束清理 |
+| TestLiveProcess | 主机命令进程，全部 28 RPC 与 SIGTERM 退出通过 |
+| TestDeploymentPersistence | 写入（0.84 秒）→最终镜像容器重启→读取（0.08 秒）通过，消息、KV、ACK 进度与重启前 ACK token 保持 |
+
+实际默认值：unary/长期流/Read 为 128/1024/64 个独立名额；原子批次名额 32，单批最多 100 条及 4 MiB 计费预算；提交/放弃预算 8s/10s，窗口 16。256 字节每条开销由导出常量和 GetLimits 统一提供。副本数大于 1 拒绝；Stream/KV 声明的 MaxBytes 不能超过对应存储介质的实例预算。
+
+账户 consumer 总上限按计划走明确兜底：NATS 2.15.1 的账户 MaxConsumers 在单节点按每个 Stream 检查，当前不将其冒充账户总数限制。GetLimits.max_consumers=0，正值请求在启动日志报告未强制；原生每 Stream 默认 1000 和显式 Stream 配置仍适用。SDK 的 scope 预算不在本次实现范围。
+
+部署继续复用 wego-hatchet 的 Extra 数据卷、ACK 密钥和 TLS 配置。仅更新 hatchet-extra 服务，本机地址 localhost:7080（TLS），容器 healthy，镜像 ID 为 sha256:19e78e41b012e78dc29f3c1ed954cbad9ac6b823f9482eb3d38219d579de0245，其余服务不变。以下为此前批次接口及初版部署的历史验收记录。
+
+## 原子批量接口与本地部署验收 2026-10-15
+
+本轮补齐 PublishBatch、AckBatch、Stream/Consumer/Bucket 的 create_only，公开生成包迁至 pkg/extra/v1。服务现为 26 个 RPC，既有 protobuf service 名及字段编号保持兼容。Fetch 默认上限提高至 100 条。
+
+| 验证 | 结果 |
+| --- | --- |
+| 服务、命令入口、公开桩普通回归 | 通过，GOWORK=off go test ./internal/services/extra/... ./cmd/hatchet-extra/... ./pkg/extra/v1 -count=1 -timeout=3m |
+| 相同范围 race 回归 | 通过，-race，服务测试约 6 秒 |
+| go vet | 通过，服务、命令入口及公开桩 |
+| 模糊测试 FuzzSubjectAndACK | 通过，5 秒，25784 次执行 |
+| 固定工具重生成 | 公开 protobuf 桩与静态转换逐字节一致 |
+| 公开包依赖图 | 只有 pkg/extra/v1，无服务端 internal 依赖 |
+| 主机命令进程 TestLiveProcess | 通过，全部 26 RPC 与 SIGTERM 排空，最终复验 4.76 秒 |
+| TLS 部署 TestDeployedService | 通过，真实 Hatchet token，全部 26 RPC，最终复验 0.66 秒 |
+| TestDeploymentPersistence 写入→容器重启→读取 | 两阶段通过，消息、消费进度、KV、旧 ACK token 保持可恢复 |
+
+原子发布专项覆盖 100 条独立消息与序号顺序、单条批次、提交条件冲突、并发写者竞争、容量不足整批回滚、非法后续项无持久前缀、取消及准入名额回收。ACK 专项覆盖逐项错误、有效跨租户 token 被拒绝、未确认缺口不被 AckAll 跨越。资源初始化覆盖八个同配置并发创建仅一个成功、已有配置不被 create_only 修改。AckNone 历史 consumer 扫描不推进正常 consumer。
+
+同日补充 BatchAck 未知结果核对测试：[batch_reconcile_test.go](batch_reconcile_test.go)。真实 TCP gRPC 上在最终确认交给调用方前注入 Unavailable，验证 GetMessage(E+1, subject) 可用稳定 Nats-Msg-Id 识别已提交的 100 条批次，且批内全局序号连续。旧原生会话暂存期间分别让旧会话与重试会话获胜，两种情况下都只提交一批，无须放弃查询或等待清理。另覆盖竞争者后续继续追加时仍查询 E 后首条、消息不存在保留原生错误码 10037，以及批中命中已存 Msg-Id 返回 10201 且整批回滚。四项专项 race 测试通过；integration-tag go vet 通过。已部署 TLS 服务的 TestDeployedService 加入单次首条核对并通过（0.73 秒）。本轮修正使用现有 API，部署镜像不变；SDK 的核对循环仍在协议 7 的 P2 待实现范围。
+
+本地部署沿用 wego-hatchet 的 hatchet-extra 服务与现有 extra_data/extra_config 卷，TLS 地址 localhost:7080。镜像 hatchet-extra:local，镜像 ID sha256:8cf3a1297fdf413089752af15c0ffc7f22570b4211f911209ade6ebaf7537a6e。容器健康，Hatchet engine/dashboard 和 MinIO 持续运行；未更改既有 Hatchet 任务或工作流。
+
+主机命令进程测试将 Compose 数据库地址中的容器专用 host.docker.internal 映射到 127.0.0.1，再连接同一本地数据库；容器部署继续使用原有地址。
+
+本轮测试只清理随机测试 namespace。报告不保存 token、数据库连接串或 ACK 密钥。下面的首版 24 RPC 记录为历史证据。
 
 验收日期：2026-10-15（全面评审与回归）。
 
