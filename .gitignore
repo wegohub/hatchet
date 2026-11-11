@@ -120,3 +120,4 @@ sdks/go/generator
 
 run-loadtest.sh
 run-local-loadtest.sh
+deployment/
