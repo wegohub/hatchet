@@ -6,7 +6,6 @@ fail() {
     exit 1
 }
 
-command -v gh >/dev/null 2>&1 || fail 'Install GitHub CLI (gh) and run gh auth login first.'
 command -v python3 >/dev/null 2>&1 || fail 'Install Python 3 to compare semantic version tags.'
 cd "$(git rev-parse --show-toplevel)"
 [[ "$(git branch --show-current)" == main ]] || fail 'Switch to main before running task wego.'
@@ -27,7 +26,24 @@ git merge-base --is-ancestor HEAD refs/remotes/origin/main ||
     fail 'Local main has unpushed or divergent commits; reconcile it with origin/main first.'
 
 printf '[1/3] Syncing fork main from hatchet-dev/hatchet\n'
-GH_HOST=github.com gh repo sync wegohub/hatchet --source hatchet-dev/hatchet --branch main
+git fetch --no-tags https://github.com/hatchet-dev/hatchet.git \
+    refs/heads/main:refs/wego/upstream/main
+
+# Merge in an isolated worktree so a conflict does not change the user's main checkout.
+sync_temp=$(mktemp -d "${TMPDIR:-/tmp}/wego-sync.XXXXXX")
+sync_dir="$sync_temp/worktree"
+cleanup_sync() {
+    git worktree remove --force "$sync_dir" >/dev/null 2>&1 || true
+    rmdir "$sync_temp" 2>/dev/null || true
+}
+trap cleanup_sync EXIT
+git worktree add --detach "$sync_dir" refs/remotes/origin/main
+if ! git -C "$sync_dir" -c commit.gpgsign=false merge --no-edit refs/wego/upstream/main; then
+    fail 'Upstream main cannot be merged automatically; resolve it manually before rerunning task wego.'
+fi
+git -C "$sync_dir" push origin HEAD:refs/heads/main
+cleanup_sync
+trap - EXIT
 
 printf '[2/3] Pulling fork main\n'
 git -c fetch.pruneTags=false pull --ff-only --no-tags origin main
