@@ -382,6 +382,12 @@ tasks:
           task: stop-db
       - go test -count=1 -tags integration $(go list ./... | grep -v "quickstart") -v -failfast
 
+  wego:
+    desc: Sync fork main, pull it locally, then tag main with the highest upstream semantic version (including prereleases) and push
+    dir: "{{.ROOT_DIR}}"
+    cmds:
+      - bash ./hack/dev/wego.sh
+
   release:
     desc: Create and push annotated tag, triggering the release pipeline.
     vars:
